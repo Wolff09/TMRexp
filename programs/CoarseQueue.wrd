@@ -1,0 +1,36 @@
+PORGRAM CoarseQueue BEGIN
+
+	GLOBAL: H, T;
+	LOCAL:  n;
+
+	function init() {
+		malloc(H);
+		H.next = NULL;
+		T = H;
+	}
+
+	FUNC enq(?__in__) {
+		malloc(n);
+		n.next = NULL;
+		n.data = __in__;
+		Atomic {
+			T.next = n *** enq(__in__) ***;
+			T = n;
+		}
+	}
+
+	FUNC deq(!__out__) {
+		Atomic {
+			n = H.next;
+			if (n == NULL) {
+				*** deq(empty) ***
+			} else {
+				*** deq(n.data) ***
+				__out__ = n.data;
+				free(H);
+				H = n;
+			}
+		}
+	}
+
+END

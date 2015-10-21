@@ -1,0 +1,23 @@
+set(SOURCES
+	prog.cpp
+	shape.cpp
+	observer.cpp
+	cfg.cpp
+	counter.cpp
+	encoding.cpp
+	fixp/cfgpost.cpp
+	fixp/interference.cpp
+	helpers.cpp
+	post.cpp
+	post/assign.cpp
+	post/atomic.cpp
+	post/easy.cpp
+	post/eval_cas.cpp
+	post/eval_eqneq.cpp
+	post/inout.cpp
+	post/linp.cpp
+	post/mem.cpp
+	fixpoint.cpp
+)
+add_library(TMRexpLib ${SOURCES})
+#target_link_libraries(TMRexpLib)

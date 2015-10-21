@@ -1,0 +1,46 @@
+#pragma once
+
+#include <stdexcept>
+#include <assert.h>
+#include "prog.hpp"
+#include "shape.hpp"
+#include "cfg.hpp"
+#include "../post.hpp"
+#include "post/helpers.hpp"
+
+
+namespace tmr {
+
+	std::pair<Shape*, Shape*> eval_eqneq(const Cfg& cfg, const Shape& shape, const Expr& le, const Expr& re, bool inverted, unsigned short tid, bool check_ownership, bool check_eprf=true);
+
+	static std::pair<Shape*, Shape*> eval_eqneq(const Cfg& cfg, const Expr& le, const Expr& re, bool inverted, unsigned short tid, MemorySetup msetup) {
+		return eval_eqneq(cfg, *cfg.shape, le, re, inverted, tid, msetup==PRF, msetup==PRF);
+	}
+	
+	std::vector<Cfg> eval_cond_eqneq(const Cfg& cfg, const EqNeqCondition& cond, const Statement* nY, const Statement* nN, unsigned short tid, MemorySetup msetup);
+
+	std::vector<Cfg> eval_cond_wage(const Cfg& cfg, const EqPtrAgeCondition& cond, const Statement* nY, const Statement* nN, unsigned short tid, MemorySetup msetup);
+	
+	std::vector<Cfg> eval_cond_cas(const Cfg& cfg, const CompareAndSwap& stmt, const Statement* nY, const Statement* nN, unsigned short tid, MemorySetup msetup);
+
+	static std::vector<Cfg> eval_cond_cas(const Cfg& cfg, const CASCondition& cond, const Statement* nY, const Statement* nN, unsigned short tid, MemorySetup msetup) {
+		return eval_cond_cas(cfg, cond.cas(), nY, nN, tid, msetup);
+	}
+
+	static std::vector<Cfg> eval_cond(const Cfg& cfg, const Conditional& stmt, unsigned short tid, MemorySetup msetup) {
+		const Statement* nextY = stmt.next_true_branch();
+		const Statement* nextN = stmt.next_false_branch();
+		switch (stmt.cond().type()) {
+			case Condition::EQNEQ: return eval_cond_eqneq(cfg, static_cast<const EqNeqCondition&>(stmt.cond()), nextY, nextN, tid, msetup);
+			case Condition::CASC: return eval_cond_cas(cfg, static_cast<const CASCondition&>(stmt.cond()), nextY, nextN, tid, msetup);
+			case Condition::WAGE: return eval_cond_wage(cfg, static_cast<const EqPtrAgeCondition&>(stmt.cond()), nextY, nextN, tid, msetup);
+			case Condition::COMPOUND: throw std::logic_error("Compound conditions are not supported here (only in linearization points).");
+			case Condition::ORACLEC: throw std::logic_error("Oracle conditions are not supported here (only in linearization points).");
+			case Condition::TRUEC:
+				std::vector<Cfg> result;
+				result.push_back(mk_next_config(cfg, new Shape(*cfg.shape), nextY, tid));
+				return result;
+		}
+	}
+
+}

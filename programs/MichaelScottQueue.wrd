@@ -1,0 +1,59 @@
+PORGRAM MichealScottQueue BEGIN
+
+	GLOBAL: Head, Tail;
+	LOCAL:  h, t, n;
+
+	function init() {
+		malloc(Head);
+		Head.next = NULL;
+		Tail = Head;
+	}
+
+	function[?] enq(__in__) {
+		malloc(h);
+		h.next = NULL;
+		h.data = __in__;
+		
+		while (true) {
+			t = Tail;
+			n = t.next;
+
+			if (t == Tail) {
+				if (n == NULL) {
+					if (CAS(t.next, n, h)) *** enq(__in__) *** {
+						break;
+					}
+				} else {
+					CAS(Tail, t, n);
+				}
+			}
+		}
+		CAS(Tail, t, h);
+	}
+
+	function[!] deq(__out__) {
+		while (true) {
+			h = Head;
+			t = Tail;
+			n = h.next *** [n == NULL] deq(empty) ***;
+
+			if (h == Head) {
+				if (h == t) {
+					if (n == NULL) {
+						__out__ = empty;
+						break;
+					}
+					CAS(Tail, t, n);
+				} else {
+					__out__ = n.data;
+					if (CAS(Head, h, n)) *** deq(n.data) *** {
+						free(h);
+						break;
+					}
+				}
+			}
+		}
+		free(h);
+	}
+
+END

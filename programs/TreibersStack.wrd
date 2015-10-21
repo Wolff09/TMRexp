@@ -1,0 +1,41 @@
+PORGRAM TreibersStack BEGIN
+
+	GLOBAL: TopOfStack;
+	LOCAL:  node, top;
+
+	function init() {
+		TopOfStack = NULL;
+	}
+
+	function[?] push(__in__) {
+		malloc(node);
+		node.data = __in__;
+		// node.next = NULL;
+		
+		while (true) {
+			top = TopOfStack;
+			node.next = top;
+			if (CAS(TopOfStack, top, node)) *** push(__in__) *** {
+				break;
+			}
+		}
+	}
+
+	function[!] pop(__out__) {
+		while (true) {
+			top = TopOfStack *** [top == NULL] pop(empty) ***;
+			if (top == NULL) {
+				__out__ = empty;
+				break;
+			} else {
+				node = top.next;
+				if (CAS(TopOfStack, top, node)) *** pop(top.data) *** {
+					__out__ = top.data;
+					free(top);
+					break;
+				}
+			}
+		}
+	}
+
+END
