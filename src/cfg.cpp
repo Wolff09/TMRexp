@@ -37,32 +37,37 @@ std::ostream& tmr::operator<<(std::ostream& os, const AgeRel& r) {
 
 /************************ AGEMATRIX ************************/
 
-inline std::size_t mk_index(std::size_t row, std::size_t col) {
+inline std::size_t mk_index(std::size_t row, bool row_next, std::size_t col, bool col_next) {
+	std::size_t r = 2*row + (row_next ? 1 : 0);
+	std::size_t c = 2*col + (col_next ? 1 : 0);
 	assert(row < col);
-	std::size_t result = (col-1)*col/2 + row;
+	std::size_t result = (c-1)*c/2 + r;
 	return result;
 }
 
 AgeMatrix::AgeMatrix(std::size_t numNonLocals, std::size_t numLocals, std::size_t numThreads)
 	:   _bounds(3 + numNonLocals + numLocals*numThreads),
-	  _rels(mk_index(0, _bounds+numLocals /* prepare for one extension */), AgeRel(AgeRel::BOT)) {
-	set(0, 1, AgeRel::GT);
+	  _rels(mk_index(0, false, _bounds+numLocals /* prepare for one extension */, false), AgeRel(AgeRel::BOT)) {
+	set(0, false, 1, false, AgeRel::GT);
 }
 
-AgeRel AgeMatrix::at(std::size_t row, std::size_t col) const {
-	assert(row < _bounds);
-	assert(col < _bounds);
-	if (col < row) return _rels[mk_index(col, row)].symmetric();
-	else if (col == row) return AgeRel::EQ;
-	else return _rels[mk_index(row, col)];
+AgeRel AgeMatrix::at(std::size_t row, bool row_next, std::size_t col, bool col_next) const {
+	if (col < row) return _rels[mk_index(col, col_next, row, row_next)].symmetric();
+	else if (col == row) {
+		if (row_next < col_next) return _rels[mk_index(col, col_next, row, row_next)].symmetric();
+		else if (row_next == col_next) return AgeRel::EQ;
+		else return _rels[mk_index(row, row_next, col, col_next)];
+	} else return _rels[mk_index(row, row_next, col, col_next)];
 }
 
-void AgeMatrix::set(std::size_t row, std::size_t col, AgeRel rel) {
-	assert(row < _bounds);
-	assert(col < _bounds);
-	if (col < row) _rels[mk_index(col, row)] = rel.symmetric();
-	else if (col == row) assert(rel == AgeRel::EQ);
-	else _rels[mk_index(row, col)] = rel;
+void AgeMatrix::set(std::size_t row, bool row_next, std::size_t col, bool col_next, AgeRel rel) {
+	if (col < row) _rels[mk_index(col, col_next, row, row_next)] = rel.symmetric();
+	else if (col == row) {
+		if (row_next < col_next) _rels[mk_index(col, col_next, row, row_next)] = rel.symmetric();
+		else if (row_next == col_next) assert(rel == AgeRel::EQ);
+		else _rels[mk_index(row, row_next, col, col_next)] = rel;
+	}
+	else _rels[mk_index(row, row_next, col, col_next)] = rel;
 }
 
 void AgeMatrix::extend(std::size_t numLocals) {
@@ -75,27 +80,35 @@ void AgeMatrix::shrink(std::size_t numLocals) {
 
 bool AgeMatrix::operator==(const AgeMatrix& other) const {
 	for (std::size_t i = 0; i < _bounds; i++)
-		for (std::size_t j = i + 1; j < _bounds; j++) {
-			auto index = mk_index(i, j);
-			if (!(_rels[index] == other._rels[index]))
-				return false;
-		}
+		for (std::size_t j = i + 1; j < _bounds; j++)
+			for (bool bi : {false, true})
+				for (bool bj : {false, true}) {
+					auto index = mk_index(i, bi, j, bj);
+					if (!(_rels[index] == other._rels[index]))
+						return false;
+				}
 	return true;
 }
 
 std::ostream& tmr::operator<<(std::ostream& os, const AgeMatrix& m) {
 	os << "      \t";
-	for (std::size_t i = 0; i < m.size(); i++)
-		os << i << "   \t ";
+	for (std::size_t i = 0; i < m.size(); i++) {
+		os << i << "r   \t ";
+		os << i << "n   \t ";
+	}
 	os << std::endl;
 	for (std::size_t row = 0; row < m.size(); row++) {
-		os << row << ":   \t";
-		for (std::size_t col = 0; col < m.size(); col++) {
-			auto cell = m.at(row, col);
-			os << cell;
-			os << "\t ";
+		for (bool br : {false, true}) {
+			os << row << ":"<<(br?"n":"r")<<"   \t";
+			for (std::size_t col = 0; col < m.size(); col++) {
+				for (bool bc : {false, true}) {
+					auto cell = m.at(row, br, col, bc);
+					os << cell;
+					os << "\t ";
+				}
+			}
+			os << std::endl;
 		}
-		os << std::endl;
 	}
 	return os;
 }

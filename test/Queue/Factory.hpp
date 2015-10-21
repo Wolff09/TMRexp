@@ -59,8 +59,8 @@ namespace tmr {
 					EqCond(Var("n"), Null()),
 					Sqz(
 						IfThen(
-							CasCond(CAS(Next("t"), Null(), Var("h"), LinP(), use_age_fields)),
-							// CasCond(CAS(Next("t"), Var("n"), Var("h"), LinP(), use_age_fields)),
+							// CasCond(CAS(Next("t"), Null(), Var("h"), LinP(), use_age_fields)),
+							CasCond(CAS(Next("t"), Var("n"), Var("h"), LinP(), use_age_fields)),
 							Sqz(Brk())
 					)),
 					Sqz(CAS(Var("Tail"), Var("t"), Var("n"), use_age_fields))

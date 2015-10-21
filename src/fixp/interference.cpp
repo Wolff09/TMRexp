@@ -16,12 +16,14 @@ bool do_ages_match(const Cfg& cfg, const Cfg& interferer, MemorySetup msetup) {
 	std::size_t first_local = cfg.shape->offset_locals(msetup == MM ? 1 : 0);
 	for (std::size_t row = 0; row < first_local; row++)
 		for (std::size_t col = row+1; col < first_local; col++)
-			if (cfg.ages->at(row, col) != interferer.ages->at(row, col))
-				return false;
+			for (bool br : {false, true})
+				for (bool bc : {false, true})
+					if (cfg.ages->at(row, br, col, bc) != interferer.ages->at(row, br, col, bc))
+						return false;
 	return true;
 }
 
-inline bool is_observed_owned(const Cfg& cfg, std::size_t obs) {
+bool is_observed_owned(const Cfg& cfg, std::size_t obs) {
 	// only for non-MM!
 	std::size_t begin = cfg.shape->offset_locals(0);
 	std::size_t end = begin + cfg.shape->sizeLocals();
@@ -31,7 +33,7 @@ inline bool is_observed_owned(const Cfg& cfg, std::size_t obs) {
 	return false;
 }
 
-inline bool is_observed_global(const Cfg& cfg, std::size_t obs) {
+bool is_observed_global(const Cfg& cfg, std::size_t obs) {
 	// only for non-MM!
 	for (std::size_t j = 5; j < cfg.shape->offset_locals(0); j++)
 		// if (intersection(cfg.shape->at(j, obs), EQ_MT_GT).any())
@@ -56,14 +58,22 @@ bool do_shapes_match(const Cfg& cfg, const Cfg& interferer, MemorySetup msetup) 
 
 	for (std::size_t i : {3, 4}) {
 		if (msetup != MM) {
-			if (is_observed_owned(cfg, i) && is_observed_owned(interferer, i))
-				return false;
-		}
+			bool is_owned = is_observed_owned(cfg, i) || is_observed_owned(interferer, i);
+			if (is_owned) continue;
 
-		if (((cfg.shape->at(i, cfg.shape->index_UNDEF()) != MT_) == (interferer.shape->at(i, interferer.shape->index_UNDEF()) != MT_)) || is_observed_global(cfg, i) || is_observed_global(interferer, i))
+			bool is_global = is_observed_global(cfg, i) || is_observed_global(interferer, i);
+			if (!is_global) continue;
+
 			for (std::size_t j = 0; j < end; j++)
 				if (intersection(cfg.shape->at(i, j), interferer.shape->at(i, j)).none())
-						return false;
+					return false;
+		} else {
+			for (std::size_t j = 0; j < end; j++)
+				if (intersection(cfg.shape->at(i, j), interferer.shape->at(i, j)).none())
+				// if (!subset(cfg.shape->at(i, j), interferer.shape->at(i, j)))
+				// if (cfg.shape->at(i, j) != interferer.shape->at(i, j))
+					return false;
+		}
 	}
 
 	return true;
@@ -110,7 +120,7 @@ static bool can_skip(const Cfg& cfg) {
 			set_tmp(static_cast<const Assignment&>(pc).lhs());
 			break;
 		case Statement::INPUT:
-			SKIP;
+			set_tmp(static_cast<const ReadInputAssignment&>(pc).expr());
 			break;
 		case Statement::SETNULL:
 			set_tmp(static_cast<const NullAssignment&>(pc).lhs());
@@ -145,7 +155,7 @@ bool can_interfere(const Cfg& cfg, const Cfg& interferer, MemorySetup msetup) {
 
 	#if INTERFERENCE_OPTIMIZATION
 		if (msetup != MM) {
-			// if (can_skip(cfg)) return false;
+			if (can_skip(cfg)) return false;
 			if (can_skip(interferer)) return false;
 		}
 	#endif
@@ -198,7 +208,7 @@ bool can_interfere(const Cfg& cfg, const Cfg& interferer, MemorySetup msetup) {
 	}
 
 	// 5. global sin must match
-	for (std::size_t i = 5; i < cfg.shape->offset_locals(interferer_tid); i++)
+	for (std::size_t i = 0; i < cfg.shape->offset_locals(interferer_tid); i++)
 		if (cfg.sin[i] != interferer.sin[i])
 			return false;
 
@@ -219,9 +229,9 @@ bool can_interfere(const Cfg& cfg, const Cfg& interferer, MemorySetup msetup) {
 
 /******************************** EXTENSION ********************************/
 
-AgeRel mk_trans_rel(const AgeMatrix& ages, std::size_t row, std::size_t via, std::size_t col) {
-	AgeRel row_via = ages.at(row, via);
-	AgeRel via_col = ages.at(via, col);
+AgeRel mk_trans_rel(const AgeMatrix& ages, std::size_t row, bool row_next, std::size_t via, bool via_next, std::size_t col, bool col_next) {
+	AgeRel row_via = ages.at(row, row_next, via, via_next);
+	AgeRel via_col = ages.at(via, via_next, col, col_next);
 	switch (row_via) {
 		case AgeRel::LT:
 			switch (via_col) {
@@ -249,7 +259,7 @@ AgeRel mk_trans_rel(const AgeMatrix& ages, std::size_t row, std::size_t via, std
 	}
 }
 
-inline bool is_reachable(const Shape& shape, std::size_t cid) {
+bool is_reachable(const Shape& shape, std::size_t cid) {
 	// this is only used for MM
 	for (std::size_t i = shape.offset_vars(); i < shape.offset_locals(1); i++)
 		if (haveCommon(shape.at(i, cid), EQ_MT_GT))
@@ -278,16 +288,15 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 		}
 	}
 	for (std::size_t i : {3, 4}) {
-		if (((dst.shape->at(i, dst.shape->index_UNDEF()) != MT_) == (interferer.shape->at(i, interferer.shape->index_UNDEF()) != MT_))) {
-			for (std::size_t j = 0; j < end; j++)
+		bool is_global = is_observed_global(dst, i) || is_observed_global(interferer, i);
+		if (is_global) {
+			for (std::size_t j = 0; j < end; j++) {
 				shape->set(i, j, intersection(dst.shape->at(i, j), interferer.shape->at(i, j)));
+			}
 		} else {
-			if (dst.shape->at(i, dst.shape->index_UNDEF()) != MT_)
-				for (std::size_t j = 0; j < end; j++)
-					shape->set(i, j, dst.shape->at(i, j));
-			else
-				for (std::size_t j = 0; j < end; j++)
-					shape->set(i, j, interferer.shape->at(i, j));
+			for (std::size_t j = 0; j < end; j++) {
+				shape->set(i, j, setunion(dst.shape->at(i, j), interferer.shape->at(i, j)));
+			}
 		}
 	}
 
@@ -408,7 +417,9 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 			std::size_t src_row = interferer.shape->offset_locals(interferer_tid) + j;
 			std::size_t dst_row = dst.shape->size() + j;
 			
-			res.ages->set(dst_row, dst_col, interferer.ages->at(src_row, src_col));
+			for (bool br : {false, true})
+				for (bool bc : {false, true})
+					res.ages->set(dst_row, br, dst_col, bc, interferer.ages->at(src_row, br, src_col, bc));
 		}
 
 		// add specials/non-locals/MM-tid0-locals ~ extended.locals
@@ -416,7 +427,9 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 			std::size_t src_row = j;
 			std::size_t dst_row = j;
 
-			res.ages->set(dst_row, dst_col, interferer.ages->at(src_row, src_col));
+			for (bool br : {false, true})
+				for (bool bc : {false, true})
+					res.ages->set(dst_row, br, dst_col, bc, interferer.ages->at(src_row, br, src_col, bc));
 		}
 	}
 	for (std::size_t i = 0; i < interferer.shape->sizeLocals(); i++) {
@@ -426,29 +439,33 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 		for (std::size_t j = dst.shape->offset_locals(interferer_tid); j < dst.shape->size(); j++) { // TODO: j = ... is wrong
 			std::size_t dst_row = j;
 
-			// derive transitive relations via global/MM-tid1-local variables
-			AgeRel transitive = AgeRel::BOT;
-			for (std::size_t t = 0; t < res.shape->offset_locals(interferer_tid); t++) {
-				auto trans = mk_trans_rel(*res.ages, dst_row, t, dst_col);
-				if (trans != AgeRel::BOT) {
-					transitive = trans;
-					break;
+			for (bool br : {false, true})
+				for (bool bc : {false, true}) {
+					// derive transitive relations via global/MM-tid1-local variables
+					AgeRel transitive = AgeRel::BOT;
+					for (std::size_t t = 0; t < res.shape->offset_locals(interferer_tid); t++) 
+						for (bool bt : {false, true}) {
+							auto trans = mk_trans_rel(*res.ages, dst_row, br, t, bt, dst_col, bc);
+							if (trans != AgeRel::BOT) {
+								transitive = trans;
+								break;
+							}
+							// if (trans == AgeRel::BOT) continue;
+							// if (transitive == AgeRel::BOT)
+							//	transitive = trans;
+							// else if (trans != transitive) {
+							//	std::cout << "BAD TRANSITIVITY" << std::endl;
+							//	std::cout << "row-t-col: " << dst_row << "-" << t << "-" << dst_col << std::endl;
+							//	std::cout << transitive << " vs. " << trans << std::endl << std::endl;
+							//	std::cout << "do ages match? -> " << do_ages_match(dst, interferer, msetup) << std::endl;
+							//	std::cout << "c1: " << dst << *dst.shape << *dst.ages;
+							//	std::cout << "c2: " << interferer << *interferer.shape << *interferer.ages;
+							//	std::cout << "ex: " << res << *res.shape << *res.ages;
+							//	throw std::runtime_error("Inconsistent AgeMatrix leading to bad transitivity during Interference");
+							// }
+						}
+					res.ages->set(dst_row, br, dst_col, bc, transitive);
 				}
-				// if (trans == AgeRel::BOT) continue;
-				// if (transitive == AgeRel::BOT)
-				//	transitive = trans;
-				// else if (trans != transitive) {
-				//	std::cout << "BAD TRANSITIVITY" << std::endl;
-				//	std::cout << "row-t-col: " << dst_row << "-" << t << "-" << dst_col << std::endl;
-				//	std::cout << transitive << " vs. " << trans << std::endl << std::endl;
-				//	std::cout << "do ages match? -> " << do_ages_match(dst, interferer, msetup) << std::endl;
-				//	std::cout << "c1: " << dst << *dst.shape << *dst.ages;
-				//	std::cout << "c2: " << interferer << *interferer.shape << *interferer.ages;
-				//	std::cout << "ex: " << res << *res.shape << *res.ages;
-				//	throw std::runtime_error("Inconsistent AgeMatrix leading to bad transitivity during Interference");
-				// }
-			}
-			res.ages->set(dst_row, dst_col, transitive);
 		}
 	}
 
@@ -470,8 +487,6 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 		res.own.set_ownership(dst.shape->size() + i, interferer.own.is_owned(dst.shape->offset_locals(0) + i));
 		res.sin[dst.shape->size() + i] = interferer.sin[dst.shape->offset_locals(0) + i];
 	}
-	res.sin[3] = dst.sin[3] || interferer.sin[3];
-	res.sin[4] = dst.sin[4] || interferer.sin[4];
 
 	// 8. extend oracle
 	res.oracle[extended_tid] = interferer.oracle[interferer_tid];
@@ -520,7 +535,6 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2, MemorySetup m
 
 	const Cfg& tmp = *extended;
 	assert(tmp.shape != NULL);
-	assert(tmp.shape->size() == tmp.ages->size());
 
 	// do one post step for the extended thread
 	assert(tmp.pc[extended_thread_tid] != NULL);
@@ -541,9 +555,9 @@ void mk_regional_interference(RemainingWork& work, Encoding::__sub__store__& reg
 	// begin = first cfg
 	// end = post last cfg
 
-	// std::size_t old_size;
-	// do {
-		// old_size = region.size();
+	std::size_t old_size;
+	do {
+		old_size = region.size();
 		for (auto it1 = region.begin(); it1 != region.end(); it1++) {
 			const Cfg& c1 = *it1;
 			if (c1.pc[0] == NULL) continue;
@@ -564,7 +578,7 @@ void mk_regional_interference(RemainingWork& work, Encoding::__sub__store__& reg
 				}
 			}
 		}
-	// } while (old_size < region.size());
+	} while (old_size < region.size());
 }
 
 void tmr::mk_all_interference(Encoding& enc, RemainingWork& work, MemorySetup msetup) {

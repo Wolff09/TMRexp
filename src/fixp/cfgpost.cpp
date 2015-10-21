@@ -49,10 +49,13 @@ void set_locals_undef(Cfg& cfg, const unsigned short tid) {
 	for (std::size_t i = shape.offset_locals(tid); i < shape.offset_locals(tid) + shape.sizeLocals(); i++) {
 		for (std::size_t t = 0; t < shape.size(); t++) {
 			shape.set(i, t, BT);
-			ages.set(i, t, AgeRel::BOT);
+			for (bool bi : {false, true})
+				for (bool bt : {false, true})
+					ages.set(i, bi, t, bt, AgeRel::BOT);
 		}
 		shape.set(i, i, EQ);
-		ages.set(i, i, AgeRel::EQ);
+		ages.set_real(i, i, AgeRel::EQ);
+		ages.set_next(i, i, AgeRel::EQ);
 		shape.set(i, shape.index_UNDEF(), MT);
 	}
 }

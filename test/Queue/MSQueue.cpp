@@ -112,6 +112,7 @@ int main(int argc, char *argv[]) {
 	std::cout << answer;
 	std::cout << "\t";
 	if (result.conformance) std::cout << "enc.size()" << (result.conformance ? "=" : ">") << result.encoding->size();
+	if (result.conformance) std::cout << "\tbuckets=" << std::distance(result.encoding->begin(), result.encoding->end());
 	std::cout << "\tSC=" << SEQUENTIAL_STEPS << "\tIC=" << INTERFERENCE_STEPS << "\tIS=" << INTERFERENCE_SKIPPED;
 	std::cout << "\ttime=" << time_taken/1000.0 << "s\t";
 	if (!result.conformance) std::cout << "error: " << result.reason;

@@ -84,7 +84,9 @@ std::pair<Shape*, Shape*> get_emitter_and_silent_shape(const Cfg& cfg, const EqP
 	const EqNeqCondition& eqc = cond.cond();
 	auto lhs = mk_var_index(*cfg.shape, eqc.lhs(), tid);
 	auto rhs = mk_var_index(*cfg.shape, eqc.rhs(), tid);
-	if (cfg.ages->at(lhs, rhs) != AgeRel::EQ)
+	bool lhs_next = eqc.lhs().clazz() == Expr::SEL;
+	bool rhs_next = eqc.rhs().clazz() == Expr::SEL;
+	if (cfg.ages->at(lhs, lhs_next, rhs, rhs_next) != AgeRel::EQ)
 		return { NULL, merge_shapes(emitter, silent) };
 	else
 		return get_emitter_and_silent_shape(cfg, eqc, emitter, silent, tid);

@@ -96,10 +96,15 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 	} else if (msetup == MM) {
 		for (std::size_t i = input.offset_vars(); i < input.size(); i++) {
 			if (i == var_index) continue;
-			if (cfg.ages->at(i, free_index) != AgeRel::EQ) continue;
+			if (cfg.ages->at(i, false, free_index, true) != AgeRel::EQ) continue;
 			
 			auto shapes = disambiguate(*cfg.shape, i);
 			for (Shape* split : shapes) {
+				if (split->at(i, split->index_UNDEF()) != BT_) {
+					delete split;
+					continue;
+				}
+
 				auto eqI = get_related(*split, i, EQ_);
 				auto preI = get_related(*split, i, MF_GF);
 				// the cell pointed to by all cells in eqI is reallocated for var => var = eqI and eqI no longer free
@@ -121,8 +126,8 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 				result.push_back(mk_next_config(cfg, split, tid));
 				set_age_equal(result.back(), var_index, i);
 				for (auto i : eqI)
-					result.back().ages->set(i, free_index, AgeRel::BOT); // TODO: GT instead of BOT?
-				result.back().ages->set(var_index, free_index, AgeRel::BOT); // TODO: GT instead of BOT?
+					result.back().ages->set(i, true, free_index, false, AgeRel::BOT); // TODO: GT instead of BOT?
+				result.back().ages->set(var_index, true, free_index, false, AgeRel::BOT); // TODO: GT instead of BOT?
 			}
 		}
 	}
@@ -211,7 +216,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Free& stmt, unsigned short tid,
 			auto eqVar = get_related(*shape, var_index, EQ_);
 			for (std::size_t i : eqVar) {
 				// result.back().own.publish(i);
-				result.back().ages->set(i, free_index, AgeRel::EQ);
+				result.back().ages->set(i, false, free_index, true, AgeRel::EQ);
 			}
 		}
 	}

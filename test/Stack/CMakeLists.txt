@@ -2,12 +2,12 @@
 add_executable(TreibersStack TreibersStack.cpp)
 target_link_libraries(TreibersStack TMRexpLib)
 
-add_test(TreibersStack_03--GC--ages    	TreibersStack --GC --ages --hwcas --malloc --success)
-add_test(TreibersStack_07--GC--no-ages 	TreibersStack --GC --no-ages --hwcas --malloc --success)
-add_test(TreibersStack_11--PRF--ages   	TreibersStack --PRF --ages --hwcas --malloc --success)
-add_test(TreibersStack_15--PRF--no-ages	TreibersStack --PRF --no-ages --hwcas --malloc --fail)
-add_test(TreibersStack_19--MM--ages    	TreibersStack --MM --ages --ccas --init --success)
-add_test(TreibersStack_23--MM--no-ages 	TreibersStack --MM --no-ages --hwcas --malloc --fail)
+# add_test(TreibersStack_03--GC--ages    	TreibersStack --GC --ages --hwcas --malloc --success)
+# add_test(TreibersStack_07--GC--no-ages 	TreibersStack --GC --no-ages --hwcas --malloc --success)
+# add_test(TreibersStack_11--PRF--ages   	TreibersStack --PRF --ages --hwcas --malloc --success)
+# add_test(TreibersStack_15--PRF--no-ages	TreibersStack --PRF --no-ages --hwcas --malloc --fail)
+# add_test(TreibersStack_19--MM--ages    	TreibersStack --MM --ages --ccas --init --success)
+# add_test(TreibersStack_23--MM--no-ages 	TreibersStack --MM --no-ages --hwcas --malloc --fail)
 
 # add_test(TreibersStack_01--GC--ages--ccas--malloc--success    	TreibersStack --GC --ages --ccas --malloc --success)
 # add_test(TreibersStack_02--GC--ages--ccas--init--success      	TreibersStack --GC --ages --ccas --init --success)

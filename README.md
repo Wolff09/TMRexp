@@ -10,9 +10,9 @@ Experiments
 Test cases can be found in `test/`.
 There are three binaries for showcasing the tool:
 
-   1. Coarse/CoarseQueue
-   2. Stack/TreibersStack
-   3. ~~Queue/MSQueue~~ (one should use the branch next-age instead)
+   1. ~~Coarse/CoarseQueue~~ (one should use the master branch instead)
+   2. ~~Stack/TreibersStack~~ (one should use the master branch instead)
+   3. Queue/MSQueue
 
 Each binary comes with a short help page when called like so:
 ```

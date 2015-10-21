@@ -396,8 +396,12 @@ void tmr::remove_successors(Shape& shape, const std::size_t x) {
 /******************************** AGE FIELD UPDATE ********************************/
 
 void tmr::set_age_equal(Cfg& cfg, std::size_t dst, std::size_t src) {
-	cfg.ages->set(dst, src, AgeRel::EQ);
-	for (std::size_t i = 0; i < cfg.ages->size(); i++)
-		cfg.ages->set(dst, i, cfg.ages->at(src, i));
-	assert(cfg.ages->at(dst, src) == AgeRel::EQ);
+	cfg.ages->set_real(dst, src, AgeRel::EQ);
+	cfg.ages->set_next(dst, src, AgeRel::EQ);
+	for (std::size_t i = 0; i < cfg.ages->size(); i++) {
+		cfg.ages->set_real(dst, i, cfg.ages->at_real(src, i));
+		cfg.ages->set_next(dst, i, cfg.ages->at_next(src, i));
+	}
+	assert(cfg.ages->at_real(dst, src) == AgeRel::EQ);
+	assert(cfg.ages->at_next(dst, src) == AgeRel::EQ);
 }

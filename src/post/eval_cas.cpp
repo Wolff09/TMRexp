@@ -7,7 +7,7 @@
 using namespace tmr;
 
 
-void increase_age(std::vector<Cfg>& splitinto, Cfg& cfg, std::size_t dst) {
+void increase_age(std::vector<Cfg>& splitinto, Cfg& cfg, std::size_t dst, bool dst_next) {
 	// increase dst_next by one (inplace cfg)
 	// if a branch is needed, push the new configuration to splitinto
 	// (cfg is already a member of splitinto)
@@ -15,10 +15,14 @@ void increase_age(std::vector<Cfg>& splitinto, Cfg& cfg, std::size_t dst) {
 	// find some age entry t with dst.age<t.age such that: for all t'. dst.age<t'.age => t.age=t'.age or t.age<t'.age
 	// ~> t.age is smallest age bigger than dst.age
 	std::size_t sup = dst;
+	bool sup_next = dst_next;
 	for (std::size_t t = 0; t < cfg.ages->size(); t++)
-		if (cfg.ages->at(dst, t) == AgeRel::LT)
-			if (cfg.ages->at(t, sup) == AgeRel::LT)
-				sup = t;
+		for (bool bt : {false, true})
+			if (cfg.ages->at(dst, dst_next, t, bt) == AgeRel::LT)
+				if (cfg.ages->at(t, bt, sup, sup_next) == AgeRel::LT) {
+					sup = t;
+					sup_next = bt;
+				}
 
 	// increase (dst,dst_next) age by one:
 	//   t < dst => t < dst
@@ -31,17 +35,23 @@ void increase_age(std::vector<Cfg>& splitinto, Cfg& cfg, std::size_t dst) {
 	// do the "s > dst => s > dst" case in-place
 	// (we only need to convert = into <)
 	for (std::size_t t = 0; t < cfg.ages->size(); t++)
-		if (t == dst) continue;
-		else if (cfg.ages->at(t, dst) == AgeRel::EQ)
-			cfg.ages->set(t, dst, AgeRel::LT);
+		for (bool bt : {false, true}) {
+			if (t == dst && bt == dst_next) continue;
+			if (cfg.ages->at(t, bt, dst, dst_next) == AgeRel::EQ)
+				cfg.ages->set(t, bt, dst, dst_next, AgeRel::LT);
+		}
 	// std::cout << "dst.age++ (1)" << std::endl << cfg.ages;
 
 	// do the "s > dst => s = dst" in a new branch (if needed)
 	// copy cfg, as we already convert = into < there)
-	bool branch_needed = sup != dst;
+	bool branch_needed = sup != dst && sup_next != dst_next;
 	if (branch_needed) {
 		splitinto.push_back(cfg.copy());
-		set_age_equal(splitinto.back(), dst, sup);
+		Cfg& back = splitinto.back();
+		for (std::size_t i = 0; i < cfg.ages->size(); i++)
+			for (bool bi : {false, true})
+				back.ages->set(dst, dst_next, i, bi, back.ages->at(sup, sup_next, i, bi));
+		back.ages->set(dst, dst_next, sup, sup_next, AgeRel::EQ);
 	}
 }
 
@@ -59,8 +69,9 @@ std::vector<Cfg> tmr::eval_cond_cas(const Cfg& cfg, const CompareAndSwap& stmt, 
 
 	bool compare_age_fields = stmt.update_age_fields() && !cmp_null;
 	bool update_age_fields = !cmp_null; // TODO: why? :)
+	bool ageT = stmt.dst().clazz() == Expr::SEL; // use next field if next selector, real field otherwise
 
-	if (compare_age_fields && cfg.ages->at(dst, cmp) != AgeRel::BOT && cfg.ages->at(dst, cmp) != AgeRel::EQ) {
+	if (compare_age_fields && cfg.ages->at(dst, ageT, cmp, false) != AgeRel::BOT && cfg.ages->at(dst, ageT, cmp, false) != AgeRel::EQ) {
 		// shortcut heavy weight computation if the age fields mismatch definitely
 		// => comparison evaluates to false and the CAS does nothing
 		result.push_back(mk_next_config(cfg, new Shape(*cfg.shape), nextFalse, tid));
@@ -74,23 +85,15 @@ std::vector<Cfg> tmr::eval_cond_cas(const Cfg& cfg, const CompareAndSwap& stmt, 
 		// condition may evaluate to true in the shape
 		// check whether the age fields match
 
-		if (compare_age_fields && cfg.ages->at(dst, cmp) == AgeRel::BOT) {
-			// result.push_back(Cfg(cfg, new Shape(*sp.first)));
-			// result.push_back(Cfg(cfg, new Shape(*sp.first)));
-			// result.push_back(Cfg(cfg, sp.first));
-
-			// result[0].ages->set(dst, cmp, AgeRel::LT);
-			// result[1].ages->set(dst, cmp, AgeRel::EQ);
-			// result[2].ages->set(dst, cmp, AgeRel::GT);
-
+		if (compare_age_fields && cfg.ages->at(dst, ageT, cmp, false) == AgeRel::BOT) {
 			std::cout << "An age field misuse was detected (relation is undefined) in the following CAS operation: " << std::endl << "    ";
 			stmt.print(std::cout, 1);
 			std::cout << std::endl << "For tid="<<tid<<" in the following configuration: " << std::endl << "    " << cfg << *cfg.shape << *cfg.ages << std::endl;
-			std::cout << "While accessing ages["<<dst<<"]["<<cmp<<"]" << std::endl;
+			std::cout << "While accessing ages["<<dst<<"+"<<ageT<<"]["<<cmp<<"]" << std::endl;
 			delete sp.first;
 			throw std::runtime_error("Age Field Misuse detected!");
 
-		} else if (compare_age_fields && cfg.ages->at(dst, cmp) != AgeRel::EQ) {
+		} else if (compare_age_fields && cfg.ages->at(dst, ageT, cmp, false) != AgeRel::EQ) {
 			// age fields mismatch => false branch
 			// TODO: this case does never apply (caught above)
 			result.push_back(mk_next_config(cfg, sp.first, nextFalse, tid));
@@ -98,7 +101,6 @@ std::vector<Cfg> tmr::eval_cond_cas(const Cfg& cfg, const CompareAndSwap& stmt, 
 		} else {
 			// compare evaluates to true
 			Cfg tmp(cfg, sp.first);
-			assert(!compare_age_fields || tmp.ages->at(dst, cmp) == AgeRel::EQ);
 
 			// the CAS stmt appears either in an ITE or on its own (in the latter case, the next field is set)
 			assert(tmp.pc[tid]->next() == NULL || (tmp.pc[tid]->next() == nextTrue && tmp.pc[tid]->next() == nextFalse));
@@ -134,11 +136,15 @@ std::vector<Cfg> tmr::eval_cond_cas(const Cfg& cfg, const CompareAndSwap& stmt, 
 
 				// if (!cmp_null) {
 					// set dst.age = cmp.age
-					set_age_equal(c, dst, cmp);
+					if (!ageT) set_age_equal(c, dst, cmp);
+					else {
+						for (std::size_t i = 0; i < cfg.shape->size(); i++)
+							c.ages->set_next(dst, i, c.ages->at_real(cmp, i));
+					}
 
 					// execute dst.age++ (if demanded by program)
 					if (update_age_fields)
-						increase_age(result, c, dst);
+						increase_age(result, c, dst, ageT);
 				// }
 			}
 		}

@@ -81,12 +81,7 @@ Cfg tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, 
 	Cfg res = mk_next_config(cfg, shape, tid);
 	set_age_equal(res, lhs, rhs);
 	res.own.set_ownership(lhs, res.own.is_owned(rhs));
-	// account for possible publishing of right-hand side
-	if (res.own.is_owned(lhs) != res.own.is_owned(rhs)) {
-		auto eqRhs = get_related(*shape, rhs, EQ);
-		bool ownership = res.own.is_owned(rhs);
-		for (auto i : eqRhs) res.own.set_ownership(i, ownership);
-	}
+	// TODO: this could publish rhs
 	res.sin[lhs] = res.sin[rhs];
 	return std::move(res);
 }
@@ -98,9 +93,13 @@ Cfg tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs,
 	Cfg res = mk_next_config(cfg, shape, tid);
 	// res.ages->set(lhs, rhs, AgeRel::BOT);
 	// set_age_equal(res, lhs, 0);
-	for (std::size_t i = 0; i < cfg.shape->size(); i++)
-		res.ages->set(lhs, i, AgeRel::BOT);
-	res.ages->set(lhs, lhs, AgeRel::EQ);
+	for (std::size_t i = 0; i < cfg.shape->size(); i++) {
+		res.ages->set_real(lhs, i, cfg.ages->at_next(rhs, i));
+		res.ages->set_next(lhs, i, AgeRel::BOT);
+	}
+	res.ages->set_real(lhs, lhs, AgeRel::EQ);
+	res.ages->set_next(lhs, lhs, AgeRel::EQ);
+	res.ages->set(lhs, false, rhs, true, AgeRel::EQ);
 	res.own.publish(lhs); // overapproximation
 	// check ownership of lhs
 	// bool owned = true;

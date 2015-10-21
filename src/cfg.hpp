@@ -57,8 +57,12 @@ namespace tmr {
 		public:
 			AgeMatrix(std::size_t numNonLocals, std::size_t numLocals, std::size_t numThreads);
 			std::size_t size() const { return _bounds; }
-			AgeRel at(std::size_t row, std::size_t col) const;
-			void set(std::size_t row, std::size_t col, AgeRel rel);
+			AgeRel at(std::size_t row, bool row_next, std::size_t col, bool col_next) const;
+			inline AgeRel at_real(std::size_t row, std::size_t col) const { return at(row, false, col, false); }
+			inline AgeRel at_next(std::size_t row, std::size_t col) const { return at(row, true, col, true); }
+			void set(std::size_t row, bool row_next, std::size_t col, bool col_next, AgeRel rel);
+			inline void set_real(std::size_t row, std::size_t col, AgeRel rel) { set(row, false, col, false, rel); }
+			inline void set_next(std::size_t row, std::size_t col, AgeRel rel) { set(row, true, col, true, rel); }
 			void extend(std::size_t numLocals);
 			void shrink(std::size_t numLocals);
 			bool operator==(const AgeMatrix& other) const;
@@ -107,8 +111,8 @@ namespace tmr {
 		std::unique_ptr<Shape> shape;
 		std::unique_ptr<AgeMatrix> ages;
 		SeenOV seen;
-		mutable Ownership own;
-		mutable StrongInvalidity sin;
+		Ownership own;
+		StrongInvalidity sin;
 
 		Cfg(std::array<const Statement*, 3> pc, MultiState state, Shape* shape, AgeMatrix* ages, MultiInOut inout)
 		  : pc(pc), state(state), inout(inout), shape(shape), ages(ages),
