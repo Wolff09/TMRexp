@@ -24,8 +24,10 @@ The implementation of this tool was part of my Master's Thesis.
 
 
 [1] M. Herlihy and N. Shavit. The art of multiprocessor programming. Morgan Kaufmann, 2008.
-[2] P. A. Abdulla, F. Haziza, L. Holík, B. Jonsson, and A. Rezine. An inte- grated specification and verification technique for highly concurrent data structures. In N. Piterman and S. A. Smolka, editors, Tools and Algorithms for the Construction and Analysis of Systems - 19th International Confer- ence, TACAS 2013, Held as Part of the European Joint Conferences on Theory and Practice of Software, ETAPS 2013, Rome, Italy, March 16- 24, 2013. Proceedings, volume 7795 of Lecture Notes in Computer Science, pages 324–338. Springer, 2013.
-[3] F. Haziza, L. Holík, R. Meyer, and S. Wolff. Pointer race freedom. 2015. Accepted for VMCAI 2016.
+
+[2] P. A. Abdulla, F. Haziza, L. Holík, B. Jonsson, and A. Rezine. An inte- grated specification and verification technique for highly concurrent data structures. In N. Piterman and S. A. Smolka, editors, Tools and Algorithms for the Construction and Analysis of Systems - 19th International Confer- ence, TACAS 2013, Held as Part of the European Joint Conferences on Theory and Practice of Software, ETAPS 2013, Rome, Italy, March 16- 24, 2013. Proceedings, volume 7795 of Lecture Notes in Computer Science, pages 324–338. Springer, 2013.
+
+[3] F. Haziza, L. Holík, R. Meyer, and S. Wolff. Pointer race freedom. 2015. Accepted for VMCAI 2016.
 
 
 Library
