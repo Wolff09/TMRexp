@@ -40,6 +40,9 @@ Library
 
 The code for the analysis can be found in `src/`.
 
+The configuration file can be found at `src/config.hpp`.
+You can change between the two analysis (classical thread-modular reasoning vs. thread summaries), select the fixed point engine for the summary mode, and turn on/off some optimizations.
+
 
 Experiments
 -----------
