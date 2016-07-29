@@ -36,7 +36,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsi
 	// std::cout << " -- " << lhs << ".data = __in__; " << std::endl;
 
 	CHECK_PRF_ws(lhs, stmt);
-	if (msetup == PRF && (is_invalid(*cfg.shape, lhs) || cfg.sin[lhs])) raise_eprf(cfg, lhs, "Bad write to data field");
+	if (msetup == PRF && (is_invalid(cfg, lhs) || cfg.sin[lhs])) raise_eprf(cfg, lhs, "Bad write to data field");
 
 	std::vector<Cfg> result;
 
@@ -148,6 +148,6 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const WriteOutputAssignment& stmt, un
 	// do nothing... we have no explicit notion of data variables and returning
 	std::vector<Cfg> result;
 	result.push_back(mk_next_config(cfg, new Shape(*cfg.shape), tid));
-	if (is_invalid(*cfg.shape, var_index)) result.back().inout[tid] = OValue();
+	if (is_invalid(cfg, var_index)) result.back().inout[tid] = OValue();
 	return result;
 }

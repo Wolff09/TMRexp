@@ -67,54 +67,21 @@ namespace tmr {
 		//         H = n;
 		//     }
 		// }
-		// std::unique_ptr<Sequence> deqbody = Sqz(
-		//	AtomicSqz(
-		//		Assign(Var("n"), Next("H")),
-		//		IfThenElse(
-		//			EqCond(Var("n"), Null()),
-		//			Sqz(
-		//				LinP()
-		//			),
-		//			Sqz(
-		//				LinP("n"),
-		//				Write("n"),
-		//				Fr("H"),
-		//				Assign(Var("H"), Var("n"))
-		//			)
-		//		)
-		//	)
-		// );
-
-
-		// data_type deq() {
-		//	atomic {
-		//		head = Head;
-		//		next = Head.next;
-		//		if (next == NULL) {
-		//			_out_ = $\empt$;           // @2
-		//		} else {
-		//			/* read data inside the atomic block to ensure
-		//			 * that no other thread frees "next" in between
-		//			 */
-		//			_out_ = next.data;  // @3
-		//			Head = next;
-		//		}
-		//	}
-		//	if (next != NULL)
-		//		free(head);
-		// }
 		std::unique_ptr<Sequence> deqbody = Sqz(
 			AtomicSqz(
-				Assign(Var("h"), Var("H")),
-				Assign(Var("n"), Next("H"), LinP(EqCond(Var("n"), Null()))),
-				IfThen(
-					NeqCond(Var("n"), Null()),
-					Sqz(LinP("n"),Write("n"),Assign(Var("H"), Var("n")), Assign(Var("n"), Var("h")), SetNull(Var("h")))
+				Assign(Var("n"), Next("H")),
+				IfThenElse(
+					EqCond(Var("n"), Null()),
+					Sqz(
+						LinP()
+					),
+					Sqz(
+						LinP("n"),
+						Write("n"),
+						Fr("H"),
+						Assign(Var("H"), Var("n"))
+					)
 				)
-			),
-			IfThen(
-				NeqCond(Var("n"), Null()),
-				Sqz(Fr("n"))
 			)
 		);
 
@@ -122,7 +89,7 @@ namespace tmr {
 		return Prog(
 			"CoarseQueue",
 			{"H", "T"},
-			{"n", "h"},
+			{"n"},
 			std::move(init),
 			Fun("enq", true, std::move(enqbody)),
 			Fun("deq", false, std::move(deqbody))
@@ -156,6 +123,7 @@ namespace tmr {
 			pushbody = Sqz(
 				AtomicSqz(
 					Mllc("n"),
+					SetNull(Next("n")),
 					Read("n")
 				),
 				std::move(atm)
@@ -163,6 +131,7 @@ namespace tmr {
 		} else {
 			pushbody = Sqz(
 				Mllc("n"),
+				SetNull(Next("n")),
 				Read("n"),
 				std::move(atm)
 			);
@@ -180,51 +149,24 @@ namespace tmr {
 		//         H = n;
 		//     }
 		// }
-
-		// std::unique_ptr<Sequence> popbody = Sqz(
-		//	AtomicSqz(
-		//		Assign(Var("n"), Var("ToS")),
-		//		IfThenElse(
-		//			EqCond(Var("n"), Null()),
-		//			Sqz(
-		//				LinP()
-		//			),
-		//			Sqz(
-		//				LinP("n"),
-		//				Write("n"),
-		//				Assign(Var("ToS"), Next("n")),
-		//				Fr("n")
-		//			)
-		//		)
-		//	)
-		// );
-
-
-		// atomic {
-		//	node = ToS; // @2
-		//	if (node != NULL) {
-		//		ToS = node.next; // @3
-		//	}
-		// }
-		// if (node == NULL) {
-		//	_out_ = $\empt$;
-		// } else {
-		//	_out_ = node.data;
-		//	free(node);
-		// }
 		std::unique_ptr<Sequence> popbody = Sqz(
 			AtomicSqz(
-				Assign(Var("n"), Var("ToS"), LinP(EqCond(Var("n"), Null()))),
-				IfThen(
-					NeqCond(Var("n"), Null()),
-					Sqz(Assign(Var("ToS"), Next("n"), LinP("n")))
+				Assign(Var("n"), Var("ToS")),
+				IfThenElse(
+					EqCond(Var("n"), Null()),
+					Sqz(
+						LinP()
+					),
+					Sqz(
+						LinP("n"),
+						Write("n"),
+						Assign(Var("ToS"), Next("n")),
+						Fr("n")
+					)
 				)
-			),
-			IfThen(
-				NeqCond(Var("n"), Null()),
-				Sqz(Write("n"),Fr("n"))
 			)
 		);
+
 
 		return Prog(
 			"CoarseStack",

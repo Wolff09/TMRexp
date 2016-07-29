@@ -2,12 +2,12 @@
 add_executable(MSQueue MSQueue.cpp)
 target_link_libraries(MSQueue TMRexpLib)
 
-# add_test(MSQueue_01--GC--ages    	MSQueue --GC --ages --malloc --success)
-# add_test(MSQueue_05--GC--no-ages 	MSQueue --GC --no-ages --malloc --success)
-# add_test(MSQueue_09--PRF--ages   	MSQueue --PRF --ages --malloc --success)
-# add_test(MSQueue_13--PRF--no-ages	MSQueue --PRF --no-ages --malloc --fail)
-# add_test(MSQueue_17--MM--ages    	MSQueue --MM --ages --init --success)
-# add_test(MSQueue_21--MM--no-ages 	MSQueue --MM --no-ages --malloc --fail)
+add_test(MSQueue_01--GC--ages    	MSQueue --GC --ages --malloc --success)
+add_test(MSQueue_05--GC--no-ages 	MSQueue --GC --no-ages --malloc --success)
+add_test(MSQueue_09--PRF--ages   	MSQueue --PRF --ages --malloc --success)
+add_test(MSQueue_13--PRF--no-ages	MSQueue --PRF --no-ages --malloc --fail)
+add_test(MSQueue_17--MM--ages    	MSQueue --MM --ages --init --success)
+add_test(MSQueue_21--MM--no-ages 	MSQueue --MM --no-ages --malloc --fail)
 
 
 # add_test(MSQueue_01--GC--ages--malloc                	MSQueue --GC --ages --malloc)

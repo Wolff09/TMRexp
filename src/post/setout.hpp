@@ -31,7 +31,7 @@ namespace tmr {
 			result.back().inout[tid] = OValue::Anonymous();
 		}
 
-		return std::move(result);
+		return result;
 	}
 
 }

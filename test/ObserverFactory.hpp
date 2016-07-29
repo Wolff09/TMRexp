@@ -185,7 +185,7 @@ namespace tmr {
 
 
 		// make observer
-		return std::move(result);
+		return result;
 	}
 
 	static std::unique_ptr<Observer> queue_observer(const Function& in, const Function& out, const Function& free) {
@@ -352,7 +352,7 @@ namespace tmr {
 
 
 		// make observer
-		return std::move(result);
+		return result;
 	}
 
 }

@@ -6,6 +6,7 @@
 #include <vector>
 #include "make_unique.hpp"
 #include "prog.hpp"
+#include "config.hpp"
 
 namespace tmr {
 
@@ -59,8 +60,8 @@ namespace tmr {
 					EqCond(Var("n"), Null()),
 					Sqz(
 						IfThen(
-							CasCond(CAS(Next("t"), Null(), Var("h"), LinP(), use_age_fields)),
-							// CasCond(CAS(Next("t"), Var("n"), Var("h"), LinP(), use_age_fields)),
+							// CasCond(CAS(Next("t"), Null(), Var("h"), LinP(), use_age_fields)),
+							CasCond(CAS(Next("t"), Var("n"), Var("h"), LinP(), use_age_fields)),
 							Sqz(Brk())
 					)),
 					Sqz(CAS(Var("Tail"), Var("t"), Var("n"), use_age_fields))
@@ -148,6 +149,69 @@ namespace tmr {
 			Kill()
 		)));
 
+		#if REPLACE_INTERFERENCE_WITH_SUMMARY
+			// atomic {
+			// 	t = Tail.next;
+			// 	if (t == NULL) {
+			// 		n = malloc;
+			// 		n.data = __in__;
+			// 		n.next = NULL;
+			// 		CAS(Tail.next, Tail.next, n);
+			//		*** enq(__in__) ***
+			// 	} else {
+			// 		CAS(Tail, Tail, t);
+			// 	}
+			// }
+			auto enqsum = AtomicSqz(
+				Assign(Var("t"), Next("Tail")),
+				IfThenElse(
+					EqCond(Var("t"), Null()),
+					Sqz(
+						Mllc("n"),
+						SetNull(Next("n")),
+						Read("n"),
+						CAS(Next("Tail"), Var("t"), Var("n"), LinP(), use_age_fields)
+					),
+					Sqz(CAS(Var("Tail"), Var("Tail"), Var("t"), use_age_fields))
+				)
+			);
+
+			// atomic {
+			// 	n = Head.next;
+			// 	if (Head == Tail) {
+			// 		if (n == NULL) {
+			// 			*** deq(empty) ***
+			// 		} else {
+			// 			CAS(Tail, Tail, n);
+			// 		}
+			// 	} else {
+			// 		t = Head;
+			// 		__out__ = n.data;
+			//		CAS(Head, Head, n);
+			//		*** deq(n.data) ***
+			// 		free(t);
+			// 	}
+			// }
+			auto deqsum = AtomicSqz(
+				Assign(Var("n"), Next("Head")),
+				IfThenElse(
+					EqCond(Var("Head"), Var("Tail")),
+					Sqz(
+						IfThenElse(
+							EqCond(Var("n"), Null()),
+							Sqz(LinP()),
+							Sqz(CAS(Var("Tail"), Var("Tail"), Var("n"), use_age_fields))
+						)
+					),
+					Sqz(
+						Assign(Var("h"), Var("Head")),
+						Write("n"),
+						CAS(Var("Head"), Var("Head"), Var("n"), LinP("n"), use_age_fields),
+						Fr("h")
+					)
+				)
+			);
+		#endif
 
 
 		std::string name = "MichealScottQueue";
@@ -157,8 +221,13 @@ namespace tmr {
 			{"Head", "Tail"},
 			{"h", "t", "n"},
 			std::move(init),
-			Fun("enq", true, std::move(enqbody)),
-			Fun("deq", false, std::move(deqbody))
+			#if REPLACE_INTERFERENCE_WITH_SUMMARY
+				Fun("enq", true, std::move(enqbody), std::move(enqsum)),
+				Fun("deq", false, std::move(deqbody), std::move(deqsum))
+			#else
+				Fun("enq", true, std::move(enqbody)),
+				Fun("deq", false, std::move(deqbody))
+			#endif
 		);
 	}
 

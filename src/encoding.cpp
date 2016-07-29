@@ -19,12 +19,14 @@ bool cfg_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 
 	// age field comparsion
 	for (std::size_t col = lhs.shape->offset_locals(0); col < lhs.ages->size(); col++)
-		for (std::size_t row = 0; row < col; row++) {
-			auto lij = lhs.ages->at(row, col).type();
-			auto rij = rhs.ages->at(row, col).type();
-			if (lij < rij) return true;
-			else if (lij > rij) return false;
-		}
+		for (std::size_t row = 0; row < col; row++)
+			for (bool bc : {false, true})
+				for (bool br : {false, true}) {
+					auto lij = lhs.ages->at(row, br, col, bc).type();
+					auto rij = rhs.ages->at(row, br, col, bc).type();
+					if (lij < rij) return true;
+					else if (lij > rij) return false;
+				}
 
 	// compare remaining trivial stuff
 	if (lhs.pc < rhs.pc) return true;
@@ -37,6 +39,8 @@ bool cfg_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	// if (lhs.own > rhs.own) return false;
 	// if (lhs.sin < rhs.sin) return true;
 	// if (lhs.sin > rhs.sin) return false;
+	// if (lhs.invalid < rhs.invalid) return true;
+	// if (lhs.invalid > rhs.invalid) return false;
 	if (lhs.oracle < rhs.oracle) return true;
 	if (rhs.oracle < lhs.oracle) return false;
 
@@ -55,19 +59,16 @@ bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	if (lhs.state < rhs.state) return true;
 	if (rhs.state < lhs.state) return false;
 
-	// if (lhs.sin[3] < rhs.sin[3]) return true;
-	// if (lhs.sin[3] > rhs.sin[3]) return false;
-	// if (lhs.sin[4] < rhs.sin[4]) return true;
-	// if (lhs.sin[4] > rhs.sin[4]) return false;
-
 	// global age field
 	for (std::size_t col = 0; col < lhs.shape->offset_locals(0); col++)
-		for (std::size_t row = 0; row < col; row++) {
-			auto lij = lhs.ages->at(row, col).type();
-			auto rij = rhs.ages->at(row, col).type();
-			if (lij < rij) return true;
-			else if (lij > rij) return false;
-		}
+		for (std::size_t row = 0; row < col; row++)
+			for (bool bc : {false, true})
+				for (bool br : {false, true}) {
+					auto lij = lhs.ages->at(row, br, col, bc).type();
+					auto rij = rhs.ages->at(row, br, col, bc).type();
+					if (lij < rij) return true;
+					else if (lij > rij) return false;
+				}
 
 	return false;
 }
@@ -78,7 +79,6 @@ bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 std::pair<bool, const Cfg&> Encoding::take(Cfg&& new_cfg) {
 	assert(new_cfg.shape);
 	assert(consistent(*new_cfg.shape));
-
 
 	__store__::iterator pos = _map.find(new_cfg);
 
@@ -133,6 +133,12 @@ std::pair<bool, const Cfg&> Encoding::take(Cfg&& new_cfg) {
 				if (cfg.sin[i] != new_sin) {
 					updated = true;
 					cfg.sin[i] = new_sin;
+				}
+
+				bool new_invalid = cfg.invalid[i] || new_cfg.invalid[i];
+				if (cfg.invalid[i] != new_invalid) {
+					updated = true;
+					cfg.invalid[i] = new_invalid;
 				}
 
 				bool new_own = cfg.own.is_owned(i) && new_cfg.own.is_owned(i);

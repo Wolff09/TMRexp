@@ -5,20 +5,36 @@
 #include "post/helpers.hpp"
 #include "post/eval.hpp"
 #include "post/setout.hpp"
+#include "config.hpp"
 
 using namespace tmr;
 
+static inline bool is_observed_behind_and_not_free(const Cfg& cfg, unsigned short tid) {
+	#if !REPLACE_INTERFERENCE_WITH_SUMMARY // we do not need hints when using summaries
+		std::size_t fri = cfg.shape->index_FREE();
+		for (std::size_t oct : {3,4}) {
+			if (!cfg.shape->test(oct, fri, MT)) {
+				if (!haveCommon(cfg.shape->at(oct, 5), EQ_MF_GF))
+					return true;
+			}
+		}
+	#endif
+	return false;
+}
 
 static inline void fire_lp(Cfg& cfg, const Function& evt, unsigned short tid) {
 	assert(cfg.inout[tid].type() != OValue::DUMMY);
 	// std::cout << " -- fire lp " << evt.name() << "(" << cfg.inout[tid] << "): move from " << cfg.state;
 	cfg.state = cfg.state.next(evt, cfg.inout[tid]);
 	// std::cout << " to " << cfg.state << std::endl;
+
 	if (cfg.state.is_final()) {
-		std::cout << std::endl << "*********************************" << std::endl;
-		std::cout << "Specification violation detected!" << std::endl << std::endl;
-		std::cout << cfg << *cfg.shape << *cfg.ages << std::endl;
-		throw std::runtime_error("Specification violation detected! Observer reached final state: " + cfg.state.find_final().name());
+		if (!is_observed_behind_and_not_free(cfg, tid)) {
+			std::cout << std::endl << "*********************************" << std::endl;
+			std::cout << "Specification violation detected!" << std::endl << std::endl;
+			std::cout << cfg << *cfg.shape << *cfg.ages << std::endl;
+			throw std::runtime_error("Specification violation detected! Observer reached final state: " + cfg.state.find_final().name());
+		}
 	}
 }
 
@@ -84,7 +100,9 @@ std::pair<Shape*, Shape*> get_emitter_and_silent_shape(const Cfg& cfg, const EqP
 	const EqNeqCondition& eqc = cond.cond();
 	auto lhs = mk_var_index(*cfg.shape, eqc.lhs(), tid);
 	auto rhs = mk_var_index(*cfg.shape, eqc.rhs(), tid);
-	if (cfg.ages->at(lhs, rhs) != AgeRel::EQ)
+	bool lhs_next = eqc.lhs().clazz() == Expr::SEL;
+	bool rhs_next = eqc.rhs().clazz() == Expr::SEL;
+	if (cfg.ages->at(lhs, lhs_next, rhs, rhs_next) != AgeRel::EQ)
 		return { NULL, merge_shapes(emitter, silent) };
 	else
 		return get_emitter_and_silent_shape(cfg, eqc, emitter, silent, tid);

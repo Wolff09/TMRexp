@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include "prog.hpp"
 #include "shape.hpp"
 #include "observer.hpp"
@@ -11,10 +12,7 @@ namespace tmr {
 
 	class RemainingWork {
 		private:
-			struct debug_sorter {
-				bool operator()(const Cfg* lhs, const Cfg* rhs) const;
-			};
-			std::set<const Cfg*, debug_sorter> _work;
+			std::set<const Cfg*> _work;
 			Encoding& _enc;
 		public:
 			RemainingWork(Encoding& enc);

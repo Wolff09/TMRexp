@@ -4,6 +4,7 @@
 #include "fixp/cfgpost.hpp"
 #include "fixp/interference.hpp"
 #include "counter.hpp"
+#include "config.hpp"
 
 using namespace tmr;
 
@@ -28,17 +29,11 @@ Cfg mk_init_cfg(const Program& prog, const Observer& obs, MemorySetup msetup) {
 	assert(init.pc[1] == NULL);
 	assert(init.pc[2] == NULL);
 	assert(init.shape);
-	return std::move(init);
+	return init;
 }
 
 
 /******************************** WORK SET ********************************/
-
-bool RemainingWork::debug_sorter::operator()(const Cfg* lhs, const Cfg* rhs) const {
-	// return encoding_cfg_compare()(*lhs, *rhs);
-	// return cfg_comparator()(*rhs, *lhs);
-	return lhs < rhs;
-}
 
 RemainingWork::RemainingWork(Encoding& enc) : _enc(enc) {}
 
@@ -49,6 +44,10 @@ const Cfg& RemainingWork::pop() {
 }
 
 void RemainingWork::add(Cfg&& cfg) {
+	//std::lock_guard<std::mutex> guard(_mut);
+	#if !REPLACE_INTERFERENCE_WITH_SUMMARY
+		if (cfg.state.is_final()) return;
+	#endif
 	auto res = _enc.take(std::move(cfg));
 	if (res.first) _work.insert(&res.second);
 }
@@ -63,22 +62,49 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 	work.add(mk_init_cfg(prog, obs, msetup));
 	assert(!work.done());
 
-	while (!work.done()) {
+
+	#if REPLACE_INTERFERENCE_WITH_SUMMARY && USE_MODIFIED_FIXEDPOINT
+		
+		/* FIXED POINT WITH SUMMARIES */
+		/* Since summaries are independent of the current encoding, we
+		 * need to apply them only once like a sequential step
+		 */
 		std::size_t counter = 0;
 
-		std::cerr << "post image...     ";
+		std::cerr << "combined post...     ";
 		while (!work.done()) {
-			const Cfg& topost = work.pop();
-			SEQUENTIAL_STEPS++;
-			work.add(tmr::mk_all_post(topost, prog, msetup));
-			
+			const Cfg& topmost = work.pop();
+
+			work.add(tmr::mk_all_post(topmost, prog, msetup));
+			mk_summary(work, topmost, prog, msetup);
+
 			counter++;
-			if (counter%10000 == 0) std::cerr << "[" << counter/1000 << "k-" << enc->size()/1000 << "k]";
+			if (counter%1000 == 0) std::cerr << "[" << counter/1000 << "k-" << enc->size()/1000 << "k-" << work.size()/1000 << "k]";
 		}
 		std::cerr << " done! [enc.size()=" << enc->size() << ", iterations=" << counter << "]" << std::endl;
 
-		tmr::mk_all_interference(*enc, work, msetup);
-	}
+	#else
+
+		/* FIXED POINT WITH INTERFERENCE */
+		while (!work.done()) {
+			std::size_t counter = 0;
+
+			std::cerr << "post image...     ";
+			while (!work.done()) {
+				const Cfg& topost = work.pop();
+				SEQUENTIAL_STEPS++;
+				work.add(tmr::mk_all_post(topost, prog, msetup));
+				
+				counter++;
+				if (counter%10000 == 0) std::cerr << "[" << counter/1000 << "k-" << enc->size()/1000 << "k]";
+			}
+			std::cerr << " done! [enc.size()=" << enc->size() << ", iterations=" << counter << "]" << std::endl;
+
+			tmr::mk_all_interference(*enc, work, msetup);
+		}
+
+	#endif
+
 
 	std::cout << std::endl << "Fixed point computed " << enc->size() << " distinct configurations." << std::endl;
 	return enc;

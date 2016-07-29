@@ -28,8 +28,12 @@ namespace tmr {
 		// }
 	}
 
-	static inline bool is_invalid(const Shape& shape, std::size_t var) {
+	/*static inline bool is_invalid(const Shape& shape, std::size_t var) {
 		return shape.test(var, shape.index_FREE(), MT);
+	}*/
+
+	static inline bool is_invalid(const Cfg& cfg, std::size_t var) {
+		return cfg.invalid[var] || cfg.sin[var];
 	}
 
 	static inline void raise_eprf(const Cfg& cfg, std::size_t var, std::string msg) {

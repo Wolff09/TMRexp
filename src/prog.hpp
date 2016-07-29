@@ -66,7 +66,7 @@ namespace tmr {
 
 	class Expr {
 		public:
-			enum Class { NIL, VAR, SEL };
+			enum Class { NIL=0, VAR=1, SEL=2 };
 			virtual ~Expr() = default;
 			virtual Type type() const = 0;
 			virtual Expr::Class clazz() const = 0;
@@ -506,9 +506,11 @@ namespace tmr {
 			std::unique_ptr<Sequence> _stmts;
 			bool _has_input; // a function has either input or output
 			const Program* _prog;
+			std::unique_ptr<Atomic> _summary;
 
 		public:
 			Function(std::string name, bool is_void, std::unique_ptr<Sequence> stmts);
+			Function(std::string name, bool is_void, std::unique_ptr<Sequence> stmts, std::unique_ptr<Atomic> summary);
 			std::string name() const { return _name; }
 			std::size_t size() const { return _stmts->size(); }
 			const Sequence& body() const { return *_stmts; }
@@ -522,6 +524,7 @@ namespace tmr {
 			std::string input_name() const { assert(has_input()); return "__in__"; }
 			std::string output_name() const { assert(has_output()); return "__out__"; }
 			const Program& prog() const { return *_prog; }
+			const Atomic& summary() const { assert(_summary); return *_summary; }
 
 		friend class Program;
 	};
@@ -531,10 +534,11 @@ namespace tmr {
 			std::string _name;
 			std::vector<std::unique_ptr<Variable>> _globals;
 			std::vector<std::unique_ptr<Variable>> _locals;
-			std::unique_ptr<Sequence> _init;
 			std::vector<std::unique_ptr<Function>> _funs;
 			std::unique_ptr<Function> _free;
+			std::unique_ptr<Function> _init_fun;
 			std::size_t _idSize = 0;
+			Sequence* _init() const { return _init_fun->_stmts.get(); }
 
 		public:
 			Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::vector<std::unique_ptr<Function>> funs);
@@ -545,8 +549,10 @@ namespace tmr {
 			std::size_t numLocals() const { return _locals.size(); }
 			const Function& at(std::size_t index) const { return *_funs.at(index); }
 			const Function& freefun() const { return *_free; }
-			const Sequence& init() const { return *_init; }
+			const Sequence& init() const { return _init_fun->body(); }
+			const Function& init_fun() const { return *_init_fun; }
 			void print(std::ostream& os) const;
+			bool is_summary_statement(const Statement& stmt) const;
 	};
 
 
@@ -600,7 +606,7 @@ namespace tmr {
 	std::unique_ptr<CompareAndSwap> CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, bool update_age_fields);
 	std::unique_ptr<CompareAndSwap> CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, std::unique_ptr<LinearizationPoint> lp, bool update_age_fields);
 
-	std::unique_ptr<Function> Fun(std::string name, bool is_void, std::unique_ptr<Sequence> body);
+	std::unique_ptr<Function> Fun(std::string name, bool is_void, std::unique_ptr<Sequence> body, std::unique_ptr<Atomic> summary = {});
 
 	template<typename... Args>
 	static std::unique_ptr<Sequence> Sqz(Args... pack) {

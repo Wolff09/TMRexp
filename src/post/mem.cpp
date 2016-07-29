@@ -6,15 +6,10 @@
 #include "../helpers.hpp"
 #include "post/helpers.hpp"
 #include "post/setout.hpp"
+#include "config.hpp"
 
 using namespace tmr;
 
-/* For a strong pointer race it does not matter whether or not a cell is reallocated.
- * Freeing a cell makes all pointers to the cell invalid, but a malloc does not make
- * all of them valid again. So accessing an obsolete pointer raises a pointer race,
- * no matter whether or not a reallocation has taken place.
- */
-#define PRF_REALLOCATION true
 
 /******************************** MALLOC ********************************/
 
@@ -27,6 +22,9 @@ bool free_cells_still_free(const Shape& input, const Shape& output) {
 	return true;
 }
 
+#define NON_LOCAL(x) !(x >= cfg.shape->offset_locals(tid) && x < cfg.shape->offset_locals(tid) + cfg.shape->sizeLocals())
+; // this one is actually very useful: it fixes my syntax highlighting :)
+
 std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short tid, MemorySetup msetup) {
 	CHECK_STMT;
 	const Shape& input = *cfg.shape;
@@ -34,6 +32,13 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 	std::vector<Cfg> result;
 	const auto free_index = input.index_FREE();
 	const auto var_index = mk_var_index(input, stmt.decl(), tid);
+
+	#if REPLACE_INTERFERENCE_WITH_SUMMARY
+		// the first global vairable is an auxiliary one which is local to summaries
+		if (NON_LOCAL(var_index) && &stmt.function().prog().init_fun() != &stmt.function()) {
+			throw std::runtime_error("Allocations may not target global variables.");
+		}
+	#endif
 
 	/* malloc(x) does not change the setup of the heap as it is, but simply allocates some part for x;
 	 * that is, we do not need to change the shape: the cell x points to remains and the reachability via this cell is not modified;
@@ -52,6 +57,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 	if (msetup != MM) {
 		result.back().own.own(var_index);
 		result.back().sin[var_index] = false;
+		result.back().invalid[var_index] = false;
 	}
 
 	/* with GC a free cell is guaranteed to be fresh (no one has a pointer to it)
@@ -60,7 +66,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 	 */
 	if (msetup == PRF) {
 		#if PRF_REALLOCATION
-			for (std::size_t i = input.offset_vars(); i < input.size(); i++) {
+			for (std::size_t i = input.offset_vars(); i < input.size(); i++) { // TODO: i = offset_program_vars ?
 				if (i == var_index) continue;
 				
 				Shape* split = isolate_partial_concretisation(input, i, free_index, MT_);
@@ -91,15 +97,21 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 				set_age_equal(result.back(), var_index, i);
 				result.back().own.own(var_index); // TODO: we may own more
 				result.back().sin[var_index] = false; // TODO: there may be less sins
+				result.back().invalid[var_index] = false;
 			}
 		#endif
 	} else if (msetup == MM) {
 		for (std::size_t i = input.offset_vars(); i < input.size(); i++) {
 			if (i == var_index) continue;
-			if (cfg.ages->at(i, free_index) != AgeRel::EQ) continue;
+			if (cfg.ages->at(i, false, free_index, true) != AgeRel::EQ) continue;
 			
 			auto shapes = disambiguate(*cfg.shape, i);
 			for (Shape* split : shapes) {
+				if (split->at(i, split->index_UNDEF()) != BT_) {
+					delete split;
+					continue;
+				}
+
 				auto eqI = get_related(*split, i, EQ_);
 				auto preI = get_related(*split, i, MF_GF);
 				// the cell pointed to by all cells in eqI is reallocated for var => var = eqI and eqI no longer free
@@ -121,13 +133,13 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 				result.push_back(mk_next_config(cfg, split, tid));
 				set_age_equal(result.back(), var_index, i);
 				for (auto i : eqI)
-					result.back().ages->set(i, free_index, AgeRel::BOT); // TODO: GT instead of BOT?
-				result.back().ages->set(var_index, free_index, AgeRel::BOT); // TODO: GT instead of BOT?
+					result.back().ages->set(i, true, free_index, false, AgeRel::BOT); // TODO: GT instead of BOT?
+				result.back().ages->set(var_index, true, free_index, false, AgeRel::BOT); // TODO: GT instead of BOT?
 			}
 		}
 	}
 
-	return std::move(result);
+	return result;
 }
 
 
@@ -147,11 +159,21 @@ static std::vector<OValue> get_possible_data(const Cfg& cfg, std::size_t var) {
 	return result;
 }
 
+static bool is_globally_reachable(const Shape& shape, std::size_t var) {
+	for (auto i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
+		if (haveCommon(shape.at(i, var), EQ_MT_GT)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 std::vector<Cfg> tmr::post(const Cfg& cfg, const Free& stmt, unsigned short tid, MemorySetup msetup) {
 	CHECK_STMT;
 	const Shape& input = *cfg.shape;
 
 	const auto var_index = mk_var_index(input, stmt.decl(), tid);
+	// std::cout << "free(" << var_index << ")" << std::endl;
 	CHECK_ACCESS(var_index);
 
 	/* with garbage collection, a free has no effect */
@@ -169,6 +191,11 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Free& stmt, unsigned short tid,
 		std::cout << "in cfg: " << cfg << *cfg.shape << *cfg.ages << std::endl;
 		throw std::runtime_error("Double free: while freeing cell term with id=" + std::to_string(var_index) + ".");
 	}
+	#if REPLACE_INTERFERENCE_WITH_SUMMARY
+		if (is_globally_reachable(input, var_index)) {
+			throw std::runtime_error("Globally reachable cells may not be freed.");
+		}
+	#endif
 
 	const auto free_index = input.index_FREE();
 	const std::vector<std::size_t> free_index_vec = { free_index };
@@ -197,8 +224,10 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Free& stmt, unsigned short tid,
 			result.push_back(mk_next_config(cfg, shape, tid));
 
 			// freeing a cell publishes them as they might be reallocated by someone
-			for (std::size_t i : eqVar)
+			for (std::size_t i : eqVar) {
 				result.back().own.publish(i);
+				result.back().invalid[i] = true;
+			}
 		}
 
 	} else if (msetup == MM) {
@@ -211,7 +240,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Free& stmt, unsigned short tid,
 			auto eqVar = get_related(*shape, var_index, EQ_);
 			for (std::size_t i : eqVar) {
 				// result.back().own.publish(i);
-				result.back().ages->set(i, free_index, AgeRel::EQ);
+				result.back().ages->set(i, false, free_index, true, AgeRel::EQ);
 			}
 		}
 	}
@@ -235,5 +264,5 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Free& stmt, unsigned short tid,
 		}
 	}
 
-	return std::move(result);
+	return result;
 }

@@ -49,10 +49,13 @@ void set_locals_undef(Cfg& cfg, const unsigned short tid) {
 	for (std::size_t i = shape.offset_locals(tid); i < shape.offset_locals(tid) + shape.sizeLocals(); i++) {
 		for (std::size_t t = 0; t < shape.size(); t++) {
 			shape.set(i, t, BT);
-			ages.set(i, t, AgeRel::BOT);
+			for (bool bi : {false, true})
+				for (bool bt : {false, true})
+					ages.set(i, bi, t, bt, AgeRel::BOT);
 		}
 		shape.set(i, i, EQ);
-		ages.set(i, i, AgeRel::EQ);
+		ages.set_real(i, i, AgeRel::EQ);
+		ages.set_next(i, i, AgeRel::EQ);
 		shape.set(i, shape.index_UNDEF(), MT);
 	}
 }
@@ -81,6 +84,7 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& cfg, unsigned short tid, c
 	const Cfg& outer = cfg; // TODO: get rid of this
 	if (cfg.pc[tid] != NULL) {
 		// compute post relative to the statement cfg.pc[tid]
+		// std::cout << std::endl << std::endl << "post for: " << cfg << *cfg.shape;
 		std::vector<Cfg> postcfgs = tmr::post(cfg, tid, msetup);
 		result.reserve(result.size() + postcfgs.size());
 		for (Cfg& cfg : postcfgs) {
@@ -111,6 +115,7 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& cfg, unsigned short tid, c
 			}
 			// move cfg to result
 			assert(consistent(*cfg.shape));
+			// std::cout << "result " << cfg << *cfg.shape;
 			result.push_back(std::move(cfg));
 		}
 	} else {

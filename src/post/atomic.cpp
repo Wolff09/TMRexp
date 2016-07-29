@@ -1,13 +1,15 @@
 #include "post.hpp"
 
+#include <deque>
+
 using namespace tmr;
 
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, const Atomic& stmt, unsigned short tid, MemorySetup msetup){
-	// std::cout << "ATOMIC BLOCK" << std::endl;
-
 	std::vector<Cfg> result;
-	std::vector<Cfg> work;
+	result.reserve(4);
+
+	std::deque<Cfg> work;
 
 	work.push_back(cfg.copy());
 	work.back().pc[tid] = stmt.sqz().next();
@@ -24,7 +26,6 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Atomic& stmt, unsigned short ti
 			// cfg is still in atomic block, so execute pc[tid]
 			auto postimg = tmr::post(work.back(), tid, msetup);
 			work.pop_back();
-			// std::cout << "...pi1... " << postimg.size() << std::endl << *postimg.back().shape;
 			for (Cfg& pi : postimg) work.push_back(std::move(pi));
 		}
 	}

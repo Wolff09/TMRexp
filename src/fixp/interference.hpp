@@ -15,4 +15,6 @@ namespace tmr {
 	 */	
 	void mk_all_interference(Encoding& enc, RemainingWork& work, MemorySetup msetup);
 
+	void mk_summary(RemainingWork& work, const Cfg& cfg, const Program& prog, MemorySetup msetup);
+
 }

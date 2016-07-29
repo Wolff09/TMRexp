@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include "helpers.hpp"
 #include "counter.hpp"
+#include "config.hpp"
 
 using namespace tmr;
 
@@ -16,12 +17,14 @@ bool do_ages_match(const Cfg& cfg, const Cfg& interferer, MemorySetup msetup) {
 	std::size_t first_local = cfg.shape->offset_locals(msetup == MM ? 1 : 0);
 	for (std::size_t row = 0; row < first_local; row++)
 		for (std::size_t col = row+1; col < first_local; col++)
-			if (cfg.ages->at(row, col) != interferer.ages->at(row, col))
-				return false;
+			for (bool br : {false, true})
+				for (bool bc : {false, true})
+					if (cfg.ages->at(row, br, col, bc) != interferer.ages->at(row, br, col, bc))
+						return false;
 	return true;
 }
 
-inline bool is_observed_owned(const Cfg& cfg, std::size_t obs) {
+bool is_observed_owned(const Cfg& cfg, std::size_t obs) {
 	// only for non-MM!
 	std::size_t begin = cfg.shape->offset_locals(0);
 	std::size_t end = begin + cfg.shape->sizeLocals();
@@ -31,7 +34,7 @@ inline bool is_observed_owned(const Cfg& cfg, std::size_t obs) {
 	return false;
 }
 
-inline bool is_observed_global(const Cfg& cfg, std::size_t obs) {
+bool is_observed_global(const Cfg& cfg, std::size_t obs) {
 	// only for non-MM!
 	for (std::size_t j = 5; j < cfg.shape->offset_locals(0); j++)
 		// if (intersection(cfg.shape->at(j, obs), EQ_MT_GT).any())
@@ -55,15 +58,22 @@ bool do_shapes_match(const Cfg& cfg, const Cfg& interferer, MemorySetup msetup) 
 	}
 
 	for (std::size_t i : {3, 4}) {
-		if (msetup != MM) {
-			if (is_observed_owned(cfg, i) && is_observed_owned(interferer, i))
-				return false;
+		if (cfg.shape->at(i, cfg.shape->index_UNDEF()) == MT_ ^ interferer.shape->at(i, interferer.shape->index_UNDEF()) == MT_) {
+			return false;
 		}
 
-		if (((cfg.shape->at(i, cfg.shape->index_UNDEF()) != MT_) == (interferer.shape->at(i, interferer.shape->index_UNDEF()) != MT_)) || is_observed_global(cfg, i) || is_observed_global(interferer, i))
-			for (std::size_t j = 0; j < end; j++)
-				if (intersection(cfg.shape->at(i, j), interferer.shape->at(i, j)).none())
-						return false;
+		bool is_global = is_observed_global(cfg, i) || is_observed_global(interferer, i);
+		if (!is_global) continue;
+
+
+		if (msetup != MM) {
+			bool is_owned = is_observed_owned(cfg, i) || is_observed_owned(interferer, i);
+			if (is_owned) continue;
+		}
+
+		for (std::size_t j = 0; j < end; j++)
+			if (intersection(cfg.shape->at(i, j), interferer.shape->at(i, j)).none())
+				return false;
 	}
 
 	return true;
@@ -72,7 +82,8 @@ bool do_shapes_match(const Cfg& cfg, const Cfg& interferer, MemorySetup msetup) 
 static bool is_noop(const Statement& pc) {
 	switch (pc.clazz()) {
 		case Statement::SQZ:     return true;
-		case Statement::OUTPUT:  return true;
+		case Statement::WHILE:   return true;
+		// case Statement::OUTPUT:  return true;
 		case Statement::BREAK:   return true;
 		case Statement::ORACLE:  return true;
 		case Statement::CHECKP:  return true;
@@ -110,14 +121,58 @@ static bool can_skip(const Cfg& cfg) {
 			set_tmp(static_cast<const Assignment&>(pc).lhs());
 			break;
 		case Statement::INPUT:
-			SKIP;
-			break;
+			if (cfg.inout[0].type() != OValue::OBSERVABLE) {
+				set_tmp(static_cast<const ReadInputAssignment&>(pc).expr());
+				break;
+			}
+			NO_SKIP;
 		case Statement::SETNULL:
 			set_tmp(static_cast<const NullAssignment&>(pc).lhs());
 			break;
 		case Statement::FREE:
 			set_tmp(static_cast<const Free&>(pc).var());
 			break;
+		default:
+			NO_SKIP;
+	}
+
+	if (cfg.own.is_owned(tmp)) SKIP;
+	NO_SKIP;
+}
+
+static bool can_skip_victim(const Cfg& cfg) {
+	#define SKIP {INTERFERENCE_SKIPPED++; return true;}
+	#define NO_SKIP {return false;}
+	
+	const Statement& pc = *cfg.pc[0];
+	std::size_t tmp;
+
+	auto set_tmp = [&] (const Expr& expr) {
+		tmp = mk_var_index(*cfg.shape, expr, 0);
+	};
+
+	switch (pc.clazz()) {
+		case Statement::ITE:
+			if (static_cast<const Ite&>(pc).cond().type() != Condition::CASC) SKIP;
+			// TODO: if (victim && cont lhs and rhs are local) SKIP ??????;
+			NO_SKIP;
+		// case Statement::ASSIGN:
+		//	if (!cfg.own.is_owned(mk_var_index(*cfg.shape, static_cast<const Assignment&>(pc).rhs(), 0))) NO_SKIP;
+		//	set_tmp(static_cast<const Assignment&>(pc).lhs());
+		//	break;
+		case Statement::INPUT:
+			set_tmp(static_cast<const ReadInputAssignment&>(pc).expr());
+			break;
+		case Statement::SETNULL:
+			set_tmp(static_cast<const NullAssignment&>(pc).lhs());
+			break;
+		// case Statement::MALLOC:
+		//	set_tmp(static_cast<const Malloc&>(pc).var());
+		//	if (tmp >= cfg.shape->offset_locals(0)) SKIP;
+		//	NO_SKIP;
+		// case Statement::FREE:
+		//	set_tmp(static_cast<const Free&>(pc).var());
+		//	break;
 		default:
 			NO_SKIP;
 	}
@@ -145,7 +200,7 @@ bool can_interfere(const Cfg& cfg, const Cfg& interferer, MemorySetup msetup) {
 
 	#if INTERFERENCE_OPTIMIZATION
 		if (msetup != MM) {
-			// if (can_skip(cfg)) return false;
+			if (can_skip_victim(cfg)) return false;
 			if (can_skip(interferer)) return false;
 		}
 	#endif
@@ -198,7 +253,7 @@ bool can_interfere(const Cfg& cfg, const Cfg& interferer, MemorySetup msetup) {
 	}
 
 	// 5. global sin must match
-	for (std::size_t i = 5; i < cfg.shape->offset_locals(interferer_tid); i++)
+	for (std::size_t i = 0; i < cfg.shape->offset_locals(interferer_tid); i++)
 		if (cfg.sin[i] != interferer.sin[i])
 			return false;
 
@@ -219,9 +274,9 @@ bool can_interfere(const Cfg& cfg, const Cfg& interferer, MemorySetup msetup) {
 
 /******************************** EXTENSION ********************************/
 
-AgeRel mk_trans_rel(const AgeMatrix& ages, std::size_t row, std::size_t via, std::size_t col) {
-	AgeRel row_via = ages.at(row, via);
-	AgeRel via_col = ages.at(via, col);
+AgeRel mk_trans_rel(const AgeMatrix& ages, std::size_t row, bool row_next, std::size_t via, bool via_next, std::size_t col, bool col_next) {
+	AgeRel row_via = ages.at(row, row_next, via, via_next);
+	AgeRel via_col = ages.at(via, via_next, col, col_next);
 	switch (row_via) {
 		case AgeRel::LT:
 			switch (via_col) {
@@ -249,7 +304,7 @@ AgeRel mk_trans_rel(const AgeMatrix& ages, std::size_t row, std::size_t via, std
 	}
 }
 
-inline bool is_reachable(const Shape& shape, std::size_t cid) {
+bool is_reachable(const Shape& shape, std::size_t cid) {
 	// this is only used for MM
 	for (std::size_t i = shape.offset_vars(); i < shape.offset_locals(1); i++)
 		if (haveCommon(shape.at(i, cid), EQ_MT_GT))
@@ -278,16 +333,15 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 		}
 	}
 	for (std::size_t i : {3, 4}) {
-		if (((dst.shape->at(i, dst.shape->index_UNDEF()) != MT_) == (interferer.shape->at(i, interferer.shape->index_UNDEF()) != MT_))) {
-			for (std::size_t j = 0; j < end; j++)
+		bool is_global = is_observed_global(dst, i) || is_observed_global(interferer, i);
+		if (is_global) {
+			for (std::size_t j = 0; j < end; j++) {
 				shape->set(i, j, intersection(dst.shape->at(i, j), interferer.shape->at(i, j)));
+			}
 		} else {
-			if (dst.shape->at(i, dst.shape->index_UNDEF()) != MT_)
-				for (std::size_t j = 0; j < end; j++)
-					shape->set(i, j, dst.shape->at(i, j));
-			else
-				for (std::size_t j = 0; j < end; j++)
-					shape->set(i, j, interferer.shape->at(i, j));
+			for (std::size_t j = 0; j < end; j++) {
+				shape->set(i, j, setunion(dst.shape->at(i, j), interferer.shape->at(i, j)));
+			}
 		}
 	}
 
@@ -335,19 +389,19 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 				case PRF:
 					is_row_owned = dst.own.is_owned(src_row);
 					is_col_owned = interferer.own.is_owned(src_col);
-					is_row_owned &= !is_reachable(*dst.shape, src_row);
-					is_col_owned &= !is_reachable(*interferer.shape, src_col);
-					#if INTERFERENCE_OPTIMIZATION
-						// TODO: still needed?
-						if (interferer.pc[0]->clazz() != Statement::ATOMIC) {
-							// is_row_owned = false;
-							// is_col_owned = false;
-							if (dst.shape->test(src_row, dst.shape->index_FREE(), MT)) {
-								is_row_owned = false;
-								is_col_owned = false;
-							}
-						}
-					#endif
+					// is_row_owned &= !is_reachable(*dst.shape, src_row);
+					// is_col_owned &= !is_reachable(*interferer.shape, src_col);
+					// #if INTERFERENCE_OPTIMIZATION
+					//	// TODO: still needed?
+					//	if (interferer.pc[0]->clazz() != Statement::ATOMIC) {
+					//		// is_row_owned = false;
+					//		// is_col_owned = false;
+					//		if (dst.shape->test(src_row, dst.shape->index_FREE(), MT)) {
+					//			is_row_owned = false;
+					//			is_col_owned = false;
+					//		}
+					//	}
+					// #endif
 			}
 			
 			if (is_row_owned && is_col_owned)
@@ -408,7 +462,9 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 			std::size_t src_row = interferer.shape->offset_locals(interferer_tid) + j;
 			std::size_t dst_row = dst.shape->size() + j;
 			
-			res.ages->set(dst_row, dst_col, interferer.ages->at(src_row, src_col));
+			for (bool br : {false, true})
+				for (bool bc : {false, true})
+					res.ages->set(dst_row, br, dst_col, bc, interferer.ages->at(src_row, br, src_col, bc));
 		}
 
 		// add specials/non-locals/MM-tid0-locals ~ extended.locals
@@ -416,7 +472,9 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 			std::size_t src_row = j;
 			std::size_t dst_row = j;
 
-			res.ages->set(dst_row, dst_col, interferer.ages->at(src_row, src_col));
+			for (bool br : {false, true})
+				for (bool bc : {false, true})
+					res.ages->set(dst_row, br, dst_col, bc, interferer.ages->at(src_row, br, src_col, bc));
 		}
 	}
 	for (std::size_t i = 0; i < interferer.shape->sizeLocals(); i++) {
@@ -426,29 +484,33 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 		for (std::size_t j = dst.shape->offset_locals(interferer_tid); j < dst.shape->size(); j++) { // TODO: j = ... is wrong
 			std::size_t dst_row = j;
 
-			// derive transitive relations via global/MM-tid1-local variables
-			AgeRel transitive = AgeRel::BOT;
-			for (std::size_t t = 0; t < res.shape->offset_locals(interferer_tid); t++) {
-				auto trans = mk_trans_rel(*res.ages, dst_row, t, dst_col);
-				if (trans != AgeRel::BOT) {
-					transitive = trans;
-					break;
+			for (bool br : {false, true})
+				for (bool bc : {false, true}) {
+					// derive transitive relations via global/MM-tid1-local variables
+					AgeRel transitive = AgeRel::BOT;
+					for (std::size_t t = 0; t < res.shape->offset_locals(interferer_tid); t++) 
+						for (bool bt : {false, true}) {
+							auto trans = mk_trans_rel(*res.ages, dst_row, br, t, bt, dst_col, bc);
+							if (trans != AgeRel::BOT) {
+								transitive = trans;
+								break;
+							}
+							// if (trans == AgeRel::BOT) continue;
+							// if (transitive == AgeRel::BOT)
+							//	transitive = trans;
+							// else if (trans != transitive) {
+							//	std::cout << "BAD TRANSITIVITY" << std::endl;
+							//	std::cout << "row-t-col: " << dst_row << "-" << t << "-" << dst_col << std::endl;
+							//	std::cout << transitive << " vs. " << trans << std::endl << std::endl;
+							//	std::cout << "do ages match? -> " << do_ages_match(dst, interferer, msetup) << std::endl;
+							//	std::cout << "c1: " << dst << *dst.shape << *dst.ages;
+							//	std::cout << "c2: " << interferer << *interferer.shape << *interferer.ages;
+							//	std::cout << "ex: " << res << *res.shape << *res.ages;
+							//	throw std::runtime_error("Inconsistent AgeMatrix leading to bad transitivity during Interference");
+							// }
+						}
+					res.ages->set(dst_row, br, dst_col, bc, transitive);
 				}
-				// if (trans == AgeRel::BOT) continue;
-				// if (transitive == AgeRel::BOT)
-				//	transitive = trans;
-				// else if (trans != transitive) {
-				//	std::cout << "BAD TRANSITIVITY" << std::endl;
-				//	std::cout << "row-t-col: " << dst_row << "-" << t << "-" << dst_col << std::endl;
-				//	std::cout << transitive << " vs. " << trans << std::endl << std::endl;
-				//	std::cout << "do ages match? -> " << do_ages_match(dst, interferer, msetup) << std::endl;
-				//	std::cout << "c1: " << dst << *dst.shape << *dst.ages;
-				//	std::cout << "c2: " << interferer << *interferer.shape << *interferer.ages;
-				//	std::cout << "ex: " << res << *res.shape << *res.ages;
-				//	throw std::runtime_error("Inconsistent AgeMatrix leading to bad transitivity during Interference");
-				// }
-			}
-			res.ages->set(dst_row, dst_col, transitive);
 		}
 	}
 
@@ -469,9 +531,8 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 	for (std::size_t i = 0; i < dst.shape->sizeLocals(); i++) {
 		res.own.set_ownership(dst.shape->size() + i, interferer.own.is_owned(dst.shape->offset_locals(0) + i));
 		res.sin[dst.shape->size() + i] = interferer.sin[dst.shape->offset_locals(0) + i];
+		res.invalid[dst.shape->size() + i] = interferer.invalid[dst.shape->offset_locals(0) + i];
 	}
-	res.sin[3] = dst.sin[3] || interferer.sin[3];
-	res.sin[4] = dst.sin[4] || interferer.sin[4];
 
 	// 8. extend oracle
 	res.oracle[extended_tid] = interferer.oracle[interferer_tid];
@@ -482,13 +543,14 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 
 /******************************** PROJECTION ********************************/
 
-void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
+static inline void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
 	assert(extended_thread_tid == 1 || extended_thread_tid == 2);
 
 	// reset ownership to dummy value
 	for (std::size_t i = cfg.shape->offset_locals(extended_thread_tid); i < cfg.shape->size(); i++) {
 		cfg.own.publish(i);
-		cfg.sin[i] = false;
+		cfg.sin[i] = true; // TODO: true
+		cfg.invalid[i] = true;
 	}
 
 	// remove extended thread from cfg
@@ -520,7 +582,6 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2, MemorySetup m
 
 	const Cfg& tmp = *extended;
 	assert(tmp.shape != NULL);
-	assert(tmp.shape->size() == tmp.ages->size());
 
 	// do one post step for the extended thread
 	assert(tmp.pc[extended_thread_tid] != NULL);
@@ -528,53 +589,203 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2, MemorySetup m
 	std::vector<Cfg> postcfgs = tmr::post(tmp, extended_thread_tid, msetup);
 	
 	// the resulting cfgs need to be projected to 1/2 threads, then push them to result vector
-	for (Cfg& pcfg : postcfgs)
+	// std::cout << std::endl << std::endl << "interference: " << tmp << *tmp.shape;
+	for (Cfg& pcfg : postcfgs) {
 		project_away(pcfg, extended_thread_tid);
+		// std::cout << "result " << pcfg << *pcfg.shape;
+	}
 
-	return std::move(postcfgs);
+	return postcfgs;
 }
 
 
 /******************************** INTERFERENCE FOR ALL THREADS ********************************/
 
+#if REPLACE_INTERFERENCE_WITH_SUMMARY
+	static inline std::vector<OValue> get_possible_ovaluess(const Cfg& cfg, const Observer& observer, const Function& fun) {
+		assert(fun.has_input() ^ fun.has_output());
+		std::vector<OValue> result;
+		if (fun.has_input()) {
+			for (std::size_t i = 0; i < observer.numVars(); i++)
+				if (!cfg.seen[i])
+					result.push_back(observer.mk_var(i));
+			result.push_back(OValue::Anonymous());
+		} else {
+			result.push_back(OValue());
+		}
+		return result;
+	}
+
+	static inline bool is_var_eq_null_ite(const Ite& ite) {
+		if (ite.cond().type() == Condition::EQNEQ) {
+			auto& cond = static_cast<const EqNeqCondition&>(ite.cond());
+			if (cond.rhs().clazz() == Expr::NIL && cond.lhs().clazz() == Expr::VAR)
+				if (static_cast<const VarExpr&>(cond.lhs()).decl().local())
+					return true;
+		}
+		return false;
+	}
+
+	static bool can_skip_summary(const Cfg& cfg) {
+		#define SKIP {INTERFERENCE_SKIPPED++; return true;}
+		#define NO_SKIP {return false;}
+
+		if (!cfg.pc[0])
+			SKIP;
+
+		const Statement& stmt = *cfg.pc[0];
+		
+		if (is_noop(stmt))
+			SKIP;
+
+		#define SKIP_IF_OWNED(E) {if(cfg.own.is_owned(mk_var_index(*cfg.shape, E, 0)))SKIP;}
+
+		switch (stmt.clazz()) {
+
+			case Statement::SETNULL:
+				SKIP_IF_OWNED(static_cast<const NullAssignment&>(stmt).lhs());
+				break;
+
+			case Statement::INPUT:
+				SKIP_IF_OWNED(static_cast<const ReadInputAssignment&>(stmt).expr());
+				break;
+
+			case Statement::FREE:
+				SKIP;
+				break;
+
+			case Statement::ITE:
+				if (is_var_eq_null_ite(static_cast<const Ite&>(stmt)))
+					SKIP;
+				break;
+
+			default:
+				break;
+		}
+
+		NO_SKIP;
+	}
+#endif
+
+void tmr::mk_summary(RemainingWork& work, const Cfg& cfg, const Program& prog, MemorySetup msetup) {
+	#if !REPLACE_INTERFERENCE_WITH_SUMMARY
+		throw std::logic_error("Cannot apply summaries in interferecne-mode.");
+	#else
+		assert(msetup == PRF);
+
+		#if SKIP_SUMMARY_OPTIMIZATION
+			if (can_skip_summary(cfg))
+				return;
+		#endif
+
+		Cfg tmp = cfg.copy();
+		tmp.shape->extend();
+		tmp.ages->extend(tmp.shape->sizeLocals());
+		auto tmp_seen = tmp.seen;
+
+		// remove local bindings that may be present in the shape (for whatever reason)
+		for (std::size_t i = tmp.shape->offset_locals(1); i < tmp.shape->size(); i++) {
+			for (std::size_t t = 0; t < tmp.shape->size(); t++) {
+				tmp.shape->set(i, t, BT);
+				for (bool bi : {false, true})
+					for (bool bt : {false, true})
+						tmp.ages->set(i, bi, t, bt, AgeRel::BOT);
+			}
+			tmp.shape->set(i, i, EQ);
+			tmp.ages->set_real(i, i, AgeRel::EQ);
+			tmp.ages->set_next(i, i, AgeRel::EQ);
+			tmp.shape->set(i, tmp.shape->index_UNDEF(), MT);
+		}
+
+		// execute summaries
+		for (std::size_t i = 0; i < prog.size(); i++) {
+			auto& fun = prog.at(i);
+			auto& sum = fun.summary();
+			std::vector<OValue> ovals = get_possible_ovaluess(cfg, cfg.state.observer(), fun);
+
+			for (OValue ov : ovals) {
+				tmp.pc[1] = &sum;
+				tmp.inout[1] = ov;
+				tmp.seen = tmp_seen;
+				if (ov.type() == OValue::OBSERVABLE)
+					tmp.seen[ov.id()] = true;
+
+				INTERFERENCE_STEPS++;
+				auto postcfgs = tmr::post(tmp, 1, msetup);
+				for (auto& c : postcfgs) project_away(c, 1);
+				work.add(std::move(postcfgs));
+			}
+		}
+
+	#endif
+}
+
+static inline const Program& getprog(const Encoding::__sub__store__& region) {
+	for (const auto& cfg : region) {
+		if (cfg.pc[0]) return cfg.pc[0]->function().prog();
+	}
+	throw std::runtime_error("Bucket does not contain any Program pointer :(");
+}
+
 void mk_regional_interference(RemainingWork& work, Encoding::__sub__store__& region, MemorySetup msetup, std::size_t& counter) {
 	// begin = first cfg
 	// end = post last cfg
 
-	// std::size_t old_size;
-	// do {
-		// old_size = region.size();
+	#if REPLACE_INTERFERENCE_WITH_SUMMARY
+		auto& prog = getprog(region);
+	#endif
+
+	std::size_t old_size;
+	do {
+		old_size = region.size();
 		for (auto it1 = region.begin(); it1 != region.end(); it1++) {
 			const Cfg& c1 = *it1;
-			if (c1.pc[0] == NULL) continue;
-			if (msetup == MM && c1.pc[1] == NULL) continue;
+			// if (c1.pc[0] == NULL) continue;
 
-			for (auto it2 = it1; it2 != region.end(); it2++) {
-				const Cfg& c2 = *it2;
-				if (c2.pc[0] == NULL) continue;
-				if (msetup == MM && c2.pc[1] == NULL) continue;			
+			#if REPLACE_INTERFERENCE_WITH_SUMMARY
 
-				if (can_interfere(c1, c2, msetup)) {
-					work.add(mk_one_interference(c1, c2, msetup));
-					counter++;
+				auto worker_size = work.size();
+				mk_summary(work, c1, prog, msetup);
+				counter += work.size() - worker_size;
+
+			#else
+				
+				if (c1.pc[0] == NULL) continue;
+				if (msetup == MM && c1.pc[1] == NULL) continue;
+
+				for (auto it2 = it1; it2 != region.end(); it2++) {
+					const Cfg& c2 = *it2;
+					if (c2.pc[0] == NULL) continue;
+					if (msetup == MM && c2.pc[1] == NULL) continue;			
+
+					if (can_interfere(c1, c2, msetup)) {
+						work.add(mk_one_interference(c1, c2, msetup));
+						counter++;
+					}
+					if (can_interfere(c2, c1, msetup)) {
+						work.add(mk_one_interference(c2, c1, msetup));
+						counter++;
+					}
 				}
-				if (can_interfere(c2, c1, msetup)) {
-					work.add(mk_one_interference(c2, c1, msetup));
-					counter++;
-				}
-			}
+
+			#endif
 		}
-	// } while (old_size < region.size());
+	} while
+	#if REPLACE_INTERFERENCE_WITH_SUMMARY
+		(false);
+	#else
+		(old_size < region.size());
+	#endif
 }
 
-void tmr::mk_all_interference(Encoding& enc, RemainingWork& work, MemorySetup msetup) {
-	std::cerr << "interference...   ";
-	std::size_t counter = 0;
+void tmr::mk_all_interference(Encoding& enc, RemainingWork& work, MemorySetup msetup) {	
+		std::cerr << "interference...   ";
+		std::size_t counter = 0;
 
-	for (auto& kvp : enc) {
-		std::cerr << "[" << kvp.second.size() << "-" << enc.size()/1000 << "k]";
-		mk_regional_interference(work, kvp.second, msetup, counter);
-	}
+		for (auto& kvp : enc) {
+			std::cerr << "[" << kvp.second.size() << "-" << enc.size()/1000 << "k]";
+			mk_regional_interference(work, kvp.second, msetup, counter);
+		}
 
-	std::cerr << " done! [enc.size()=" << enc.size() << ", matches=" << counter << "]" << std::endl;
+		std::cerr << " done! [enc.size()=" << enc.size() << ", matches=" << counter << "]" << std::endl;
 }

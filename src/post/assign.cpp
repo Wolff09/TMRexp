@@ -74,33 +74,43 @@ Cfg tmr::post_assignment_pointer(const Cfg& cfg, const Expr& lhs, const Expr& rh
 #define NON_LOCAL(x) !(x >= cfg.shape->offset_locals(tid) && x < cfg.shape->offset_locals(tid) + cfg.shape->sizeLocals())
 ; // this one is actually very useful: it fixes my syntax highlighting :)
 
+static inline bool is_globally_reachable(const Shape& shape, std::size_t var) {
+	for (auto i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
+		if (haveCommon(shape.at(i, var), EQ_MT_GT)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+
 Cfg tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const MemorySetup msetup, const Statement* stmt) {
-	if (msetup == PRF && NON_LOCAL(lhs) && (cfg.sin[rhs] || is_invalid(*cfg.shape, rhs))) raise_eprf(cfg, rhs, "Bad assignment: spoiling non-local variable");
+	if (msetup == PRF && NON_LOCAL(lhs) && (cfg.sin[rhs] || is_invalid(cfg, rhs))) raise_eprf(cfg, rhs, "Bad assignment: spoiling non-local variable");
 	if (msetup == PRF && cfg.sin[rhs]) raise_eprf(cfg, rhs, "Bad assignment: accessing strongly invalid pointer");
 	Shape* shape = post_assignment_pointer_shape_var_var(*cfg.shape, lhs, rhs, msetup, stmt);
 	Cfg res = mk_next_config(cfg, shape, tid);
 	set_age_equal(res, lhs, rhs);
 	res.own.set_ownership(lhs, res.own.is_owned(rhs));
-	// account for possible publishing of right-hand side
-	if (res.own.is_owned(lhs) != res.own.is_owned(rhs)) {
-		auto eqRhs = get_related(*shape, rhs, EQ);
-		bool ownership = res.own.is_owned(rhs);
-		for (auto i : eqRhs) res.own.set_ownership(i, ownership);
-	}
+	// TODO: this could publish rhs
 	res.sin[lhs] = res.sin[rhs];
-	return std::move(res);
+	res.invalid[lhs] = is_invalid(cfg, rhs) || res.sin[rhs];
+	return res;
 }
 
 Cfg tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const MemorySetup msetup, const Statement* stmt) {
-	if (msetup == PRF && NON_LOCAL(lhs) && (cfg.sin[rhs] || is_invalid(*cfg.shape, rhs))) raise_eprf(cfg, rhs, "Bad assignment: spoiling non-local variable");
+	if (msetup == PRF && NON_LOCAL(lhs) && (cfg.sin[rhs] || is_invalid(cfg, rhs))) raise_eprf(cfg, rhs, "Bad assignment: spoiling non-local variable");
 	if (msetup == PRF && cfg.sin[rhs]) raise_eprf(cfg, rhs, "Bad assignment: accessing strongly invalid pointer");
 	Shape* shape = post_assignment_pointer_shape_var_next(*cfg.shape, lhs, rhs, msetup, stmt);
 	Cfg res = mk_next_config(cfg, shape, tid);
 	// res.ages->set(lhs, rhs, AgeRel::BOT);
 	// set_age_equal(res, lhs, 0);
-	for (std::size_t i = 0; i < cfg.shape->size(); i++)
-		res.ages->set(lhs, i, AgeRel::BOT);
-	res.ages->set(lhs, lhs, AgeRel::EQ);
+	for (std::size_t i = 0; i < cfg.shape->size(); i++) {
+		res.ages->set_real(lhs, i, cfg.ages->at_next(rhs, i));
+		res.ages->set_next(lhs, i, AgeRel::BOT);
+	}
+	res.ages->set_real(lhs, lhs, AgeRel::EQ);
+	res.ages->set_next(lhs, lhs, AgeRel::EQ);
+	res.ages->set(lhs, false, rhs, true, AgeRel::EQ);
 	res.own.publish(lhs); // overapproximation
 	// check ownership of lhs
 	// bool owned = true;
@@ -113,13 +123,15 @@ Cfg tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs,
 	//	}
 	// }
 	// res.own.set_ownership(lhs, owned);
-	res.sin[lhs] = res.sin[rhs] || is_invalid(*cfg.shape, rhs);
-	return std::move(res);
+	res.sin[lhs] = res.sin[rhs] || is_invalid(cfg, rhs);
+	res.invalid[lhs] = res.sin[rhs] || is_invalid(cfg, rhs);
+	return res;
 }
 
 Cfg tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const MemorySetup msetup, const Statement* stmt) {
-	if (msetup == PRF && NON_LOCAL(lhs) && (cfg.sin[lhs] || is_invalid(*cfg.shape, lhs))) raise_eprf(cfg, lhs, "Bad assignment: spoiling non-local variable.");
-	// if (cfg.sin[lhs] || is_invalid(*cfg.shape, lhs)) raise_eprf(cfg, lhs, "Bad assignment: write to (strongly) invalid next field."); // TODO: removal okay?
+	if (msetup == PRF && NON_LOCAL(lhs) && (cfg.sin[rhs] || is_invalid(cfg, rhs))) raise_eprf(cfg, lhs, "Bad assignment: spoiling non-local variable.");
+	if (msetup == PRF && is_globally_reachable(*cfg.shape, lhs) && (cfg.sin[rhs] || is_invalid(cfg, rhs))) raise_eprf(cfg, lhs, "Bad assignment: spoiling globally reachable next field.");
+	// if (cfg.sin[lhs] || is_invalid(cfg, lhs)) raise_eprf(cfg, lhs, "Bad assignment: write to (strongly) invalid next field."); // TODO: removal okay?
 	if (msetup == PRF && cfg.sin[lhs]) raise_eprf(cfg, rhs, "Bad assignment: accessing strongly invalid pointer");
 	Shape* shape = post_assignment_pointer_shape_next_var(*cfg.shape, lhs, rhs, msetup, stmt);
 	Cfg res = mk_next_config(cfg, shape, tid);
@@ -127,7 +139,7 @@ Cfg tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std::size_t lhs,
 	// if we make rhs reachable from lhs, we may publish it depending on the ownership of lhs
 	if (res.own.is_owned(rhs) && !res.own.is_owned(lhs))
 		res.own.publish(rhs);
-	return std::move(res);
+	return res;
 }
 
 Cfg tmr::post_assignment_pointer_next_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const MemorySetup msetup, const Statement* stmt) {
@@ -264,11 +276,13 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const NullAssignment& stmt, unsigned 
 		shape = post_assignment_pointer_shape_var_var(input, lhs, rhs, msetup);
 	} else {
 		assert(le.clazz() == Expr::SEL);
-		if (msetup == PRF && (is_invalid(*cfg.shape, lhs) || cfg.sin[lhs])) raise_eprf(cfg, lhs, "Bad assignment: write to (strongly) invalid next field.");
+		if (msetup == PRF && (is_invalid(cfg, lhs) || cfg.sin[lhs])) raise_eprf(cfg, lhs, "Bad assignment: write to (strongly) invalid next field.");
 		shape = post_assignment_pointer_shape_next_var(input, lhs, rhs, msetup, &stmt);
 	}
 
 	std::vector<Cfg> result;
 	result.push_back(mk_next_config(cfg, shape, tid));
+	if (le.clazz() == Expr::VAR) result.back().invalid[lhs] = false;
+	if (le.clazz() == Expr::VAR) result.back().sin[lhs] = false;
 	return result;
 }

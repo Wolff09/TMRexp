@@ -76,9 +76,12 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Killer& stmt, unsigned short ti
 	result.push_back(mk_next_config(cfg, shape, tid));
 	Cfg& back = result.back();
 
-	for (std::size_t i = 0; i < shape->size(); i++)
-		back.ages->set(var_index, i, AgeRel::BOT);
-	back.ages->set(var_index, var_index, AgeRel::EQ);
+	for (std::size_t i = 0; i < shape->size(); i++) {
+		back.ages->set_real(var_index, i, AgeRel::BOT);
+		back.ages->set_next(var_index, i, AgeRel::BOT);
+	}
+	back.ages->set_real(var_index, var_index, AgeRel::EQ);
+	back.ages->set_next(var_index, var_index, AgeRel::EQ);
 
 	for (std::size_t i = 0; i < back.shape->sizeLocals(); i++) {
 		back.own.own(back.shape->offset_locals(tid) + i);

@@ -5,6 +5,8 @@
 #include <vector>
 #include "make_unique.hpp"
 #include "prog.hpp"
+#include "config.hpp"
+
 
 namespace tmr {
 
@@ -116,6 +118,48 @@ namespace tmr {
 			Kill("top")
 		)));
 
+		#if REPLACE_INTERFERENCE_WITH_SUMMARY
+			// atmoic {
+			// 	aux = malloc();
+			// 	aux.data = __in__;
+			// 	aux.next = TopOfStack;
+			// 	TopOfStack = aux;
+			// 	*** push(TopOfStack.data) ***
+			// }
+			auto pushsum = AtomicSqz(
+					Mllc("node"),
+					Read("node"),
+					Assign(Next("node"), Var("TopOfStack")),
+					CAS(Var("TopOfStack"), Var("TopOfStack"), Var("node"), LinP(), use_age_fields)
+					// Assign(Var("TopOfStack"), Var("node")),
+					// LinP()
+			);
+
+			// atomic {
+			//	if (TopOfStack == NULL) {
+			//		*** pop(empty) ***
+			//	} else {
+			//	 	aux = TopOfStack;
+			//	 	TopOfStack = aux.next;
+			//	 	__out__ = aux.data;
+			//	 	*** pop(aux) ***
+			//	 	free(aux);
+			//	}
+			// }
+			auto popsum = AtomicSqz(IfThenElse(
+				EqCond(Var("TopOfStack"), Null()),
+				Sqz(LinP()),
+				Sqz(
+					Assign(Var("top"), Var("TopOfStack")),
+					Assign(Var("node"), Next("TopOfStack")),
+					// Assign(Var("TopOfStack"), Next("top")),
+					// LinP("top"),
+					CAS(Var("TopOfStack"), Var("TopOfStack"), Var("node"), LinP("top"), use_age_fields),
+					Write("top"),
+					Fr("top")
+				)
+			));
+		#endif
 
 		std::string name = "TreibersStack";
 
@@ -124,8 +168,13 @@ namespace tmr {
 			{"TopOfStack"},
 			{"node", "top"},
 			std::move(init),
-			Fun("push", true, std::move(pushbody)),
-			Fun("pop", false, std::move(popbody))
+			#if REPLACE_INTERFERENCE_WITH_SUMMARY
+				Fun("push", true, std::move(pushbody), std::move(pushsum)),
+				Fun("pop", false, std::move(popbody), std::move(popsum))
+			#else
+				Fun("push", true, std::move(pushbody)),
+				Fun("pop", false, std::move(popbody))
+			#endif
 		);
 	}
 
