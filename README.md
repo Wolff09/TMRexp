@@ -31,9 +31,9 @@ Since this is work in progress we do not have a paper on the theoretical foundat
 An elevator pitch, however, can be found in [4].
 
 
-[1] M. Herlihy and N. Shavit. The art of multiprocessor programming. Morgan Kaufmann, 2008.
-[2] P. A. Abdulla, F. Haziza, L. Holík, B. Jonsson, and A. Rezine. An integrated specification and verification technique for highly concurrent data structures. In N. Piterman and S. A. Smolka, editors, Tools and Algorithms for the Construction and Analysis of Systems - 19th International Conference, TACAS 2013, Held as Part of the European Joint Conferences on Theory and Practice of Software, ETAPS 2013, Rome, Italy, March 16- 24, 2013. Proceedings, volume 7795 of Lecture Notes in Computer Science, pages 324–338. Springer, 2013.
-[3] F. Haziza, L. Holík, R. Meyer, and S. Wolff. Pointer race freedom. In VMCAI, volume 9583 of Lecture Notes in Computer Science, pages 393–412. Springer, 2016.
+[1] M. Herlihy and N. Shavit. The art of multiprocessor programming. Morgan Kaufmann, 2008.  
+[2] P. A. Abdulla, F. Haziza, L. Holík, B. Jonsson, and A. Rezine. An integrated specification and verification technique for highly concurrent data structures. In N. Piterman and S. A. Smolka, editors, Tools and Algorithms for the Construction and Analysis of Systems - 19th International Conference, TACAS 2013, Held as Part of the European Joint Conferences on Theory and Practice of Software, ETAPS 2013, Rome, Italy, March 16- 24, 2013. Proceedings, volume 7795 of Lecture Notes in Computer Science, pages 324–338. Springer, 2013.  
+[3] F. Haziza, L. Holík, R. Meyer, and S. Wolff. Pointer race freedom. In VMCAI, volume 9583 of Lecture Notes in Computer Science, pages 393–412. Springer, 2016.  
 [4] S. Wolff. Thread Summaries for Lock-Free Data Structures. In Proceedings of the 28th Nordic Workshop on Programming Theory (NWPT'16), 2016.
 
 
