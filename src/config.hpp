@@ -8,7 +8,7 @@
 #define SUMMARY_OPTIMIZATION true
 
 // interference configuration
-#define SKIP_NOOPS true
+#define SKIP_NOOPS true // ad hoc
 #define KILL_IS_NOOP true
 #define INTERFERENCE_OPTIMIZATION true // ad hoc
 
