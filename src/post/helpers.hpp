@@ -9,46 +9,6 @@
 
 namespace tmr {
 
-	static inline void ensure_prf(const Shape& shape, std::size_t var, const Statement* stmt=NULL) {
-		// // var is an index which is accessed by an selector or by free
-		// // check whether var points (can point) to free
-		// if (shape.test(var, shape.index_FREE(), MT)) {
-		//	std::cout << std::endl << "*****************************" << std::endl;
-		//	std::cout << "Strong Pointer Race detected!" << std::endl << std::endl;
-		//	std::cout << "while accessing cell term " << var << std::endl;
-		//	if (stmt != NULL) std::cout << "in statement " << *stmt << std::endl;
-		//	std::cout << "Shape:" << std::endl << shape << std::endl;
-		  	
-		//	Shape* iso = isolate_partial_concretisation(shape, var, shape.index_FREE(), MT_);
-		//	std::cout << "Partial concretisation for shape[" << var << "][FREE]=MT is:" << std::endl;
-		//	if (iso == NULL) std::cout << "not valid => false-positive pointer race" << std::endl;
-		//	else std::cout << *iso << std::endl;
-
-		//	throw std::runtime_error("Strong Pointer Race detected while accessing cell term with id=" + std::to_string(var) + ".");
-		// }
-	}
-
-	/*static inline bool is_invalid(const Shape& shape, std::size_t var) {
-		return shape.test(var, shape.index_FREE(), MT);
-	}*/
-
-	static inline bool is_invalid(const Cfg& cfg, std::size_t var) {
-		return cfg.invalid[var] || cfg.sin[var];
-	}
-
-	static inline void raise_eprf(const Cfg& cfg, std::size_t var, std::string msg) {
-		std::cout << "*******************************" << std::endl;
-		std::cout << "Effective Pointer Race detected" << std::endl;
-		std::cout << msg << std::endl;
-		std::cout << "for cell-id: " << var << std::endl;
-		std::cout << "in: " << cfg << *cfg.shape << *cfg.ages << std::endl;
-		throw std::runtime_error("Effective Pointer Race detected");
-	}
-
-	static inline void ensure_prf(const Shape& shape, std::size_t var, const Statement& stmt) {
-		ensure_prf(shape, var, &stmt);
-	}
-
 	static inline void check_ptr_access(const Shape& shape, std::size_t var, const Statement* stmt=NULL) {
 		if (shape.test(var, shape.index_NULL(), EQ)) {
 			std::cout << std::endl << "*******************" << std::endl;
@@ -85,8 +45,6 @@ namespace tmr {
 		}
 	}
 
-	#define CHECK_PRF(x) if (msetup == PRF) ensure_prf(input, x);
-	#define CHECK_PRF_ws(x, stmt) if (msetup == PRF) ensure_prf(input, x, stmt);
 	#define CHECK_ACCESS(x) check_ptr_access(input, x);
 	#define CHECK_ACCESS_ws(x, stmt) check_ptr_access(input, x, stmt);
 	#define CHECK_NO_REACH(x, y) check_no_reachability(input, x, y);

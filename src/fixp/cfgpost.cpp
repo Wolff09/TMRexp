@@ -44,18 +44,12 @@ bool are_locals_undef(const Shape& shape, const unsigned short tid) {
 
 void set_locals_undef(Cfg& cfg, const unsigned short tid) {
 	Shape& shape = *cfg.shape;
-	AgeMatrix& ages = *cfg.ages;
 
 	for (std::size_t i = shape.offset_locals(tid); i < shape.offset_locals(tid) + shape.sizeLocals(); i++) {
 		for (std::size_t t = 0; t < shape.size(); t++) {
 			shape.set(i, t, BT);
-			for (bool bi : {false, true})
-				for (bool bt : {false, true})
-					ages.set(i, bi, t, bt, AgeRel::BOT);
 		}
 		shape.set(i, i, EQ);
-		ages.set_real(i, i, AgeRel::EQ);
-		ages.set_next(i, i, AgeRel::EQ);
 		shape.set(i, shape.index_UNDEF(), MT);
 	}
 }
@@ -80,12 +74,12 @@ std::vector<OValue> get_possible_ovaluess(const Cfg& cfg, const Observer& observ
 
 /******************************** POST FOR ONE THREAD ********************************/
 
-void mk_tid_post(std::vector<Cfg>& result, const Cfg& cfg, unsigned short tid, const Program& prog, MemorySetup msetup) {
+void mk_tid_post(std::vector<Cfg>& result, const Cfg& cfg, unsigned short tid, const Program& prog) {
 	const Cfg& outer = cfg; // TODO: get rid of this
 	if (cfg.pc[tid] != NULL) {
 		// compute post relative to the statement cfg.pc[tid]
 		// std::cout << std::endl << std::endl << "post for: " << cfg << *cfg.shape;
-		std::vector<Cfg> postcfgs = tmr::post(cfg, tid, msetup);
+		std::vector<Cfg> postcfgs = tmr::post(cfg, tid);
 		result.reserve(result.size() + postcfgs.size());
 		for (Cfg& cfg : postcfgs) {
 			assert(cfg.shape != NULL);
@@ -99,7 +93,6 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& cfg, unsigned short tid, c
 						throw std::runtime_error("Return value is missing or was read from a potentially free cell.");
 				// if the currently called function just returned, all local variables of the executing thread
 				// are now out of scope -> set them to UNDEF (don't free them as they are pointers)
-				// also removes the local ages
 				set_locals_undef(cfg, tid);
 				// the must have been input or output
 				assert(cfg.inout[tid].type() != OValue::DUMMY);
@@ -108,14 +101,11 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& cfg, unsigned short tid, c
 				// reset ownership (undefined cells are owned by definition)
 				for (std::size_t i = 0; i < cfg.shape->sizeLocals(); i++) {
 					cfg.own.own(cfg.shape->offset_locals(tid) + i);
-					cfg.sin[cfg.shape->offset_locals(tid) + i] = false;
 				}
 				// reset oracle
 				cfg.oracle[tid] = false;
 			}
 			// move cfg to result
-			assert(consistent(*cfg.shape));
-			// std::cout << "result " << cfg << *cfg.shape;
 			result.push_back(std::move(cfg));
 		}
 	} else {
@@ -146,15 +136,8 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& cfg, unsigned short tid, c
 
 /******************************** POST FOR ALL THREADS ********************************/
 
-std::vector<Cfg> tmr::mk_all_post(const Cfg& cfg, const Program& prog, MemorySetup msetup) {
+std::vector<Cfg> tmr::mk_all_post(const Cfg& cfg, const Program& prog) {
 	std::vector<Cfg> result;
-
-	/*   thread 0   */
-	mk_tid_post(result, cfg, 0, prog, msetup);
-
-	/*   thread 1   */
-	if (msetup == MM)
-		mk_tid_post(result, cfg, 1, prog, msetup);
-
+	mk_tid_post(result, cfg, 0, prog);
 	return result;
 }

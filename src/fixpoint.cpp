@@ -11,24 +11,22 @@ using namespace tmr;
 
 /******************************** INITIAL CFG ********************************/
 
-Cfg mk_init_cfg(const Program& prog, const Observer& obs, MemorySetup msetup) {
-	std::size_t numThreads = msetup == MM ? 2 : 1;
+Cfg mk_init_cfg(const Program& prog, const Observer& obs) {
+	std::size_t numThreads = 1;
+	MultiPc pc;
+	pc[0] = &prog.init();
+	pc[1] = NULL;
 	Cfg init(
-		{{ &prog.init(), NULL, NULL }},
+		pc,
 		obs.initial_state(),
 		new Shape(obs.numVars(), prog.numGlobals(), prog.numLocals(), numThreads),
-		new AgeMatrix(prog.numGlobals() + obs.numVars(), prog.numLocals(), numThreads),
 		MultiInOut()
 	);
 	while (init.pc[0] != NULL) {
-		std::vector<Cfg> postpc = tmr::post(init, 0, msetup);
+		std::vector<Cfg> postpc = tmr::post(init, 0);
 		assert(postpc.size() == 1);
 		init = std::move(postpc.front());
 	}
-	assert(init.pc[0] == NULL);
-	assert(init.pc[1] == NULL);
-	assert(init.pc[2] == NULL);
-	assert(init.shape);
 	return init;
 }
 
@@ -55,12 +53,11 @@ void RemainingWork::add(Cfg&& cfg) {
 
 /******************************** FIXED POINT ********************************/
 
-std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& obs, MemorySetup msetup) {
+std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& obs) {
 	std::unique_ptr<Encoding> enc = std::make_unique<Encoding>();
 
 	RemainingWork work(*enc);
-	work.add(mk_init_cfg(prog, obs, msetup));
-	assert(!work.done());
+	work.add(mk_init_cfg(prog, obs));
 
 
 	#if REPLACE_INTERFERENCE_WITH_SUMMARY && USE_MODIFIED_FIXEDPOINT
@@ -75,8 +72,8 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 		while (!work.done()) {
 			const Cfg& topmost = work.pop();
 
-			work.add(tmr::mk_all_post(topmost, prog, msetup));
-			mk_summary(work, topmost, prog, msetup);
+			work.add(tmr::mk_all_post(topmost, prog));
+			mk_summary(work, topmost, prog);
 
 			counter++;
 			if (counter%1000 == 0) std::cerr << "[" << counter/1000 << "k-" << enc->size()/1000 << "k-" << work.size()/1000 << "k]";
@@ -93,14 +90,14 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 			while (!work.done()) {
 				const Cfg& topost = work.pop();
 				SEQUENTIAL_STEPS++;
-				work.add(tmr::mk_all_post(topost, prog, msetup));
+				work.add(tmr::mk_all_post(topost, prog));
 				
 				counter++;
 				if (counter%10000 == 0) std::cerr << "[" << counter/1000 << "k-" << enc->size()/1000 << "k]";
 			}
 			std::cerr << " done! [enc.size()=" << enc->size() << ", iterations=" << counter << "]" << std::endl;
 
-			tmr::mk_all_interference(*enc, work, msetup);
+			tmr::mk_all_interference(*enc, work);
 		}
 
 	#endif

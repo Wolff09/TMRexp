@@ -10,14 +10,14 @@
 using namespace tmr;
 
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const Assignment& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const Assignment& stmt, unsigned short tid) {
 	CHECK_STMT;
 
 	const Expr& lhs = stmt.lhs();
 	const Expr& rhs = stmt.rhs();
 
-	Cfg res = stmt.lhs().type() == DATA ? post_assignment_data(   cfg, lhs, rhs, tid, msetup, &stmt)
-	                                    : post_assignment_pointer(cfg, lhs, rhs, tid, msetup, &stmt);
+	Cfg res = stmt.lhs().type() == DATA ? post_assignment_data(   cfg, lhs, rhs, tid, &stmt)
+	                                    : post_assignment_pointer(cfg, lhs, rhs, tid, &stmt);
 
 	if (stmt.fires_lp()) {
 		// evaluate the condition, branch if needed, then fire
@@ -27,7 +27,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Assignment& stmt, unsigned shor
 		assert(res.pc[tid] == &stmt.lp());
 
 		// do a post for the linearization point
-		return tmr::post(res, stmt.lp(), tid, msetup);
+		return tmr::post(res, stmt.lp(), tid);
 	} else {
 		// nothing to fire => nothing to do
 		std::vector<Cfg> result;
@@ -39,8 +39,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Assignment& stmt, unsigned shor
 
 /******************************** DATA: LHS.DATA = RHS.DATA ********************************/
 
-Cfg tmr::post_assignment_data(const Cfg& cfg, const Expr& lhs, const Expr& rhs, unsigned short tid, MemorySetup msetup, const Statement* stmt) {
-	assert(false);
+Cfg tmr::post_assignment_data(const Cfg& cfg, const Expr& lhs, const Expr& rhs, unsigned short tid, const Statement* stmt) {
 	throw std::logic_error("Malicious call to tmr::post_assignment_data()");
 }
 
@@ -48,7 +47,7 @@ Cfg tmr::post_assignment_data(const Cfg& cfg, const Expr& lhs, const Expr& rhs, 
 /******************************** POINTER ********************************/
 
 
-Cfg tmr::post_assignment_pointer(const Cfg& cfg, const Expr& lhs, const Expr& rhs, unsigned short tid, MemorySetup msetup, const Statement* stmt) {
+Cfg tmr::post_assignment_pointer(const Cfg& cfg, const Expr& lhs, const Expr& rhs, unsigned short tid, const Statement* stmt) {
 	assert(lhs.type() == POINTER && rhs.type() == POINTER);
 	const Shape& input = *cfg.shape;
 	
@@ -62,10 +61,10 @@ Cfg tmr::post_assignment_pointer(const Cfg& cfg, const Expr& lhs, const Expr& rh
 	auto index_rhs = mk_var_index(input, rhs, tid);
 
 	// delegate calls
-	if (!sel_lhs) if (!sel_rhs) return post_assignment_pointer_var_var(  cfg, index_lhs, index_rhs, tid, msetup, stmt);
-	              else          return post_assignment_pointer_var_next( cfg, index_lhs, index_rhs, tid, msetup, stmt);
-	else          if (!sel_rhs) return post_assignment_pointer_next_var( cfg, index_lhs, index_rhs, tid, msetup, stmt);
-	              else          return post_assignment_pointer_next_next(cfg, index_lhs, index_rhs, tid, msetup, stmt);
+	if (!sel_lhs) if (!sel_rhs) return post_assignment_pointer_var_var(  cfg, index_lhs, index_rhs, tid, stmt);
+	              else          return post_assignment_pointer_var_next( cfg, index_lhs, index_rhs, tid, stmt);
+	else          if (!sel_rhs) return post_assignment_pointer_next_var( cfg, index_lhs, index_rhs, tid, stmt);
+	              else          return post_assignment_pointer_next_next(cfg, index_lhs, index_rhs, tid, stmt);
 }
 
 
@@ -84,73 +83,38 @@ static inline bool is_globally_reachable(const Shape& shape, std::size_t var) {
 }
 
 
-Cfg tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const MemorySetup msetup, const Statement* stmt) {
-	if (msetup == PRF && NON_LOCAL(lhs) && (cfg.sin[rhs] || is_invalid(cfg, rhs))) raise_eprf(cfg, rhs, "Bad assignment: spoiling non-local variable");
-	if (msetup == PRF && cfg.sin[rhs]) raise_eprf(cfg, rhs, "Bad assignment: accessing strongly invalid pointer");
-	Shape* shape = post_assignment_pointer_shape_var_var(*cfg.shape, lhs, rhs, msetup, stmt);
+Cfg tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
+	Shape* shape = post_assignment_pointer_shape_var_var(*cfg.shape, lhs, rhs, stmt);
 	Cfg res = mk_next_config(cfg, shape, tid);
-	set_age_equal(res, lhs, rhs);
+	// TODO: what to do?
+	// res.own.publish(lhs); // overapproximation
 	res.own.set_ownership(lhs, res.own.is_owned(rhs));
-	// TODO: this could publish rhs
-	res.sin[lhs] = res.sin[rhs];
-	res.invalid[lhs] = is_invalid(cfg, rhs) || res.sin[rhs];
 	return res;
 }
 
-Cfg tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const MemorySetup msetup, const Statement* stmt) {
-	if (msetup == PRF && NON_LOCAL(lhs) && (cfg.sin[rhs] || is_invalid(cfg, rhs))) raise_eprf(cfg, rhs, "Bad assignment: spoiling non-local variable");
-	if (msetup == PRF && cfg.sin[rhs]) raise_eprf(cfg, rhs, "Bad assignment: accessing strongly invalid pointer");
-	Shape* shape = post_assignment_pointer_shape_var_next(*cfg.shape, lhs, rhs, msetup, stmt);
+Cfg tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
+	Shape* shape = post_assignment_pointer_shape_var_next(*cfg.shape, lhs, rhs, stmt);
 	Cfg res = mk_next_config(cfg, shape, tid);
-	// res.ages->set(lhs, rhs, AgeRel::BOT);
-	// set_age_equal(res, lhs, 0);
-	for (std::size_t i = 0; i < cfg.shape->size(); i++) {
-		res.ages->set_real(lhs, i, cfg.ages->at_next(rhs, i));
-		res.ages->set_next(lhs, i, AgeRel::BOT);
-	}
-	res.ages->set_real(lhs, lhs, AgeRel::EQ);
-	res.ages->set_next(lhs, lhs, AgeRel::EQ);
-	res.ages->set(lhs, false, rhs, true, AgeRel::EQ);
 	res.own.publish(lhs); // overapproximation
-	// check ownership of lhs
-	// bool owned = true;
-	// for (std::size_t i = 3; i < shape->size(); i++) {
-	//	if (i == lhs) continue;
-	//	if (i >= shape->offset_locals(tid) && i < shape->offset_locals(tid) + shape->sizeLocals()) continue;
-	//	if (haveCommon(shape->at(i, lhs), EQ_MT_GT) && !res.own.is_owned(i)) {
-	//		owned = false;
-	//		break;
-	//	}
-	// }
-	// res.own.set_ownership(lhs, owned);
-	res.sin[lhs] = res.sin[rhs] || is_invalid(cfg, rhs);
-	res.invalid[lhs] = res.sin[rhs] || is_invalid(cfg, rhs);
 	return res;
 }
 
-Cfg tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const MemorySetup msetup, const Statement* stmt) {
-	if (msetup == PRF && NON_LOCAL(lhs) && (cfg.sin[rhs] || is_invalid(cfg, rhs))) raise_eprf(cfg, lhs, "Bad assignment: spoiling non-local variable.");
-	if (msetup == PRF && is_globally_reachable(*cfg.shape, lhs) && (cfg.sin[rhs] || is_invalid(cfg, rhs))) raise_eprf(cfg, lhs, "Bad assignment: spoiling globally reachable next field.");
-	// if (cfg.sin[lhs] || is_invalid(cfg, lhs)) raise_eprf(cfg, lhs, "Bad assignment: write to (strongly) invalid next field."); // TODO: removal okay?
-	if (msetup == PRF && cfg.sin[lhs]) raise_eprf(cfg, rhs, "Bad assignment: accessing strongly invalid pointer");
-	Shape* shape = post_assignment_pointer_shape_next_var(*cfg.shape, lhs, rhs, msetup, stmt);
+Cfg tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
+	Shape* shape = post_assignment_pointer_shape_next_var(*cfg.shape, lhs, rhs, stmt);
 	Cfg res = mk_next_config(cfg, shape, tid);
-	// no age update since we are setting the next field and are not touching the pointer/cell itself
-	// if we make rhs reachable from lhs, we may publish it depending on the ownership of lhs
 	if (res.own.is_owned(rhs) && !res.own.is_owned(lhs))
 		res.own.publish(rhs);
 	return res;
 }
 
-Cfg tmr::post_assignment_pointer_next_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const MemorySetup msetup, const Statement* stmt) {
-	assert(false);
+Cfg tmr::post_assignment_pointer_next_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	throw std::logic_error("Malicious call to tmr::post_assignment_pointer_next_next()");
 }
 
 
 /******************************** LHS = RHS ********************************/
 
-Shape* tmr::post_assignment_pointer_shape_var_var(const Shape& input, const std::size_t lhs, const std::size_t rhs, const MemorySetup msetup, const Statement* stmt) {
+Shape* tmr::post_assignment_pointer_shape_var_var(const Shape& input, const std::size_t lhs, const std::size_t rhs, const Statement* stmt) {
 	/*  0  */	Shape* shape = new Shape(input);
 	         	if (lhs == rhs) return shape;
 	/*  1  */	shape->set(lhs, rhs, singleton(EQ));
@@ -163,12 +127,10 @@ Shape* tmr::post_assignment_pointer_shape_var_var(const Shape& input, const std:
 
 /******************************** LHS = RHS.next ********************************/
 
-Shape* tmr::post_assignment_pointer_shape_var_next(const Shape& input, const std::size_t lhs, const std::size_t rhs, const MemorySetup msetup, const Statement* stmt) {
-	CHECK_PRF_ws(rhs, stmt);
+Shape* tmr::post_assignment_pointer_shape_var_next(const Shape& input, const std::size_t lhs, const std::size_t rhs, const Statement* stmt) {
 	CHECK_ACCESS_ws(rhs, stmt);
 
 	Shape* result = new Shape(input);
-	assert(consistent(*result));
 
 	result->set(lhs, result->index_NULL(), EQ_MT_GT_BT);
 	result->set(lhs, result->index_FREE(), /*EQ_*/MT_GT_BT);
@@ -193,16 +155,13 @@ Shape* tmr::post_assignment_pointer_shape_var_next(const Shape& input, const std
 	} while (needs_iterating);
 
 	assert(result->at(rhs, lhs) == MT_);
-	assert(consistent(*result));
-	assert(is_closed_under_reflexivity_and_transitivity(*result));
 	return result;
 }
 
 
 /******************************** LHS.next = RHS ********************************/
 
-Shape* tmr::post_assignment_pointer_shape_next_var(const Shape& input, const std::size_t lhs, const std::size_t rhs, const MemorySetup msetup, const Statement* stmt) {
-	CHECK_PRF_ws(lhs, stmt);
+Shape* tmr::post_assignment_pointer_shape_next_var(const Shape& input, const std::size_t lhs, const std::size_t rhs, const Statement* stmt) {
 	CHECK_ACCESS_ws(lhs, stmt);
 
 	// TODO: if lhs↦rhs is definite knowledge, then nothing to do, i.e. noop?
@@ -210,7 +169,6 @@ Shape* tmr::post_assignment_pointer_shape_next_var(const Shape& input, const std
 	/*  1  */	std::vector<Shape*> shapes = disambiguate(input, lhs);
 	for (Shape* shape : shapes) {
 		         	check_no_reachability(*shape, rhs, lhs, &input, stmt);
-		         	// bool is_free = msetup == MM && shape->test(lhs, shape->index_FREE(), MT);
 		/* 2+3 */	remove_successors(*shape, lhs); // TODO: why not before split?
 		/*  4  */	// lhs↦rhs done by u=lhs and v=rhs in step 5
 		/*  5  */	assert(shape->at(lhs, rhs) == BT_);
@@ -244,15 +202,6 @@ Shape* tmr::post_assignment_pointer_shape_next_var(const Shape& input, const std
 		         				}
 		         	}
 		         	assert(shape->at(lhs, rhs) == MT_);
-		         	// if (is_free) {
-		         	//	const std::vector<std::size_t> free_index_vec = { shape->index_FREE() };
-		         	//	auto eqVar = get_related(*shape, lhs, EQ_);
-		         	//	auto preVar = get_related(*shape, lhs, MF_GF);
-		         	//	extend_all(*shape, eqVar, free_index_vec, MT);
-		         	//	extend_all(*shape, preVar, free_index_vec, GT);
-		         	// }
-		/* fin */	assert(is_closed_under_reflexivity_and_transitivity(*shape));
-		         	assert(consistent(*shape));
 	}
 	/* fin */	return merge(shapes);
 }
@@ -260,11 +209,8 @@ Shape* tmr::post_assignment_pointer_shape_next_var(const Shape& input, const std
 
 /******************************** LHS.next = RHS.next ********************************/
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const NullAssignment& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const NullAssignment& stmt, unsigned short tid) {
 	CHECK_STMT;
-
-	// TODO: what about ages?
-	// TODO: what about sins?
 
 	const Expr& le = stmt.lhs();
 	const Shape& input = *cfg.shape;
@@ -273,16 +219,13 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const NullAssignment& stmt, unsigned 
 
 	Shape* shape;
 	if (le.clazz() == Expr::VAR) {
-		shape = post_assignment_pointer_shape_var_var(input, lhs, rhs, msetup);
+		shape = post_assignment_pointer_shape_var_var(input, lhs, rhs);
 	} else {
 		assert(le.clazz() == Expr::SEL);
-		if (msetup == PRF && (is_invalid(cfg, lhs) || cfg.sin[lhs])) raise_eprf(cfg, lhs, "Bad assignment: write to (strongly) invalid next field.");
-		shape = post_assignment_pointer_shape_next_var(input, lhs, rhs, msetup, &stmt);
+		shape = post_assignment_pointer_shape_next_var(input, lhs, rhs, &stmt);
 	}
 
 	std::vector<Cfg> result;
 	result.push_back(mk_next_config(cfg, shape, tid));
-	if (le.clazz() == Expr::VAR) result.back().invalid[lhs] = false;
-	if (le.clazz() == Expr::VAR) result.back().sin[lhs] = false;
 	return result;
 }

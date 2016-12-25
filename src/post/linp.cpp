@@ -32,14 +32,14 @@ static inline void fire_lp(Cfg& cfg, const Function& evt, unsigned short tid) {
 		if (!is_observed_behind_and_not_free(cfg, tid)) {
 			std::cout << std::endl << "*********************************" << std::endl;
 			std::cout << "Specification violation detected!" << std::endl << std::endl;
-			std::cout << cfg << *cfg.shape << *cfg.ages << std::endl;
+			std::cout << cfg << *cfg.shape << std::endl;
 			throw std::runtime_error("Specification violation detected! Observer reached final state: " + cfg.state.find_final().name());
 		}
 	}
 }
 
 
-std::vector<Cfg> post_lp_input(const Cfg& cfg, const LinearizationPoint& stmt, Shape* emitter_shape, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> post_lp_input(const Cfg& cfg, const LinearizationPoint& stmt, Shape* emitter_shape, unsigned short tid) {
 	// std::cout << " -- linp __in__" << std::endl;
 	std::vector<Cfg> result;
 	result.push_back(mk_next_config(cfg, emitter_shape, tid));
@@ -47,7 +47,7 @@ std::vector<Cfg> post_lp_input(const Cfg& cfg, const LinearizationPoint& stmt, S
 	return result;
 }
 
-std::vector<Cfg> post_lp_output(const Cfg& cfg, const LinearizationPoint& stmt, Shape* emitter_shape, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> post_lp_output(const Cfg& cfg, const LinearizationPoint& stmt, Shape* emitter_shape, unsigned short tid) {
 	// std::cout << " -- linp __out__" << std::endl;
 	std::vector<Cfg> result;
 
@@ -89,23 +89,10 @@ std::pair<Shape*, Shape*> get_emitter_and_silent_shape(const Cfg& cfg, const Con
 
 std::pair<Shape*, Shape*> get_emitter_and_silent_shape(const Cfg& cfg, const EqNeqCondition& cond, Shape* emitter, Shape* silent, unsigned short tid) {
 	if (emitter == NULL) return { NULL, silent };
-	auto result = eval_eqneq(cfg, *emitter, cond.lhs(), cond.rhs(), cond.is_inverted(), tid, false, false); // TODO: do linearization condition really don't trigger pointer races?
+	auto result = eval_eqneq(cfg, *emitter, cond.lhs(), cond.rhs(), cond.is_inverted(), tid);
 	delete emitter;
 	result.second = merge_shapes(result.second, silent);
 	return result;
-}
-
-std::pair<Shape*, Shape*> get_emitter_and_silent_shape(const Cfg& cfg, const EqPtrAgeCondition& cond, Shape* emitter, Shape* silent, unsigned short tid) {
-	if (emitter == NULL) return { NULL, silent };
-	const EqNeqCondition& eqc = cond.cond();
-	auto lhs = mk_var_index(*cfg.shape, eqc.lhs(), tid);
-	auto rhs = mk_var_index(*cfg.shape, eqc.rhs(), tid);
-	bool lhs_next = eqc.lhs().clazz() == Expr::SEL;
-	bool rhs_next = eqc.rhs().clazz() == Expr::SEL;
-	if (cfg.ages->at(lhs, lhs_next, rhs, rhs_next) != AgeRel::EQ)
-		return { NULL, merge_shapes(emitter, silent) };
-	else
-		return get_emitter_and_silent_shape(cfg, eqc, emitter, silent, tid);
 }
 
 std::pair<Shape*, Shape*> get_emitter_and_silent_shape(const Cfg& cfg, const OracleCondition& cond, Shape* emitter, Shape* silent, unsigned short tid) {
@@ -130,9 +117,6 @@ std::pair<Shape*, Shape*> get_emitter_and_silent_shape(const Cfg& cfg, const Con
 		case Condition::ORACLEC:
 			return get_emitter_and_silent_shape(cfg, static_cast<const OracleCondition&>(cond), emitter, silent, tid);
 
-		case Condition::WAGE:
-			return get_emitter_and_silent_shape(cfg, static_cast<const EqPtrAgeCondition&>(cond), emitter, silent, tid);
-
 		default:
 			throw std::logic_error("Unsupported condition type for linearization point.");
 	}
@@ -145,7 +129,7 @@ std::pair<Shape*, Shape*> get_emitter_and_silent_shape(const Cfg& cfg, const Lin
 	return get_emitter_and_silent_shape(cfg, stmt.cond(), new Shape(*cfg.shape), NULL, tid);
 }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const LinearizationPoint& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const LinearizationPoint& stmt, unsigned short tid) {
 	CHECK_STMT;
 
 	/* For input functions, we must ensure that we emit an event with the input value __in__,
@@ -164,8 +148,8 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const LinearizationPoint& stmt, unsig
 	// delegate the work for emitting an parametrized event
 	if (emitter_shape != NULL) {
 		assert(stmt.event().has_input() ^ stmt.event().has_output());	
-		if (stmt.event().has_input()) result = post_lp_input(cfg, stmt, emitter_shape, tid, msetup);
-		else result = post_lp_output(cfg, stmt, emitter_shape, tid, msetup);
+		if (stmt.event().has_input()) result = post_lp_input(cfg, stmt, emitter_shape, tid);
+		else result = post_lp_output(cfg, stmt, emitter_shape, tid);
 	}
 
 	// do nothing for the silent shape

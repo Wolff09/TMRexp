@@ -47,35 +47,10 @@ namespace tmr {
 	}
 
 	/**
-	 * @brief Checks whether there are some relations ~,~' with ~∈rel_X_Y and ~∈rel_Y_Z such that the relation rel_X_Z is consistent.
-	 *        (Implements the consistent(x,y,z,~^1,~^2~^3) predicate.)
-	 */
-	// bool consistent(Rel rel_X_Z, RelSet rel_X_Y, RelSet rel_Y_Z);
-
-	/**
 	 * @brief Checks whether the passed relation relating x and z is consistent.
 	 *        (Implements the consistent(x,z,~) predicate.)
 	 */
 	bool consistent(const Shape& shape, std::size_t x, std::size_t z, Rel rel);
-
-	/**
-	 * @brief Checks whether the given shape is consistent.
-	 * @details A full consistency check is rather expensive and is present for testing purpose only.
-	 *          It runs in O(N^3) with N=shape.size().
-	 *          Hence, this function is marked as deprecated.
-	 */
-	[[deprecated]]
-	bool consistent(const Shape& shape);
-
-
-	/**
-	 * @brief Checks whether the passed shape contains all predicates that may follow from reflexivity and transitivity.
-	 * @details This check is rather expensive and is present for testing purpose only.
-	 *          It runs in O(N^3) with N=shape.size().
-	 *          Hence, this function is marked as deprecated.
-	 */
-	[[deprecated]]
-	bool is_closed_under_reflexivity_and_transitivity(const Shape& shape, bool weak=false);
 
 	/**
 	 * @brief Gives either a consistent shape where the cell determined by ``row`` and ``col``
@@ -124,10 +99,5 @@ namespace tmr {
 	 *        Removes all predicates that rely on the removed relations.
 	 */
 	void remove_successors(Shape& shape, std::size_t x);
-
-	/**
-	 * @brief Sets dst.age to src.age.
-	 */
-	void set_age_equal(Cfg& cfg, std::size_t dst, std::size_t src);
 
 }

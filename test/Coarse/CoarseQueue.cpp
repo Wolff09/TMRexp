@@ -22,7 +22,6 @@ const Function& find(const Program& prog, std::string name) {
 int main(int argc, char *argv[]) {
 	// default setup
 	bool use_mega_malloc = false;
-	MemorySetup msetup = PRF;
 
 	enum Expectation { SUCCESS, FAILURE, UNKNOWN };
 	Expectation expec = UNKNOWN;
@@ -30,10 +29,7 @@ int main(int argc, char *argv[]) {
 	// read setup from command line
 	for (int i = 1; i < argc; i++) {
 		std::string cla = argv[i];
-		if (cla == "--PRF") msetup = PRF;
-		else if (cla == "--GC") msetup = GC;
-		else if (cla == "--MM") msetup = MM;
-		else if (cla == "--init") use_mega_malloc = true;
+		if (cla == "--init") use_mega_malloc = true;
 		else if (cla == "--malloc") use_mega_malloc = false;
 		else if (cla == "--fail") expec = FAILURE;
 		else if (cla == "--success") expec = SUCCESS;
@@ -41,17 +37,11 @@ int main(int argc, char *argv[]) {
 			if (cla != "--help" && cla != "help") std::cout << "unrecognized command line argument: " << cla << std::endl;
 			std::cout << std::endl << "Usage: ";
 			std::cout << argv[0];
-			std::cout << " [--PRF]";
-			std::cout << " [--GC]";
-			std::cout << " [--MM]";
 			std::cout << " [--malloc/--init]";
 			std::cout << " [--fail/--success]";
 			std::cout << std::endl << std::endl;
 			std::cout << "default: --PRF --malloc";
 			std::cout << std::endl << std::endl;
-			std::cout << "--PRF       => select Pointer Race Free semantics" << std::endl;
-			std::cout << "--GC        => select Garbage Collection semantics" << std::endl;
-			std::cout << "--MM        => select Memory Managed semantics" << std::endl;
 			std::cout << "--init      => malloc (atomically) populates the allocated cells data and next fields" << std::endl;
 			std::cout << "--malloc    => use regular malloc (requests memory without initialising data and next fields)" << std::endl;
 			std::cout << "--fail      => emits return code 0 iff. the program is proven incorrect (for whatever reason)" << std::endl;
@@ -67,13 +57,12 @@ int main(int argc, char *argv[]) {
 	
 	// print setup
 	std::cout << std::endl << *program << std::endl;
-	std::cout << "Memory Semantics: " << msetup << std::endl;
 	std::cout << "Malloc vs. Init : " << (use_mega_malloc ? "atomic init" : "malloc") << std::endl;
 	std::cout << std::endl;
 
 	// execute conformance check
 	auto t_start = std::chrono::high_resolution_clock::now();
-	CCResult result = check_conformance(*program, *observer, msetup);
+	CCResult result = check_conformance(*program, *observer);
 	auto t_end = std::chrono::high_resolution_clock::now();
 	std::string answer = result.conformance ?  "  CORRECT" : "INCORRECT";
 

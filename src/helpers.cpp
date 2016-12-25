@@ -111,80 +111,8 @@ bool tmr::consistent(const Shape& shape, std::size_t x, std::size_t z, Rel rel) 
 	return true;
 }
 
-bool tmr::consistent(const Shape& shape) {
-	assert(check_special_relations_constraints(shape));
-	for (std::size_t x = 0; x < shape.size(); x++)
-		if (shape.at(x, x) != EQ_)
-			return false;
-		else
-			for (std::size_t z = x; z < shape.size(); z++)
-				for (Rel rel : shape.at(x, z))
-					if (!consistent(shape, x, z, rel))
-						return false;
-	return true;
-}
-
-
-/******************************** RELEXIVITY/TRANSITIVITY ********************************/
-
-RelSet get_transitives(RelSet xy, RelSet yz) {
-	RelSet result;
-	if (xy.test(EQ)) result |= yz;
-	if (yz.test(EQ)) result |= xy;
-	if (xy.test(MT) && yz.test(MT)) result.set(GT);
-	if (xy.test(MT) && yz.test(GT)) result.set(GT);
-	if (xy.test(GT) && yz.test(MT)) result.set(GT);
-	if (xy.test(GT) && yz.test(GT)) result.set(GT);
-	if (xy.test(MF) && yz.test(MF)) result.set(GF);
-	if (xy.test(MF) && yz.test(GF)) result.set(GF);
-	if (xy.test(GF) && yz.test(MF)) result.set(GF);
-	if (xy.test(GF) && yz.test(GF)) result.set(GF);
-	return result;
-}
-
-bool tmr::is_closed_under_reflexivity_and_transitivity(const Shape& input, bool weak) {
-	return true;
-	Shape shape(input);
-	bool updated;
-	do {
-		updated = false;
-		for (std:: size_t x = 0; x < shape.size(); x++) {
-			for (std:: size_t y = 0; y < shape.size(); y++) {
-				for (std:: size_t z = 0; z < shape.size(); z++) {
-					// if (x == z || x == y || y == z) continue;
-					auto tc = get_transitives(shape.at(x, y), shape.at(y, z));
-					auto su = setunion(shape.at(x, z), tc);
-					updated |= (shape.at(x, z) != su);
-					shape.set(x, z, su);
-				}
-			}
-		}
-	} while (updated);
-	for (std:: size_t i = 0; i < shape.size(); i++)
-		for (std:: size_t j = i+1; j < shape.size(); j++)
-			if (shape.at(i, j) != input.at(i, j)) {
-				// std::cout<<"No Closure@("<<i<<","<<j<<"). "<<input.at(i,j)<<" versus "<<shape.at(i,j)<<" for input "<<std::endl<<input<<"versus"<<std::endl<<shape<<std::endl;
-				if (weak)
-					if (shape.test(i, i, GT) || shape.test(j, j, GT))
-						// selfloop => transitivity got confused (non-trivial constraints not present in shape)
-						return subset(input.at(i, j), shape.at(i, j));
-				return false;
-			}
-	return true;
-}
-
 
 /******************************** DISAMBIGUATION ********************************/
-
-[[deprecated]]
-bool is_concretisation(const Shape& con, const Shape& abs) {
-	for (std::size_t i = 0; i < con.size(); i++)
-		for (std::size_t j = 0; j < con.size(); j++)
-			if (!subset(con.at(i, j), abs.at(i, j)) || con.at(i, j).none())
-				return false;
-	return true;
-}
-
 
 bool mk_concretisation(Shape& shape) {
 	bool changed;
@@ -204,8 +132,6 @@ bool mk_concretisation(Shape& shape) {
 			}
 		}
 	} while (changed);
-	assert(consistent(shape));
-	assert(is_closed_under_reflexivity_and_transitivity(shape));
 	return true;
 }
 
@@ -216,7 +142,6 @@ Shape* tmr::isolate_partial_concretisation(const Shape& toSplit, const std::size
 	RelSet new_cell = intersection(toSplit.at(row, col), match);
 	
 	if (new_cell.none()) return NULL;
-	assert(new_cell.any());
 
 	Shape* result = new Shape(toSplit);
 	result->set(row, col, new_cell);
@@ -225,8 +150,6 @@ Shape* tmr::isolate_partial_concretisation(const Shape& toSplit, const std::size
 		delete result;
 		return NULL;
 	}
-	assert(result->at(row, col).any());
-	assert((result->at(row, col) & new_cell).any());
 	return result;
 }
 
@@ -257,8 +180,6 @@ struct shape_ptr_comparator {
 };
 
 std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t row) {
-	assert(consistent(toSplit));
-	
 	std::vector<Shape*> result;
 	std::stack<std::pair<std::size_t, Shape*>> work;
 	work.push(std::make_pair(0, new Shape(toSplit)));
@@ -270,18 +191,13 @@ std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t ro
 			// the shape is fully split up, so do one concretisation step
 			bool success = mk_concretisation(*shape);
 			if (success) {
-				assert(consistent(*shape));
-				assert(is_concretisation(*shape, toSplit));
-				assert(is_closed_under_reflexivity_and_transitivity(*shape));
 				result.push_back(shape);
 			} else {
-				assert(!is_concretisation(*shape, toSplit));
 				delete shape;
 			}
 			work.pop();
 		} else if (col == row) {
 			// disambiguate reflexivity
-			assert(shape->at(col, row) == EQ_);
 			work.top().first++;
 		} else if (!needsSplitting(shape->at(row, col))) {
 			// the cell (row, col) doesn't need disambiguation, so advance to next cell
@@ -294,18 +210,14 @@ std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t ro
 
 			if (shape->at(row, col).none()) {
 				// we ran into an dead end, the shape will never be a concretization
-				assert(!is_concretisation(*shape, toSplit));
 				shape->set(row, col, BT_); // TODO: can this become a consistent concretization ????
-				assert(!is_concretisation(*shape, toSplit) || !consistent(*shape, row, col, BT));
 				delete shape;
 				work.pop();
 				continue;
 			}
 
 			// now split if necessary
-			assert(is_concretisation(*shape, toSplit));
 			work.top().first++;
-			assert(work.top().first == col + 1);
 			if (needsSplitting(shape->at(row, col))) {
 				// split cell
 				std::vector<RelSet> cellsplit = split_cell(shape->at(row, col));
@@ -379,7 +291,6 @@ void tmr::extend_all(Shape& shape, const std::vector<std::size_t>& vec1, const s
 /******************************** REMOVE SUCCESSORS ********************************/
 
 void tmr::remove_successors(Shape& shape, const std::size_t x) {
-	assert(consistent(shape));
 	auto suc_x = get_related(shape, x, MT_GT);
 	auto pre_x = get_related(shape, x, EQ_MF_GF);
 	for (const auto u : suc_x)
@@ -389,21 +300,4 @@ void tmr::remove_successors(Shape& shape, const std::size_t x) {
 			assert(subset(shape.at(v, u), MT_GT));
 			shape.set(v, u, BT);
 		}
-	assert(consistent(shape));
-}
-
-
-/******************************** AGE FIELD UPDATE ********************************/
-
-void tmr::set_age_equal(Cfg& cfg, std::size_t dst, std::size_t src) {
-	cfg.ages->set_real(dst, src, AgeRel::EQ);
-	cfg.ages->set_next(dst, src, AgeRel::EQ);
-	for (std::size_t i = 0; i < cfg.ages->size(); i++) {
-		cfg.ages->set_real(dst, i, cfg.ages->at_real(src, i));
-		cfg.ages->set_next(dst, i, cfg.ages->at_next(src, i));
-	}
-	cfg.ages->set_real(dst, src, AgeRel::EQ);
-	cfg.ages->set_next(dst, src, AgeRel::EQ);
-	assert(cfg.ages->at_real(dst, src) == AgeRel::EQ);
-	assert(cfg.ages->at_next(dst, src) == AgeRel::EQ);
 }

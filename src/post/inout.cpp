@@ -20,11 +20,9 @@ void remove_observer_binding(Shape& shape, std::size_t obsct) {
 		shape.set(i, obsct, BT_);
 	shape.set(obsct, obsct, EQ_);
 	shape.set(obsct, shape.index_UNDEF(), MT_); // don't do this to distinguish between never seen and poped via the shape during interference
-	assert(consistent(shape));
-	assert(is_closed_under_reflexivity_and_transitivity(shape));
 }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsigned short tid) {
 	CHECK_STMT;
 
 	OValue in = cfg.inout[tid];
@@ -33,10 +31,6 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsi
 
 	const Shape& input = *cfg.shape;
 	std::size_t lhs = mk_var_index(input, stmt.expr(), tid);
-	// std::cout << " -- " << lhs << ".data = __in__; " << std::endl;
-
-	CHECK_PRF_ws(lhs, stmt);
-	if (msetup == PRF && (is_invalid(cfg, lhs) || cfg.sin[lhs])) raise_eprf(cfg, lhs, "Bad write to data field");
 
 	std::vector<Cfg> result;
 
@@ -89,9 +83,9 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsi
 
 			// TODO: the following should be "more correct" than the current setup, but it gives way more cfgs to explore
 			// Cfg tmp(cfg, shape);
-			// result.push_back(tmr::post_assignment_pointer_var_var(cfg, obs, lhs, tid, msetup, &stmt));
+			// result.push_back(tmr::post_assignment_pointer_var_var(cfg, obs, lhs, tid, &stmt));
 
-			Shape* res = tmr::post_assignment_pointer_shape_var_var(*shape, obs, lhs, msetup, &stmt);
+			Shape* res = tmr::post_assignment_pointer_shape_var_var(*shape, obs, lhs, &stmt);
 			result.push_back(mk_next_config(cfg, res, tid));
 			result.back().own.set_ownership(obs, result.back().own.is_owned(lhs));
 			delete shape;
@@ -111,43 +105,11 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsi
 
 /******************************** OUTPUT: __out__ = RHS.DATA ********************************/
 
-[[deprecated]]
-bool is_inout_correct(const Shape& shape, const WriteOutputAssignment& stmt, OValue inout, unsigned short tid) {
-	// std::cout << "Checking inout["<<tid<<"]=" << inout << " for shape" << std::endl << shape << std::endl;
-	auto var_index = mk_var_index(shape, stmt.expr(), tid);
-	if (inout.type() == OValue::ANONYMOUS) {
-		for (std::size_t i = 0; i < shape.sizeObservers(); i++)
-			if (shape.test(var_index, shape.index_ObserverVar(i), EQ)) {
-				// std::cout << "Should output: Anonymous; could output: Observed("<<i<<") (since: "<< shape.index_ObserverVar(i) << " = " << var_index << ")" << std::endl;
-				return false;
-			}
-	} else if (inout.type() == OValue::OBSERVABLE) {
-		if (shape.at(var_index, shape.index_ObserverVar(inout.id())) != EQ_) {
-			// std::cout << "Should output: Observed("<<inout.id()<<"); but no equality" << std::endl;
-			return false;
-		}
-		for (std::size_t i = 0; i < shape.sizeObservers(); i++)
-			if (i == inout.id()) continue;
-			else if (shape.test(var_index, shape.index_ObserverVar(i), EQ)) {
-				// std::cout << "Should output: Observed("<<inout.id()<<"); could output: Observed("<<i<<")" << std::endl;
-				return false;
-			}
-	}
-	return true;
-}
-
-std::vector<Cfg> tmr::post(const Cfg& cfg, const WriteOutputAssignment& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const WriteOutputAssignment& stmt, unsigned short tid) {
 	CHECK_STMT;
-
-	const Shape& input = *cfg.shape;
-	auto var_index = mk_var_index(input, stmt.expr(), tid);
-
-	if (msetup == PRF && cfg.sin[var_index]) raise_eprf(cfg, var_index, "Bad read of data field.");
-	CHECK_PRF_ws(var_index, stmt);
 
 	// do nothing... we have no explicit notion of data variables and returning
 	std::vector<Cfg> result;
 	result.push_back(mk_next_config(cfg, new Shape(*cfg.shape), tid));
-	if (is_invalid(cfg, var_index)) result.back().inout[tid] = OValue();
 	return result;
 }
