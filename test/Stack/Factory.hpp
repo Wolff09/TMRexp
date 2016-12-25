@@ -49,8 +49,7 @@ namespace tmr {
 			IfThen(
 				CasCond(CAS(Var("TopOfStack"), Var("top"), Var("node"), LinP(), use_age_fields)),
 				Sqz(Brk())
-			),
-			Kill("top")
+			)
 		));
 		std::unique_ptr<Sequence> pushbody;
 		if (mega_malloc) {
@@ -86,7 +85,6 @@ namespace tmr {
 		// }
 		std::unique_ptr<Sequence> popelseif = Sqz(
 			Write("top"),
-			Fr("top"),
 			Brk()
 		);
 		std::unique_ptr<Sequence> popelse;
@@ -103,8 +101,7 @@ namespace tmr {
 				IfThen(
 					CasCond(CAS(Var("TopOfStack"), Var("top"), Var("node"), LinP("top"), use_age_fields)),
 					std::move(popelseif)
-				),
-				Kill("node")
+				)
 			);
 		}
 		assert(popelse);
@@ -114,8 +111,7 @@ namespace tmr {
 				EqCond(Var("top"), Null()),
 				Sqz(Brk()),
 				std::move(popelse)
-			),
-			Kill("top")
+			)
 		)));
 
 		#if REPLACE_INTERFERENCE_WITH_SUMMARY
@@ -123,16 +119,13 @@ namespace tmr {
 			// 	aux = malloc();
 			// 	aux.data = __in__;
 			// 	aux.next = TopOfStack;
-			// 	TopOfStack = aux;
-			// 	*** push(TopOfStack.data) ***
+			// 	TopOfStack = aux *** push(__in__) ***;
 			// }
 			auto pushsum = AtomicSqz(
 					Mllc("node"),
 					Read("node"),
 					Assign(Next("node"), Var("TopOfStack")),
-					CAS(Var("TopOfStack"), Var("TopOfStack"), Var("node"), LinP(), use_age_fields)
-					// Assign(Var("TopOfStack"), Var("node")),
-					// LinP()
+					Assign(Var("TopOfStack"), Var("node"), LinP())
 			);
 
 			// atomic {
@@ -140,10 +133,7 @@ namespace tmr {
 			//		*** pop(empty) ***
 			//	} else {
 			//	 	aux = TopOfStack;
-			//	 	TopOfStack = aux.next;
-			//	 	__out__ = aux.data;
-			//	 	*** pop(aux) ***
-			//	 	free(aux);
+			//	 	TopOfStack = aux.next *** pop(aux) ***;
 			//	}
 			// }
 			auto popsum = AtomicSqz(IfThenElse(
@@ -151,12 +141,8 @@ namespace tmr {
 				Sqz(LinP()),
 				Sqz(
 					Assign(Var("top"), Var("TopOfStack")),
-					Assign(Var("node"), Next("TopOfStack")),
-					// Assign(Var("TopOfStack"), Next("top")),
-					// LinP("top"),
-					CAS(Var("TopOfStack"), Var("TopOfStack"), Var("node"), LinP("top"), use_age_fields),
-					Write("top"),
-					Fr("top")
+					Assign(Var("TopOfStack"), Next("top")),
+					LinP("top")
 				)
 			));
 		#endif

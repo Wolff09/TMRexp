@@ -8,8 +8,6 @@
 using namespace tmr;
 
 
-#define PRINT_ID true
-
 /******************************** CONSTRUCTION ********************************/
 
 static std::vector<std::unique_ptr<Variable>> mk_vars(bool global, std::vector<std::string> names) {
@@ -37,23 +35,10 @@ struct VariableComparator {
 
 static void enforce_static_properties(const Statement* stmtptr,
                                       std::map<std::reference_wrapper<const Variable>, std::reference_wrapper<const Expr>, VariableComparator> var2val,
-                                      std::set<std::reference_wrapper<const Variable>, VariableComparator> allocations,
-                                      std::set<std::reference_wrapper<const Variable>, VariableComparator> tobefreed,
-                                      std::size_t number_of_seen_cas) {
+                                      std::set<std::reference_wrapper<const Variable>, VariableComparator> allocations) {
 	// we enforce statically:
 	// (0) static single assignment form
-	// (1) at most one CAS path in summary
-	// (2) cells that are removed from the global state are freed
-	//     we do this as follows:
-	//         - using (0)
-	//         - content only removed when "out" linearisation point fired
-	//         - ensure that this is done in CAS equivalent to "p = p.next"
-	//         - ensure that old p is captured by some local pointer variable
-	//         - ensure that this local is freed
-	// (3) allocations are published
-	//     we do this as follows:
-	//         - using (0)
-	//         - ensuring that an allocation appears as src in some CAS
+	//      --> ensuring that an allocation appears as lhs in some assignment to definitely know public var/cell
 
 
 	auto ensure_not_assigned = [&] (const Variable& var) {
@@ -62,7 +47,6 @@ static void enforce_static_properties(const Statement* stmtptr,
 	};
 
 	if (stmtptr == NULL) {
-		if (tobefreed.size() != 0) throw std::logic_error("Bad summary: some cells need freeing.");
 		if (allocations.size() != 0) throw std::logic_error("Bad summary: some cells need publishing.");
 		return;
 	}
@@ -75,11 +59,11 @@ static void enforce_static_properties(const Statement* stmtptr,
 		auto condtype = ite.cond().type();
 		if (condtype == Condition::CASC || condtype == Condition::COMPOUND || condtype == Condition::ORACLEC)
 			throw std::logic_error("Bad summary: unsupported condition.");
-		if (ite.next_false_branch()) enforce_static_properties(ite.next_false_branch(), var2val, allocations, tobefreed, number_of_seen_cas);
-		if (ite.next_true_branch()) enforce_static_properties(ite.next_true_branch(), std::move(var2val), std::move(allocations), std::move(tobefreed), number_of_seen_cas);
+		if (ite.next_false_branch()) enforce_static_properties(ite.next_false_branch(), var2val, allocations);
+		if (ite.next_true_branch()) enforce_static_properties(ite.next_true_branch(), std::move(var2val), std::move(allocations));
 		return;
 	} else if (stmt.clazz() == Statement::ATOMIC) {
-		enforce_static_properties(&static_cast<const Atomic&>(stmt).sqz(), std::move(var2val), std::move(allocations), std::move(tobefreed), number_of_seen_cas);
+		enforce_static_properties(&static_cast<const Atomic&>(stmt).sqz(), std::move(var2val), std::move(allocations));
 		return;
 	} else if (stmt.clazz() == Statement::ASSIGN || stmt.clazz() == Statement::SETNULL) {
 		auto& lhsexpr = stmt.clazz() == Statement::ASSIGN ? static_cast<const Assignment&>(stmt).lhs() : static_cast<const NullAssignment&>(stmt).lhs();
@@ -90,93 +74,32 @@ static void enforce_static_properties(const Statement* stmtptr,
 			if (!var2val.insert({ var, rhsexpr }).second)
 				throw std::logic_error("Bad summary: malicious insertion to var2val.");
 		}
+		// check for published allocations
+		if (lhsexpr.clazz() == Expr::VAR || lhsexpr.clazz() == Expr::SEL) {
+			const Variable& lhs = lhsexpr.clazz() == Expr::VAR ? static_cast<const VarExpr&>(lhsexpr).decl() : static_cast<const Selector&>(lhsexpr).decl();
+			if (lhs.global()) {
+				if (rhsexpr.clazz() == Expr::VAR || rhsexpr.clazz() == Expr::SEL) {
+					const Variable& rhs = rhsexpr.clazz() == Expr::VAR ? static_cast<const VarExpr&>(rhsexpr).decl() : static_cast<const Selector&>(rhsexpr).decl();
+					allocations.erase(rhs);
+				}
+			}
+		}
 	} else if (stmt.clazz() == Statement::MALLOC) {
 		if (!allocations.insert(static_cast<const Malloc&>(stmt).decl()).second)
 			throw std::logic_error("Bad summary: malicious insertion to allocations.");
 	} else if (stmt.clazz() == Statement::FREE) {
-		const Variable& trg = static_cast<const Malloc&>(stmt).decl();
-		tobefreed.erase(trg);
-		// TODO: remove aliases from tobefreed
+		throw std::logic_error("Bad summary: free statement not supported.");
 	} else if (stmt.clazz() == Statement::CAS) {
-		if (number_of_seen_cas != 0) throw std::logic_error("Bad summary: too many CAS at current path.");
-		number_of_seen_cas++;
-		const CompareAndSwap& cas = static_cast<const CompareAndSwap&>(stmt);
-		if (cas.fires_lp() && cas.lp().event().has_output()) {
-			// ensure that the effect of the CAS is dst = dst.next
-			if (cas.dst().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (dst is no var).");
-			const Variable& dst = static_cast<const VarExpr&>(cas.dst()).decl();
-			if (cas.cmp().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (cmp is no var).");
-			const Variable& cmp = static_cast<const VarExpr&>(cas.cmp()).decl();
-			if (&dst != &cmp) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (dst and cmp mismatch).");
-			if (cas.src().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (src is no var).");
-			const Variable& src = static_cast<const VarExpr&>(cas.src()).decl();
-			if (var2val.find(src) == var2val.end()) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (src does not have a value).");
-			const Expr& srcval = var2val.at(src);
-			if (srcval.clazz() != Expr::SEL) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (srcval is no selector).");
-			const Variable& evalsrc = static_cast<const Selector&>(srcval).decl();
-			if (&dst != &evalsrc) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (bad cas assignment).");
-			// add pre-CAS dst to tobefreed
-			bool carbon_copy_found = false;
-			for (const auto& entry : var2val) {
-				const Expr& value = entry.second;
-				if (value.clazz() == Expr::VAR) {
-					const Variable& var = static_cast<const VarExpr&>(value).decl();
-					if (&var == &dst) {
-						tobefreed.insert(entry.first);
-						carbon_copy_found = true;
-					}
-				}
-			}
-			if (!carbon_copy_found) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (no alias of removed cell found).");
-		} else if (cas.fires_lp() && cas.lp().event().has_input()) {
-			if (cas.src().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (src is no var).");
-			const Variable& src = static_cast<const VarExpr&>(cas.src()).decl();
-			// remove src from allocations
-			allocations.erase(src);
-		}
+		throw std::logic_error("Bad summary: CAS not supported.");
 	}
 
-	enforce_static_properties(stmt.next(), std::move(var2val), std::move(allocations), std::move(tobefreed), number_of_seen_cas);
+	enforce_static_properties(stmt.next(), std::move(var2val), std::move(allocations));
 }
 
 static void enforce_static_properties(const Atomic* summary) {
-	enforce_static_properties(summary, {}, {}, {}, 0);
+	enforce_static_properties(summary, {}, {});
 }
 
-// static void checkLocalSSA(const Statement& stmt, std::set<std::reference_wrapper<const Variable>, VariableComparator> previous_assignments = {}) {
-// 	if (stmt.clazz() == Statement::WHILE) {
-// 		throw std::logic_error("While loops in summaries are not supported.");
-// 	} else if (stmt.clazz() == Statement::ITE) {
-// 		const Ite& ite = static_cast<const Ite&>(stmt);
-// 		auto condtype = ite.cond().type();
-// 		if (condtype == Condition::CASC || condtype == Condition::COMPOUND || condtype == Condition::ORACLEC)
-// 			throw std::logic_error("Unsupported condition in summary.");
-// 		if (ite.next_false_branch()) checkLocalSSA(*ite.next_false_branch(), previous_assignments);
-// 		if (ite.next_true_branch()) checkLocalSSA(*ite.next_true_branch(), std::move(previous_assignments));
-// 		return;
-// 	} else if (stmt.clazz() == Statement::ATOMIC) {
-// 		checkLocalSSA(static_cast<const Atomic&>(stmt).sqz(), std::move(previous_assignments));
-// 		return;
-// 	} else if (stmt.clazz() == Statement::ASSIGN) {
-// 		const Assignment& assign = static_cast<const Assignment&>(stmt);
-// 		if (assign.lhs().clazz() == Expr::VAR) {
-// 			const Variable& var = static_cast<const VarExpr&>(assign.lhs()).decl();
-// 			if (!previous_assignments.insert(var).second) {
-// 				throw std::logic_error("Multiple assignments to local variables in summaries are not supported");
-// 			}
-// 		}
-// 	} else if (stmt.clazz() == Statement::SETNULL) {
-// 		const NullAssignment& nulla = static_cast<const NullAssignment&>(stmt);
-// 		if (nulla.lhs().clazz() == Expr::VAR) {
-// 			const Variable& var = static_cast<const VarExpr&>(nulla.lhs()).decl();
-// 			if (!previous_assignments.insert(var).second) {
-// 				throw std::logic_error("Multiple assignments to local variables in summaries are not supported");
-// 			}
-// 		}
-// 	}
-// 	auto next = stmt.next();
-// 	if (next) checkLocalSSA(*next, std::move(previous_assignments));
-// }
 
 Program::Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::vector<std::unique_ptr<Function>> funs)
     : Program(name, std::move(globals), std::move(locals), std::make_unique<Sequence>(std::vector<std::unique_ptr<Statement>>()), std::move(funs)) {}

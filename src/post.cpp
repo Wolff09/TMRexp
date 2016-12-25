@@ -105,48 +105,48 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, unsigned short tid) {
 
 	#define RETURN return post;
 
-	// check for high-level simulation
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY
-		assert(tid == 0);
+	// // check for high-level simulation
+	// #if REPLACE_INTERFERENCE_WITH_SUMMARY
+	// 	assert(tid == 0);
 
-		// initial and summaries do not need a summary
-		auto& stmt = *cfg.pc[tid];
-		if (ignore_for_summary(stmt)) {
-			RETURN;
-		}
+	// 	// initial and summaries do not need a summary
+	// 	auto& stmt = *cfg.pc[tid];
+	// 	if (ignore_for_summary(stmt)) {
+	// 		RETURN;
+	// 	}
 
-		// find those post cfgs that require a summary, i.e. that changed the shared heap
-		auto require_summaries = find_effectful_configurations(cfg, post);
-		if (require_summaries.size() == 0) {
-			RETURN;
-		}
+	// 	// find those post cfgs that require a summary, i.e. that changed the shared heap
+	// 	auto require_summaries = find_effectful_configurations(cfg, post);
+	// 	if (require_summaries.size() == 0) {
+	// 		RETURN;
+	// 	}
 
-		// frees shall have an empty summary
-		if (stmt.clazz() == Statement::FREE) {
-			// if a free comes that far, we are in trouble as it requires a non-empty summary
-			throw std::runtime_error("Misbehaving Summary: free stmt requires non-empty summary.");
-		}
+	// 	// frees shall have an empty summary
+	// 	if (stmt.clazz() == Statement::FREE) {
+	// 		// if a free comes that far, we are in trouble as it requires a non-empty summary
+	// 		throw std::runtime_error("Misbehaving Summary: free stmt requires non-empty summary.");
+	// 	}
 
-		// prepare summary
-		Cfg tmp = cfg.copy();
-		tmp.pc[tid] = &stmt.function().summary();
-		if (stmt.function().has_output()) tmp.inout[tid] = OValue();
+	// 	// prepare summary
+	// 	Cfg tmp = cfg.copy();
+	// 	tmp.pc[tid] = &stmt.function().summary();
+	// 	if (stmt.function().has_output()) tmp.inout[tid] = OValue();
 
-		// execute summary
-		auto sumpost = get_post_cfgs(tmp, tid);
+	// 	// execute summary
+	// 	auto sumpost = get_post_cfgs(tmp, tid);
 
-		// check summary
-		for (const Cfg& postcfg : require_summaries) {
-			bool covered = false;
-			for (const Cfg& summarycfg : sumpost) {
-				if (subset_shared(postcfg, summarycfg)) {
-					covered = true;
-					break;
-				}
-			}
-			if (!covered) throw std::runtime_error("Misbehaving Summary: failed to mimic low-level action.");
-		}
-	#endif
+	// 	// check summary
+	// 	for (const Cfg& postcfg : require_summaries) {
+	// 		bool covered = false;
+	// 		for (const Cfg& summarycfg : sumpost) {
+	// 			if (subset_shared(postcfg, summarycfg)) {
+	// 				covered = true;
+	// 				break;
+	// 			}
+	// 		}
+	// 		if (!covered) throw std::runtime_error("Misbehaving Summary: failed to mimic low-level action.");
+	// 	}
+	// #endif
 
 	RETURN;
 }

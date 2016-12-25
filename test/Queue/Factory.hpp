@@ -134,7 +134,6 @@ namespace tmr {
 							IfThen(
 								CasCond(CAS(Var("Head"), Var("h"), Var("n"), LinP("n"), use_age_fields)),
 								Sqz(
-									Fr("h"),
 									Brk()
 								)
 							)
@@ -153,13 +152,12 @@ namespace tmr {
 			// atomic {
 			// 	t = Tail.next;
 			// 	if (t == NULL) {
-			// 		n = malloc;
-			// 		n.data = __in__;
-			// 		n.next = NULL;
-			// 		CAS(Tail.next, Tail.next, n);
-			//		*** enq(__in__) ***
+			// 		aux = malloc;
+			// 		aux.data = __in__;
+			// 		aux.next = NULL;
+			// 		Tail.next = aux *** enq(__in__) ***;
 			// 	} else {
-			// 		CAS(Tail, Tail, t);
+			// 		Tail = t;
 			// 	}
 			// }
 			auto enqsum = AtomicSqz(
@@ -170,9 +168,11 @@ namespace tmr {
 						Mllc("n"),
 						SetNull(Next("n")),
 						Read("n"),
-						CAS(Next("Tail"), Var("t"), Var("n"), LinP(), use_age_fields)
+						Assign(Next("Tail"), Var("n"), LinP())
 					),
-					Sqz(CAS(Var("Tail"), Var("Tail"), Var("t"), use_age_fields))
+					Sqz(
+						Assign(Var("Tail"), Var("t"))
+					)
 				)
 			);
 
@@ -182,14 +182,10 @@ namespace tmr {
 			// 		if (n == NULL) {
 			// 			*** deq(empty) ***
 			// 		} else {
-			// 			CAS(Tail, Tail, n);
+			// 			Tail = n;
 			// 		}
 			// 	} else {
-			// 		t = Head;
-			// 		__out__ = n.data;
-			//		CAS(Head, Head, n);
-			//		*** deq(n.data) ***
-			// 		free(t);
+			//		Head = n *** deq(n.data) ***
 			// 	}
 			// }
 			auto deqsum = AtomicSqz(
@@ -200,14 +196,11 @@ namespace tmr {
 						IfThenElse(
 							EqCond(Var("n"), Null()),
 							Sqz(LinP()),
-							Sqz(CAS(Var("Tail"), Var("Tail"), Var("n"), use_age_fields))
+							Sqz(Assign(Var("Tail"), Var("n")))
 						)
 					),
 					Sqz(
-						Assign(Var("h"), Var("Head")),
-						Write("n"),
-						CAS(Var("Head"), Var("Head"), Var("n"), LinP("n"), use_age_fields),
-						Fr("h")
+						Assign(Var("Head"), Var("n"), LinP("n"))
 					)
 				)
 			);

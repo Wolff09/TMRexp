@@ -7,9 +7,6 @@
 
 using namespace tmr;
 
-#define SKIP_NOOPS true
-#define KILL_IS_NOOP true
-#define INTERFERENCE_OPTIMIZATION true
 
 /******************************** CHECK MATCH ********************************/
 
@@ -445,7 +442,7 @@ void tmr::mk_summary(RemainingWork& work, const Cfg& cfg, const Program& prog) {
 	#if !REPLACE_INTERFERENCE_WITH_SUMMARY
 		throw std::logic_error("Cannot apply summaries in interferecne-mode.");
 	#else
-		#if SKIP_SUMMARY_OPTIMIZATION
+		#if SUMMARY_OPTIMIZATION
 			if (can_skip_summary(cfg))
 				return;
 		#endif
