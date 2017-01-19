@@ -282,6 +282,11 @@ std::unique_ptr<CASCondition> tmr::CasCond(std::unique_ptr<CompareAndSwap> cas) 
 	return res;
 }
 
+std::unique_ptr<NonDetCondition> tmr::NDCond() {
+	std::unique_ptr<NonDetCondition> res(new NonDetCondition());
+	return res;
+}
+
 std::unique_ptr<Condition> tmr::EqCond(std::unique_ptr<VarExpr> lhs, std::unique_ptr<VarExpr> rhs, bool use_age_fields) {
 	if (use_age_fields) return EqCondWAge(std::move(lhs), std::move(rhs));
 	else return EqCond(std::move(lhs), std::move(rhs));
@@ -435,6 +440,8 @@ void CASCondition::propagateFun(const Function* fun) {
 
 void OracleCondition::propagateFun(const Function* fun) {}
 
+void NonDetCondition::propagateFun(const Function* fun) {}
+
 void TrueCondition::propagateFun(const Function* fun) {}
 
 void Sequence::propagateFun(const Function* fun) {
@@ -516,6 +523,9 @@ void CASCondition::namecheck(const std::map<std::string, Variable*>& name2decl) 
 }
 
 void OracleCondition::namecheck(const std::map<std::string, Variable*>& name2decl) {
+}
+
+void NonDetCondition::namecheck(const std::map<std::string, Variable*>& name2decl) {
 }
 
 void TrueCondition::namecheck(const std::map<std::string, Variable*>& name2decl) {
@@ -800,6 +810,10 @@ void CASCondition::print(std::ostream& os) const {
 
 void OracleCondition::print(std::ostream& os) const {
 	os << "§prophecy == fulfilled";
+}
+
+void NonDetCondition::print(std::ostream& os) const {
+	os << "*";
 }
 
 void TrueCondition::print(std::ostream& os) const {

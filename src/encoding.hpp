@@ -32,6 +32,8 @@ namespace tmr {
 		public:
 			__store__::iterator begin() { return _map.begin(); }
 			__store__::iterator end() { return _map.end(); }
+			__store__::const_iterator begin() const { return _map.cbegin(); }
+			__store__::const_iterator end() const { return _map.cend(); }
 			std::size_t size() const {
 				std::size_t size = 0;
 				for (const auto& kvp : _map) size += kvp.second.size();

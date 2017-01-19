@@ -2,6 +2,9 @@
 add_executable(MSQueue MSQueue.cpp)
 target_link_libraries(MSQueue TMRexpLib)
 
+add_executable(DGLMQueue DGLMQueue.cpp)
+target_link_libraries(DGLMQueue TMRexpLib)
+
 add_test(MSQueue_01--GC--ages    	MSQueue --GC --ages --malloc --success)
 add_test(MSQueue_05--GC--no-ages 	MSQueue --GC --no-ages --malloc --success)
 add_test(MSQueue_09--PRF--ages   	MSQueue --PRF --ages --malloc --success)
