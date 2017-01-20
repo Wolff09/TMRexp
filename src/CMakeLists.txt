@@ -3,6 +3,7 @@ set(SOURCES
 	shape.cpp
 	observer.cpp
 	cfg.cpp
+	chkmimic.cpp
 	counter.cpp
 	encoding.cpp
 	fixp/cfgpost.cpp

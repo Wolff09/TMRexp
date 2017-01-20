@@ -7,9 +7,6 @@
 
 using namespace tmr;
 
-#define SKIP_NOOPS true
-#define KILL_IS_NOOP true
-#define INTERFERENCE_OPTIMIZATION true
 
 /******************************** CHECK MATCH ********************************/
 
@@ -673,7 +670,7 @@ void tmr::mk_summary(RemainingWork& work, const Cfg& cfg, const Program& prog, M
 	#else
 		assert(msetup == PRF);
 
-		#if SKIP_SUMMARY_OPTIMIZATION
+		#if SUMMARY_OPTIMIZATION
 			if (can_skip_summary(cfg))
 				return;
 		#endif

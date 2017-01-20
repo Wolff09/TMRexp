@@ -8,8 +8,6 @@
 using namespace tmr;
 
 
-#define PRINT_ID true
-
 /******************************** CONSTRUCTION ********************************/
 
 static std::vector<std::unique_ptr<Variable>> mk_vars(bool global, std::vector<std::string> names) {
@@ -98,7 +96,7 @@ static void enforce_static_properties(const Statement* stmtptr,
 		tobefreed.erase(trg);
 		// TODO: remove aliases from tobefreed
 	} else if (stmt.clazz() == Statement::CAS) {
-		if (number_of_seen_cas != 0) throw std::logic_error("Bad summary: too many CAS at current path.");
+		// if (number_of_seen_cas != 0) throw std::logic_error("Bad summary: too many CAS at current path.");
 		number_of_seen_cas++;
 		const CompareAndSwap& cas = static_cast<const CompareAndSwap&>(stmt);
 		if (cas.fires_lp() && cas.lp().event().has_output()) {
@@ -127,7 +125,7 @@ static void enforce_static_properties(const Statement* stmtptr,
 					}
 				}
 			}
-			if (!carbon_copy_found) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (no alias of removed cell found).");
+//			if (!carbon_copy_found) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (no alias of removed cell found).");
 		} else if (cas.fires_lp() && cas.lp().event().has_input()) {
 			if (cas.src().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (src is no var).");
 			const Variable& src = static_cast<const VarExpr&>(cas.src()).decl();
@@ -359,6 +357,11 @@ std::unique_ptr<CASCondition> tmr::CasCond(std::unique_ptr<CompareAndSwap> cas) 
 	return res;
 }
 
+std::unique_ptr<NonDetCondition> tmr::NDCond() {
+	std::unique_ptr<NonDetCondition> res(new NonDetCondition());
+	return res;
+}
+
 std::unique_ptr<Condition> tmr::EqCond(std::unique_ptr<VarExpr> lhs, std::unique_ptr<VarExpr> rhs, bool use_age_fields) {
 	if (use_age_fields) return EqCondWAge(std::move(lhs), std::move(rhs));
 	else return EqCond(std::move(lhs), std::move(rhs));
@@ -512,6 +515,8 @@ void CASCondition::propagateFun(const Function* fun) {
 
 void OracleCondition::propagateFun(const Function* fun) {}
 
+void NonDetCondition::propagateFun(const Function* fun) {}
+
 void TrueCondition::propagateFun(const Function* fun) {}
 
 void Sequence::propagateFun(const Function* fun) {
@@ -593,6 +598,9 @@ void CASCondition::namecheck(const std::map<std::string, Variable*>& name2decl) 
 }
 
 void OracleCondition::namecheck(const std::map<std::string, Variable*>& name2decl) {
+}
+
+void NonDetCondition::namecheck(const std::map<std::string, Variable*>& name2decl) {
 }
 
 void TrueCondition::namecheck(const std::map<std::string, Variable*>& name2decl) {
@@ -877,6 +885,10 @@ void CASCondition::print(std::ostream& os) const {
 
 void OracleCondition::print(std::ostream& os) const {
 	os << "§prophecy == fulfilled";
+}
+
+void NonDetCondition::print(std::ostream& os) const {
+	os << "*";
 }
 
 void TrueCondition::print(std::ostream& os) const {

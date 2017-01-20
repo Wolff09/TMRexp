@@ -118,7 +118,7 @@ namespace tmr {
 
 	class Condition {
 		public:
-			enum Type { EQNEQ, CASC, TRUEC, WAGE, COMPOUND, ORACLEC };
+			enum Type { EQNEQ, CASC, TRUEC, WAGE, COMPOUND, ORACLEC, NONDET };
 			virtual Type type() const = 0;
 			virtual void namecheck(const std::map<std::string, Variable*>& name2decl) = 0;
 			virtual void print(std::ostream& os) const = 0;
@@ -161,6 +161,14 @@ namespace tmr {
 	class OracleCondition : public Condition {
 		public:
 			Type type() const { return Type::ORACLEC; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os) const;
+			void propagateFun(const Function* fun);
+	};
+
+	class NonDetCondition : public Condition {
+		public:
+			Type type() const { return Type::NONDET; }
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os) const;
 			void propagateFun(const Function* fun);
@@ -580,6 +588,7 @@ namespace tmr {
 	std::unique_ptr<Condition> EqCond(std::unique_ptr<VarExpr> lhs, std::unique_ptr<VarExpr> rhs, bool use_age_fields);
 	std::unique_ptr<CompoundCondition> CompCond(std::unique_ptr<Condition> lhs, std::unique_ptr<Condition> rhs);
 	std::unique_ptr<OracleCondition> OCond();
+	std::unique_ptr<NonDetCondition> NDCond();
 
 	std::unique_ptr<Assignment> Assign (std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs);
 	std::unique_ptr<Assignment> Assign (std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs, std::unique_ptr<LinearizationPoint> lp);

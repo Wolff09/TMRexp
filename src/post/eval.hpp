@@ -27,6 +27,13 @@ namespace tmr {
 		return eval_cond_cas(cfg, cond.cas(), nY, nN, tid, msetup);
 	}
 
+	static std::vector<Cfg> eval_cond_nondet(const Cfg& cfg, const NonDetCondition& cond, const Statement* nY, const Statement* nN, unsigned short tid) {
+		std::vector<Cfg> result;
+		result.push_back(mk_next_config(cfg, new Shape(*cfg.shape), nY, tid));
+		result.push_back(mk_next_config(cfg, new Shape(*cfg.shape), nN, tid));
+		return result;
+	}
+
 	static std::vector<Cfg> eval_cond(const Cfg& cfg, const Conditional& stmt, unsigned short tid, MemorySetup msetup) {
 		const Statement* nextY = stmt.next_true_branch();
 		const Statement* nextN = stmt.next_false_branch();
@@ -36,6 +43,7 @@ namespace tmr {
 			case Condition::WAGE: return eval_cond_wage(cfg, static_cast<const EqPtrAgeCondition&>(stmt.cond()), nextY, nextN, tid, msetup);
 			case Condition::COMPOUND: throw std::logic_error("Compound conditions are not supported here (only in linearization points).");
 			case Condition::ORACLEC: throw std::logic_error("Oracle conditions are not supported here (only in linearization points).");
+			case Condition::NONDET: return eval_cond_nondet(cfg, static_cast<const NonDetCondition&>(stmt.cond()), nextY, nextN, tid);
 			case Condition::TRUEC:
 				std::vector<Cfg> result;
 				result.push_back(mk_next_config(cfg, new Shape(*cfg.shape), nextY, tid));

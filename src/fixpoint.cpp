@@ -5,6 +5,7 @@
 #include "fixp/interference.hpp"
 #include "counter.hpp"
 #include "config.hpp"
+#include "chkmimic.hpp"
 
 using namespace tmr;
 
@@ -105,7 +106,19 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 
 	#endif
 
+	std::string ainfo = "";
 
-	std::cout << std::endl << "Fixed point computed " << enc->size() << " distinct configurations." << std::endl;
+	#if REPLACE_INTERFERENCE_WITH_SUMMARY && SUMMARY_CHKMIMIC
+		std::cerr << "chk_mimic...        ";
+		if (chk_mimic(*enc)) {
+			std::cerr << " done! [effects=" << SUMMARIES_NEEDED << "]" << std::endl;
+			ainfo = " Approximation proven sound.";
+		} else {
+			std::cerr << " failed!" << std::endl;
+			throw std::runtime_error("Misbehaving Summary: CHK-MIMIC failed.");
+		}
+	#endif
+
+	std::cout << std::endl << "Fixed point computed " << enc->size() << " distinct configurations." << ainfo << std::endl;
 	return enc;
 }

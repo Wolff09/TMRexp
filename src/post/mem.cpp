@@ -162,6 +162,7 @@ static std::vector<OValue> get_possible_data(const Cfg& cfg, std::size_t var) {
 static bool is_globally_reachable(const Shape& shape, std::size_t var) {
 	for (auto i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
 		if (haveCommon(shape.at(i, var), EQ_MT_GT)) {
+			std::cout << std::endl << "var=" << var << "; i=" << i << "; shape.at(i, var):" << shape.at(i,var) << std::endl;
 			return true;
 		}
 	}
@@ -193,6 +194,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Free& stmt, unsigned short tid,
 	}
 	#if REPLACE_INTERFERENCE_WITH_SUMMARY
 		if (is_globally_reachable(input, var_index)) {
+			std::cout << cfg << *cfg.shape << std::endl;
 			throw std::runtime_error("Globally reachable cells may not be freed.");
 		}
 	#endif
