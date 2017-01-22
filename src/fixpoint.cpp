@@ -45,7 +45,6 @@ const Cfg& RemainingWork::pop() {
 }
 
 void RemainingWork::add(Cfg&& cfg) {
-	//std::lock_guard<std::mutex> guard(_mut);
 	#if !REPLACE_INTERFERENCE_WITH_SUMMARY
 		if (cfg.state.is_final()) return;
 	#endif

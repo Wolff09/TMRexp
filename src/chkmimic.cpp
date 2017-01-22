@@ -62,7 +62,7 @@ static std::deque<std::reference_wrapper<const Cfg>> find_effectful_configuratio
 	return result;
 }
 
-static bool check_cfg(const Cfg& cfg) {
+static bool check_disambiguated_cfg(const Cfg& cfg) {
 	if (cfg.pc[0] == NULL) {
 		return true;
 	}
@@ -102,20 +102,53 @@ static bool check_cfg(const Cfg& cfg) {
 			}
 		}
 		if (!covered) {
-			// std::cout << std::endl << std::endl;
-			// std::cout << cfg << *cfg.shape;
-			// std::cout << "------------" << std::endl << std::endl;
-			// std::cout << postcfg << *postcfg.shape;
-			// std::cout << "------------" << std::endl << std::endl;
-			// std::cout << "had " << sumpost.size() << " options" << std::endl;
-			// for (const Cfg& summarycfg : sumpost) {
-			// 	std::cout << std::endl << "[OPTION] " << summarycfg << *summarycfg.shape << std::endl;
-			// }
+			std::cout << std::endl << std::endl;
+			std::cout << cfg << *cfg.shape;
+			std::cout << "------------" << std::endl << std::endl;
+			std::cout << postcfg << *postcfg.shape;
+			std::cout << "------------" << std::endl << std::endl;
+			std::cout << "had " << sumpost.size() << " options" << std::endl;
+			for (const Cfg& summarycfg : sumpost) {
+				std::cout << std::endl << "[OPTION] " << summarycfg << *summarycfg.shape << std::endl;
+			}
 			return false;
 		}
 	}
 
 	return true;
+}
+
+static bool check_cfg(const Cfg& cfg, std::size_t row) {
+	if (cfg.pc[0] == NULL) {
+		return true;
+	}
+
+	if (row < cfg.shape->offset_locals(0)) {
+
+		std::vector<Shape*> dis = disambiguate(*cfg.shape, row);
+		for (Shape* s : dis) {
+			Cfg tmp(cfg, std::move(s));
+			if (!check_cfg(tmp, row+1)) {
+				return false;
+			}
+		}
+		return true;
+
+	} else {
+		return check_disambiguated_cfg(cfg);
+	}
+}
+
+static bool check_cfg(const Cfg& cfg) {
+	if (cfg.pc[0] == NULL) {
+		return true;
+	}
+
+	if (cfg.pc[0]->function().prog().precise_check_mimick()) {
+		return check_cfg(cfg, cfg.shape->offset_program_vars());
+	} else {
+		return check_disambiguated_cfg(cfg);	
+	}
 }
 
 bool tmr::chk_mimic(const Encoding& fixedpoint, MemorySetup msetup) {

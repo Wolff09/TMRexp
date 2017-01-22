@@ -60,8 +60,11 @@ static void enforce_static_properties(const Statement* stmtptr,
 	};
 
 	if (stmtptr == NULL) {
-		if (tobefreed.size() != 0) throw std::logic_error("Bad summary: some cells need freeing.");
 		if (allocations.size() != 0) throw std::logic_error("Bad summary: some cells need publishing.");
+		if (tobefreed.size() != 0) {
+			for (auto& v : tobefreed) std::cout << "to be freed: " << v << std::endl;
+			throw std::logic_error("Bad summary: some cells need freeing.");
+		}
 		return;
 	}
 	const Statement& stmt = *stmtptr;
@@ -87,6 +90,11 @@ static void enforce_static_properties(const Statement* stmtptr,
 			ensure_not_assigned(var);
 			if (!var2val.insert({ var, rhsexpr }).second)
 				throw std::logic_error("Bad summary: malicious insertion to var2val.");
+		} else if (lhsexpr.clazz() == Expr::SEL) {
+			const Variable& var = static_cast<const Selector&>(lhsexpr).decl();
+			if (allocations.count(var) == 0) {
+				throw std::logic_error("Bad summary: non-CAS assignment to non-owned pointer selector.");
+			}
 		}
 	} else if (stmt.clazz() == Statement::MALLOC) {
 		if (!allocations.insert(static_cast<const Malloc&>(stmt).decl()).second)
@@ -99,39 +107,107 @@ static void enforce_static_properties(const Statement* stmtptr,
 		// if (number_of_seen_cas != 0) throw std::logic_error("Bad summary: too many CAS at current path.");
 		number_of_seen_cas++;
 		const CompareAndSwap& cas = static_cast<const CompareAndSwap&>(stmt);
-		if (cas.fires_lp() && cas.lp().event().has_output()) {
-			// ensure that the effect of the CAS is dst = dst.next
-			if (cas.dst().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (dst is no var).");
-			const Variable& dst = static_cast<const VarExpr&>(cas.dst()).decl();
-			if (cas.cmp().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (cmp is no var).");
-			const Variable& cmp = static_cast<const VarExpr&>(cas.cmp()).decl();
-			if (&dst != &cmp) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (dst and cmp mismatch).");
-			if (cas.src().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (src is no var).");
-			const Variable& src = static_cast<const VarExpr&>(cas.src()).decl();
-			if (var2val.find(src) == var2val.end()) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (src does not have a value).");
-			const Expr& srcval = var2val.at(src);
-			if (srcval.clazz() != Expr::SEL) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (srcval is no selector).");
-			const Variable& evalsrc = static_cast<const Selector&>(srcval).decl();
-			if (&dst != &evalsrc) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (bad cas assignment).");
-			// add pre-CAS dst to tobefreed
-			bool carbon_copy_found = false;
-			for (const auto& entry : var2val) {
-				const Expr& value = entry.second;
-				if (value.clazz() == Expr::VAR) {
-					const Variable& var = static_cast<const VarExpr&>(value).decl();
-					if (&var == &dst) {
-						tobefreed.insert(entry.first);
-						carbon_copy_found = true;
-					}
+
+		auto isequalvar = [](const Expr& lhs, const Variable& rhs) -> bool {
+			if (lhs.clazz() == Expr::VAR) {
+				const Variable& lhsvar = static_cast<const VarExpr&>(lhs).decl();
+				return &lhsvar == &rhs;
+			} else {
+				return false;
+			}
+		};
+		auto isequal = [](const Expr& lhs, const Expr& rhs) -> bool {
+			if (lhs.clazz() == Expr::VAR && rhs.clazz() == Expr::VAR) {
+				const Variable& lhsvar = static_cast<const VarExpr&>(lhs).decl();
+				const Variable& rhsvar = static_cast<const VarExpr&>(rhs).decl();
+				return &lhsvar == &rhsvar;
+			} else if (lhs.clazz() == Expr::SEL && rhs.clazz() == Expr::SEL) {
+				if (lhs.type() != rhs.type()) return false;
+				const Variable& lhsvar = static_cast<const Selector&>(lhs).decl();
+				const Variable& rhsvar = static_cast<const Selector&>(rhs).decl();
+				return &lhsvar == &rhsvar;
+			} else {
+				return false;
+			}
+		};
+
+		// ensure that CAS does not fail
+		{
+			if (!isequal(cas.dst(), cas.cmp())) {
+				// look up value of cmp and check again
+				if (cas.cmp().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (cmp is no var).");
+				const Variable& cmp = static_cast<const VarExpr&>(cas.cmp()).decl();
+				if (var2val.count(cmp) == 0) {
+					throw std::logic_error("Bad summary: CAS might fail.");
+				}
+				const Expr& cmpval = var2val.at(cmp);
+				if (!isequal(cas.dst(), cmpval)) {
+					throw std::logic_error("Bad summary: CAS might fail.");
 				}
 			}
-//			if (!carbon_copy_found) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (no alias of removed cell found).");
-		} else if (cas.fires_lp() && cas.lp().event().has_input()) {
+		}
+
+		// // ensure that there is a carbon copy of the modified pointer (we need an alias to check ownership-transfer later)
+		{
+			bool carbon_copy_found = false;
+			for (const auto& entry : var2val) {
+				const Variable& var = entry.first;
+				const Expr& val = entry.second;
+				if (!isequalvar(cas.dst(), var) && isequal(cas.dst(), val)) {
+					// var is a carbon copy of cas.dst(); as such it is not exactly the expression cas.dst()
+					carbon_copy_found = true;
+					tobefreed.insert(var); // var needs to be checked: free iff no longer reachable
+				}
+			}
+			if (!carbon_copy_found) {
+				throw std::logic_error("Bad summary: malformed CAS modifying shared heap (no alias of removed cell found).");
+			}
+		}
+
+		// published thing is not owned any more
+		{
 			if (cas.src().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (src is no var).");
 			const Variable& src = static_cast<const VarExpr&>(cas.src()).decl();
-			// remove src from allocations
 			allocations.erase(src);
 		}
+
+// 		if (cas.fires_lp() && cas.lp().event().has_output()) {
+// 			// ensure that the effect of the CAS is dst = dst.next
+// 			if (cas.dst().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (dst is no var).");
+// 			const Variable& dst = static_cast<const VarExpr&>(cas.dst()).decl();
+// 			if (cas.cmp().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (cmp is no var).");
+// 			const Variable& cmp = static_cast<const VarExpr&>(cas.cmp()).decl();
+// 			if (&dst != &cmp) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (dst and cmp mismatch).");
+// 			if (cas.src().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (src is no var).");
+// 			const Variable& src = static_cast<const VarExpr&>(cas.src()).decl();
+// 			if (var2val.find(src) == var2val.end()) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (src does not have a value).");
+// 			const Expr& srcval = var2val.at(src);
+// 			if (srcval.clazz() != Expr::SEL) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (srcval is no selector).");
+// 			const Variable& evalsrc = static_cast<const Selector&>(srcval).decl();
+// 			if (&dst != &evalsrc) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (bad cas assignment).");
+// 			// add pre-CAS dst to tobefreed
+// 			bool carbon_copy_found = false;
+// 			for (const auto& entry : var2val) {
+// 				const Expr& value = entry.second;
+// 				if (value.clazz() == Expr::VAR) {
+// 					const Variable& var = static_cast<const VarExpr&>(value).decl();
+// 					if (&var == &dst) {
+// 						tobefreed.insert(entry.first);
+// 						carbon_copy_found = true;
+// 					}
+// 				}
+// 			}
+// //			if (!carbon_copy_found) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (no alias of removed cell found).");
+// 		} else if (cas.fires_lp() && cas.lp().event().has_input()) {
+// 			if (cas.src().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (src is no var).");
+// 			const Variable& src = static_cast<const VarExpr&>(cas.src()).decl();
+// 			// remove src from allocations
+// 			allocations.erase(src);
+// 		}
+
+	} else if (stmt.clazz() == Statement::REACH) {
+		const Variable& var = static_cast<const EnforceReach&>(stmt).var().decl();
+		tobefreed.erase(var);
 	}
 
 	enforce_static_properties(stmt.next(), std::move(var2val), std::move(allocations), std::move(tobefreed), number_of_seen_cas);
@@ -475,6 +551,11 @@ std::unique_ptr<Killer> tmr::Kill() {
 	return res;
 }
 
+std::unique_ptr<EnforceReach> tmr::ChkReach(std::string var) {
+	std::unique_ptr<EnforceReach> res(new EnforceReach(Var(var)));
+	return res;
+}
+
 
 std::unique_ptr<CompareAndSwap> tmr::CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, bool update_age_fields) {
 	if (cmp->clazz() != Expr::VAR) throw std::logic_error("Second argument of CAS must be a VarExpr.");
@@ -681,6 +762,10 @@ void CheckProphecy::namecheck(const std::map<std::string, Variable*>& name2decl)
 void Killer::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	if (!_confused)
 		_to_kill->namecheck(name2decl);
+}
+
+void EnforceReach::namecheck(const std::map<std::string, Variable*>& name2decl) {
+	_to_check->namecheck(name2decl);
 }
 
 void Function::namecheck(const std::map<std::string, Variable*>& name2decl) {
@@ -1015,6 +1100,11 @@ void Killer::print(std::ostream& os, std::size_t indent) const {
 	printID;
 	if (_confused) os << "kill_confused();";
 	else os << "kill(" << var() << ");";
+}
+
+void EnforceReach::print(std::ostream& os, std::size_t indent) const {
+	printID;
+	os << "enforce_shared(" << var() << ");";
 }
 
 std::ostream& tmr::operator<<(std::ostream& os, const Function& fun) {

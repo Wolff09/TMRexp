@@ -90,3 +90,31 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Killer& stmt, unsigned short ti
 
 	return result;
 }
+
+std::vector<Cfg> tmr::post(const Cfg& cfg, const EnforceReach& stmt, unsigned short tid, MemorySetup msetup) {
+	CHECK_STMT;
+
+	const Shape& shape = *cfg.shape;
+	std::size_t var_index = mk_var_index(shape, stmt.var(), tid);
+	std::vector<Shape*> shapes = disambiguate(shape, var_index);
+
+	for (Shape* s : shapes) {
+		if (s == NULL) continue;
+
+		bool reachable = false;
+		for (std::size_t i = cfg.shape->offset_program_vars(); i < cfg.shape->offset_locals(0); i++) {
+			if (haveCommon(s->at(i, var_index), EQ_MT_GT) || s->test(var_index, s->index_NULL(), EQ)) {
+				reachable = true;
+			}
+		}
+		if (!reachable) {
+			std::cout << stmt.var() << " (id=" << var_index << ") is not reachable from share variables as requested." << std::endl;
+			std::cout << cfg << *cfg.shape << std::endl;
+			throw std::runtime_error("Requested reachability could not be established.");
+		}
+
+		delete s;
+	}
+
+	return mk_next_config_vec(cfg, new Shape(shape), tid);
+}

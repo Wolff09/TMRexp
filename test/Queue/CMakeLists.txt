@@ -1,6 +1,9 @@
 
-add_executable(MSQueue MSQueue.cpp)
-target_link_libraries(MSQueue TMRexpLib)
+add_executable(CoarseQueue CoarseQueue.cpp)
+target_link_libraries(CoarseQueue TMRexpLib)
+
+add_executable(MichaelScottQueue MichaelScottQueue.cpp)
+target_link_libraries(MichaelScottQueue TMRexpLib)
 
 add_executable(DGLMQueue DGLMQueue.cpp)
 target_link_libraries(DGLMQueue TMRexpLib)

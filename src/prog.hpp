@@ -221,7 +221,7 @@ namespace tmr {
 			const Statement* _next = NULL;
 
 		public:
-			enum Class { SQZ, ASSIGN, MALLOC, FREE, ITE, WHILE, BREAK, LINP, INPUT, OUTPUT, CAS, SETNULL, ATOMIC, ORACLE, CHECKP, KILL };
+			enum Class { SQZ, ASSIGN, MALLOC, FREE, ITE, WHILE, BREAK, LINP, INPUT, OUTPUT, CAS, SETNULL, ATOMIC, ORACLE, CHECKP, KILL, REACH };
 			virtual ~Statement() = default;
 			virtual Class clazz() const = 0;
 			unsigned short id() const { assert(_id != 0); return _id; }
@@ -506,6 +506,18 @@ namespace tmr {
 			bool kill_confused() const { return _confused; }
 	};
 
+	class EnforceReach : public Statement {
+		private:
+			std::unique_ptr<VarExpr> _to_check;
+
+		public:
+			Statement::Class clazz() const { return Statement::Class::REACH; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os, std::size_t indent) const;
+			EnforceReach(std::unique_ptr<VarExpr> to_check) : _to_check(std::move(to_check)) {}
+			const VarExpr& var() const { return *_to_check; }
+	};
+
 	/*********************** PROGRAM ***********************/
 
 	class Function {
@@ -547,6 +559,9 @@ namespace tmr {
 			std::unique_ptr<Function> _init_fun;
 			std::size_t _idSize = 0;
 			Sequence* _init() const { return _init_fun->_stmts.get(); }
+			bool _has_hint = false;
+			std::function<bool(void*)> _hint;
+			bool _increase_precision_chk_mimick = false;
 
 		public:
 			Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::vector<std::unique_ptr<Function>> funs);
@@ -561,6 +576,11 @@ namespace tmr {
 			const Function& init_fun() const { return *_init_fun; }
 			void print(std::ostream& os) const;
 			bool is_summary_statement(const Statement& stmt) const;
+			void set_hint(std::function<bool(void*)> hint) { _has_hint = true; _hint = hint; }
+			bool has_hint() const { return _has_hint; }
+			bool apply_hint(void* param) const { assert(has_hint()); return _hint(param); }
+			void set_chk_mimic_precision(bool val) { _increase_precision_chk_mimick = val; }
+			bool precise_check_mimick() const { return _increase_precision_chk_mimick; }
 	};
 
 
@@ -611,6 +631,7 @@ namespace tmr {
 	std::unique_ptr<Break> Brk();
 	std::unique_ptr<Killer> Kill(std::string var);
 	std::unique_ptr<Killer> Kill();
+	std::unique_ptr<EnforceReach> ChkReach(std::string var);
 
 	std::unique_ptr<CompareAndSwap> CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, bool update_age_fields);
 	std::unique_ptr<CompareAndSwap> CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, std::unique_ptr<LinearizationPoint> lp, bool update_age_fields);

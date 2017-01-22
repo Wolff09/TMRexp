@@ -4,8 +4,6 @@ using namespace tmr;
 
 
 static std::unique_ptr<Program> mk_program() {
-	bool use_age_fields = true;
-
 	// init
 	auto init = Sqz(
 		SetNull(Var("TopOfStack"))
@@ -14,39 +12,33 @@ static std::unique_ptr<Program> mk_program() {
 	// push
 	auto pushbody = Sqz(
 		Mllc("node"),
+		SetNull(Next("node")),
 		Read("node"),
-		Loop(Sqz(
-			Assign(Var("top"), Var("TopOfStack")),
-			Assign(Next("node"), Var("top")),
-			IfThen(
-				CasCond(CAS(Var("TopOfStack"), Var("top"), Var("node"), LinP(), use_age_fields)),
-				Sqz(Brk())
-			),
-			Kill("top")
-		))
+		AtomicSqz(
+			LinP(),
+			Assign(Next("node"), Var("TopOfStack")),
+			Assign(Var("TopOfStack"), Var("node"))
+		)
 	);
 
 	// pop
-	auto popbody = Sqz(Loop(Sqz(
-		Assign(Var("top"), Var("TopOfStack"), LinP(EqCond(Var("top"), Null()))),
-		IfThenElse(
-			EqCond(Var("top"), Null()),
-			Sqz(Brk()),
-			Sqz(
-				Assign(Var("node"),	Next("top")),
-				IfThen(
-					CasCond(CAS(Var("TopOfStack"), Var("top"), Var("node"), LinP("top"), use_age_fields)),
-					Sqz(
-						Write("top"),
-						Fr("top"),
-						Brk()
-					)
+	auto popbody = Sqz(
+		AtomicSqz(
+			Assign(Var("top"), Var("TopOfStack")),
+			IfThenElse(
+				EqCond(Var("top"), Null()),
+				Sqz(
+					LinP()
 				),
-				Kill("node")
+				Sqz(
+					LinP("top"),
+					Write("top"),
+					Assign(Var("TopOfStack"), Next("top")),
+					Fr("top")
+				)
 			)
-		),
-		Kill("top")
-	)));
+		)
+	);
 
 	#if REPLACE_INTERFERENCE_WITH_SUMMARY
 		// push summary
@@ -55,7 +47,7 @@ static std::unique_ptr<Program> mk_program() {
 				Read("node"),
 				Assign(Next("node"), Var("TopOfStack")),
 				Assign(Var("top"), Var("TopOfStack")),
-				CAS(Var("TopOfStack"), Var("TopOfStack"), Var("node"), LinP(), use_age_fields),
+				CAS(Var("TopOfStack"), Var("TopOfStack"), Var("node"), LinP(), false),
 				ChkReach("top")
 		);
 
@@ -66,13 +58,13 @@ static std::unique_ptr<Program> mk_program() {
 			Sqz(
 				Assign(Var("top"), Var("TopOfStack")),
 				Assign(Var("node"), Next("TopOfStack")),
-				CAS(Var("TopOfStack"), Var("TopOfStack"), Var("node"), LinP("top"), use_age_fields),
+				CAS(Var("TopOfStack"), Var("TopOfStack"), Var("node"), LinP("top"), false),
 				Fr("top")
 			)
 		));
 	#endif
 
-	std::string name = "TreibersStack";
+	std::string name = "CoarseStack";
 
 	return Prog(
 		name,

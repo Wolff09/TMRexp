@@ -21,3 +21,7 @@
 
 // AST configuration
 #define PRINT_ID true // prints statement ids (obfuscates code)
+
+
+// allow to prune shape relations based on hints provided by the program
+#define HINTING true

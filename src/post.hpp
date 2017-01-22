@@ -37,5 +37,6 @@ namespace tmr {
 	std::vector<Cfg> post(const Cfg& cfg, const Oracle& stmt, unsigned short tid, MemorySetup msetup);
 	std::vector<Cfg> post(const Cfg& cfg, const CheckProphecy& stmt, unsigned short tid, MemorySetup msetup);
 	std::vector<Cfg> post(const Cfg& cfg, const Killer& stmt, unsigned short tid, MemorySetup msetup);
+	std::vector<Cfg> post(const Cfg& cfg, const EnforceReach& stmt, unsigned short tid, MemorySetup msetup);
 
 }
