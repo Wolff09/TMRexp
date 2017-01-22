@@ -89,7 +89,7 @@ static std::unique_ptr<Program> mk_program() {
 			Fun("deq", false, std::move(deqbody), std::move(deqsum))
 		#else
 			Fun("enq", true, std::move(enqbody)),
-			Fun("deq", false, std::move(popbody))
+			Fun("deq", false, std::move(deqbody))
 		#endif
 	);
 
