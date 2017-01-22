@@ -176,7 +176,6 @@ bool tmr::is_closed_under_reflexivity_and_transitivity(const Shape& input, bool 
 
 /******************************** DISAMBIGUATION ********************************/
 
-[[deprecated]]
 bool is_concretisation(const Shape& con, const Shape& abs) {
 	for (std::size_t i = 0; i < con.size(); i++)
 		for (std::size_t j = 0; j < con.size(); j++)

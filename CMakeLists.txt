@@ -3,7 +3,7 @@ project(TMRexp CXX)
 
 
 # verbose output
-set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_VERBOSE_MAKEFILE OFF)
 
 
 # debug info

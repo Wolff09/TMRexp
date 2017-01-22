@@ -64,7 +64,6 @@ namespace tmr {
 	 *          It runs in O(N^3) with N=shape.size().
 	 *          Hence, this function is marked as deprecated.
 	 */
-	[[deprecated]]
 	bool consistent(const Shape& shape);
 
 
@@ -74,7 +73,6 @@ namespace tmr {
 	 *          It runs in O(N^3) with N=shape.size().
 	 *          Hence, this function is marked as deprecated.
 	 */
-	[[deprecated]]
 	bool is_closed_under_reflexivity_and_transitivity(const Shape& shape, bool weak=false);
 
 	/**

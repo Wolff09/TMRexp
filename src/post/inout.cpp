@@ -111,7 +111,6 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsi
 
 /******************************** OUTPUT: __out__ = RHS.DATA ********************************/
 
-[[deprecated]]
 bool is_inout_correct(const Shape& shape, const WriteOutputAssignment& stmt, OValue inout, unsigned short tid) {
 	// std::cout << "Checking inout["<<tid<<"]=" << inout << " for shape" << std::endl << shape << std::endl;
 	auto var_index = mk_var_index(shape, stmt.expr(), tid);
