@@ -1,44 +1,12 @@
 
 add_executable(CoarseQueue CoarseQueue.cpp)
 target_link_libraries(CoarseQueue TMRexpLib)
+add_test(CoarseQueue CoarseQueue)
 
 add_executable(MichaelScottQueue MichaelScottQueue.cpp)
 target_link_libraries(MichaelScottQueue TMRexpLib)
+add_test(MichaelScottQueue MichaelScottQueue)
 
 add_executable(DGLMQueue DGLMQueue.cpp)
 target_link_libraries(DGLMQueue TMRexpLib)
-
-add_test(MSQueue_01--GC--ages    	MSQueue --GC --ages --malloc --success)
-add_test(MSQueue_05--GC--no-ages 	MSQueue --GC --no-ages --malloc --success)
-add_test(MSQueue_09--PRF--ages   	MSQueue --PRF --ages --malloc --success)
-add_test(MSQueue_13--PRF--no-ages	MSQueue --PRF --no-ages --malloc --fail)
-add_test(MSQueue_17--MM--ages    	MSQueue --MM --ages --init --success)
-add_test(MSQueue_21--MM--no-ages 	MSQueue --MM --no-ages --malloc --fail)
-
-
-# add_test(MSQueue_01--GC--ages--malloc                	MSQueue --GC --ages --malloc)
-# add_test(MSQueue_02--GC--ages--init                  	MSQueue --GC --ages --init)
-# add_test(MSQueue_03--GC--ages--malloc--age-compare   	MSQueue --GC --ages --malloc --age-compare)
-# add_test(MSQueue_04--GC--ages--init--age-compare     	MSQueue --GC --ages --init --age-compare)
-# add_test(MSQueue_05--GC--no-ages--malloc             	MSQueue --GC --no-ages --malloc)
-# add_test(MSQueue_06--GC--no-ages--init               	MSQueue --GC --no-ages --init)
-# add_test(MSQueue_07--GC--no-ages--malloc--age-compare	MSQueue --GC --no-ages --malloc --age-compare)
-# add_test(MSQueue_08--GC--no-ages--init--age-compare  	MSQueue --GC --no-ages --init --age-compare)
-
-# add_test(MSQueue_09--PRF--ages--malloc                	MSQueue --PRF --ages --malloc)
-# add_test(MSQueue_10--PRF--ages--init                  	MSQueue --PRF --ages --init)
-# add_test(MSQueue_11--PRF--ages--malloc--age-compare   	MSQueue --PRF --ages --malloc --age-compare)
-# add_test(MSQueue_12--PRF--ages--init--age-compare     	MSQueue --PRF --ages --init --age-compare)
-# add_test(MSQueue_13--PRF--no-ages--malloc             	MSQueue --PRF --no-ages --malloc)
-# add_test(MSQueue_14--PRF--no-ages--init               	MSQueue --PRF --no-ages --init)
-# add_test(MSQueue_15--PRF--no-ages--malloc--age-compare	MSQueue --PRF --no-ages --malloc --age-compare)
-# add_test(MSQueue_16--PRF--no-ages--init--age-compare  	MSQueue --PRF --no-ages --init --age-compare)
-
-# add_test(MSQueue_17--MM--ages--malloc                	MSQueue --MM --ages --malloc)
-# add_test(MSQueue_18--MM--ages--init                  	MSQueue --MM --ages --init)
-# add_test(MSQueue_19--MM--ages--malloc--age-compare   	MSQueue --MM --ages --malloc --age-compare)
-# add_test(MSQueue_20--MM--ages--init--age-compare     	MSQueue --MM --ages --init --age-compare)
-# add_test(MSQueue_21--MM--no-ages--malloc             	MSQueue --MM --no-ages --malloc)
-# add_test(MSQueue_22--MM--no-ages--init               	MSQueue --MM --no-ages --init)
-# add_test(MSQueue_23--MM--no-ages--malloc--age-compare	MSQueue --MM --no-ages --malloc --age-compare)
-# add_test(MSQueue_24--MM--no-ages--init--age-compare  	MSQueue --MM --no-ages --init --age-compare)
+add_test(DGLMQueue DGLMQueue)

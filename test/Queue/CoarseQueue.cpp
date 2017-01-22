@@ -106,4 +106,3 @@ int main(int argc, char *argv[]) {
 
 	return run(*program, *observer);
 }
-
