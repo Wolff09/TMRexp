@@ -12,58 +12,58 @@ static std::unique_ptr<Program> mk_program() {
 	// push
 	auto pushbody = Sqz(
 		Mllc("node"),
+		SetNull(Next("node")),
 		Read("node"),
-		Loop(Sqz(
-			Assign(Var("top"), Var("TopOfStack")),
-			Assign(Next("node"), Var("top")),
-			IfThen(
-				CasCond(CAS(Var("TopOfStack"), Var("top"), Var("node"), LinP(), false)),
-				Sqz(Brk())
-			)
-		))
+		AtomicSqz(
+			LinP(),
+			Assign(Next("node"), Var("TopOfStack")),
+			Assign(Var("TopOfStack"), Var("node"))
+		)
 	);
 
 	// pop
-	auto popbody = Sqz(Loop(Sqz(
-		Assign(Var("top"), Var("TopOfStack"), LinP(EqCond(Var("top"), Null()))),
-		IfThenElse(
-			EqCond(Var("top"), Null()),
-			Sqz(Brk()),
-			Sqz(
-				Assign(Var("node"),	Next("top")),
-				IfThen(
-					CasCond(CAS(Var("TopOfStack"), Var("top"), Var("node"), LinP("top"), false)),
-					Sqz(
-						Write("top"),
-						Brk()
-					)
+	auto popbody = Sqz(
+		AtomicSqz(
+			Assign(Var("top"), Var("TopOfStack")),
+			IfThenElse(
+				EqCond(Var("top"), Null()),
+				Sqz(
+					LinP()
+				),
+				Sqz(
+					LinP("top"),
+					Write("top"),
+					Assign(Var("TopOfStack"), Next("top"))
 				)
 			)
 		)
-	)));
+	);
 
 	#if REPLACE_INTERFERENCE_WITH_SUMMARY
 		// push summary
 		auto pushsum = AtomicSqz(
 				Mllc("node"),
 				Read("node"),
+				LinP(),
 				Assign(Next("node"), Var("TopOfStack")),
-				Assign(Var("TopOfStack"), Var("node"), LinP())
+				Assign(Var("TopOfStack"), Var("node"))
 		);
 
 		// pop summary
-		auto popsum = AtomicSqz(IfThenElse(
-			EqCond(Var("TopOfStack"), Null()),
-			Sqz(LinP()),
-			Sqz(
-				Assign(Var("top"), Var("TopOfStack")),
-				Assign(Var("TopOfStack"), Next("top")),
-				LinP("top")
+		auto popsum = AtomicSqz(
+			IfThenElse(
+				EqCond(Var("TopOfStack"), Null()),
+				Sqz(LinP()),
+				Sqz(
+					LinP("TopOfStack"),
+					Assign(Var("node"), Var("TopOfStack")),
+					Assign(Var("TopOfStack"), Next("node"))
+				)
 			)
-		));
+		);
 	#endif
 
-	std::string name = "TreibersStack";
+	std::string name = "CoarseStack";
 
 	return Prog(
 		name,

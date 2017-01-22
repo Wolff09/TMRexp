@@ -3,15 +3,9 @@
 using namespace tmr;
 
 
-bool DGLMhint(void* param) {
-	Shape* shape = (Shape*) param;
-	shape->remove_relation(6, 5, GT);
-	return shape->at(6, 5).none();
-}
-
 static std::unique_ptr<Program> mk_program() {
 	// init
-	std::unique_ptr<Sequence> init = Sqz(
+	auto init = Sqz(
 		Mllc("Head"),
 		SetNull(Next("Head")),
 		Assign(Var("Tail"), Var("Head"))
@@ -46,9 +40,10 @@ static std::unique_ptr<Program> mk_program() {
 	);
 
 	// deq
-	auto linpc = CompCond(OCond(), CompCond(EqCond(Var("h"), Var("Head"), false), EqCond(Var("n"), Null())));
+	auto linpc = CompCond(OCond(), CompCond(EqCond(Var("h"), Var("Head"), false), CompCond(EqCond(Var("h"), Var("t")), EqCond(Var("n"), Null()))));
 	auto deqbody = Sqz(Loop(Sqz(
 		Assign(Var("h"), Var("Head")),
+		Assign(Var("t"), Var("Tail")),
 		Orcl(),
 		Assign(Var("n"), Next("h"), LinP(std::move(linpc))),
 		IfThenElse(
@@ -56,20 +51,19 @@ static std::unique_ptr<Program> mk_program() {
 			Sqz(
 				ChkP(true),
 				IfThenElse(
-					EqCond(Var("n"), Null()),
-					Sqz(Brk()),
+					EqCond(Var("h"), Var("t")),
+					Sqz(
+						IfThen(
+							EqCond(Var("n"), Null()),
+							Sqz(Brk())
+						),
+						CAS(Var("Tail"), Var("t"), Var("n"), false)
+					),
 					Sqz(
 						Write("n"),
 						IfThen(
 							CasCond(CAS(Var("Head"), Var("h"), Var("n"), LinP("n"), false)),
 							Sqz(
-								Assign(Var("t"), Var("Tail")),
-								IfThen(
-									EqCond(Var("h"), Var("t")),
-									Sqz(
-										CAS(Var("Tail"), Var("t"), Var("n"), false)
-									)
-								),
 								Brk()
 							)
 						)
@@ -106,26 +100,22 @@ static std::unique_ptr<Program> mk_program() {
 		auto deqsum = AtomicSqz(
 			Assign(Var("n"), Next("Head")),
 			IfThenElse(
-				EqCond(Var("n"), Null()),
-				Sqz(LinP()),
+				EqCond(Var("Head"), Var("Tail")),
 				Sqz(
 					IfThenElse(
-						NDCond(),
-						Sqz(
-							Assign(Var("t"), Next("Tail")),
-							IfThen(
-								NeqCond(Var("t"), Null()),
-								Sqz(Assign(Var("Tail"), Var("t")))
-							)
-						),
-						Sqz(Assign(Var("Head"), Var("n"), LinP("n")))
+						EqCond(Var("n"), Null()),
+						Sqz(LinP()),
+						Sqz(Assign(Var("Tail"), Var("n")))
 					)
+				),
+				Sqz(
+					Assign(Var("Head"), Var("n"), LinP("n"))
 				)
 			)
 		);
 	#endif
 
-	std::string name = "DGLMQueue";
+	std::string name = "MichealAndScottQueue";
 
 	return Prog(
 		name,
