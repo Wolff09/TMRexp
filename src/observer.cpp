@@ -1,6 +1,7 @@
 #include "observer.hpp"
 
 #include <stdexcept>
+#include <algorithm>
 
 using namespace tmr;
 
