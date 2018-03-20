@@ -355,4 +355,12 @@ namespace tmr {
 		return result;
 	}
 
+	static std::unique_ptr<Observer> smr_observer() {
+		// TODO: implement
+		std::vector<std::unique_ptr<State>> states;
+		states.push_back(mk_state("dummy", true, false));
+		auto result = std::unique_ptr<Observer>(new Observer(std::move(states), 0));
+		return result;
+	}
+
 }

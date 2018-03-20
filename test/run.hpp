@@ -21,25 +21,19 @@ namespace tmr {
 	}
 
 
-	int run(const Program& program, const Observer& observer, bool expect_success=true) {
-		MemorySetup msetup = PRF;
-
+	int run(const Program& program, const Observer& linobserver, const Observer& smrobserver, bool expect_success=true) {
 		// print setup
 		std::cout << "***********************************************************" << std::endl;
 		std::cout << "**                         SETUP                         **" << std::endl;
 		std::cout << "***********************************************************" << std::endl << std::endl;
 		std::cout << "Running in ";
-		#if REPLACE_INTERFERENCE_WITH_SUMMARY
-			std::cout << "SUMMARY";
-		#else
-			std::cout << "INTERFERENCE";
-		#endif
+		std::cout << "INTERFERENCE";
 		std::cout << " mode for EXPLICIT MEMORY MANAGEMENT" << std::endl << std::endl;
 		std::cout << std::endl << program << std::endl;
 
 		// execute conformance check
 		auto t_start = std::chrono::high_resolution_clock::now();
-		CCResult result = check_conformance(program, observer, msetup);
+		CCResult result = check_conformance(program, linobserver, smrobserver);
 		auto t_end = std::chrono::high_resolution_clock::now();
 		std::string answer = result.conformance ?  "  CORRECT" : "INCORRECT";
 

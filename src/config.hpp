@@ -2,7 +2,7 @@
 
 
 // fixed point configuration
-#define REPLACE_INTERFERENCE_WITH_SUMMARY true
+#define REPLACE_INTERFERENCE_WITH_SUMMARY false
 
 // summary configurations
 #define USE_MODIFIED_FIXEDPOINT true

@@ -26,23 +26,40 @@ namespace tmr {
 
 		//	throw std::runtime_error("Strong Pointer Race detected while accessing cell term with id=" + std::to_string(var) + ".");
 		// }
+
+		// TODO: what to do here?
 	}
 
 	/*static inline bool is_invalid(const Shape& shape, std::size_t var) {
 		return shape.test(var, shape.index_FREE(), MT);
 	}*/
 
-	static inline bool is_invalid(const Cfg& cfg, std::size_t var) {
-		return cfg.invalid[var] || cfg.sin[var];
+	static inline bool is_valid(const Cfg& cfg, std::size_t var) {
+		return cfg.valid.at(var);
 	}
 
-	static inline void raise_eprf(const Cfg& cfg, std::size_t var, std::string msg) {
-		std::cout << "*******************************" << std::endl;
-		std::cout << "Effective Pointer Race detected" << std::endl;
+	static inline bool is_invalid(const Cfg& cfg, std::size_t var) {
+		return !is_valid(cfg, var);
+	}
+
+	static inline void raise_epr(const Cfg& cfg, std::size_t var, std::string msg) {
+		std::cout << std::endl;
+		std::cout << "**************************************" << std::endl;
+		std::cout << "'Almost' Relaxed Pointer Race detected" << std::endl;
 		std::cout << msg << std::endl;
 		std::cout << "for cell-id: " << var << std::endl;
-		std::cout << "in: " << cfg << *cfg.shape << *cfg.ages << std::endl;
-		throw std::runtime_error("Effective Pointer Race detected");
+		std::cout << "in: " << cfg << *cfg.shape << std::endl;
+		throw std::runtime_error("'Almost' Relaxed Pointer Race detected.");
+	}
+
+	static inline void raise_rpr(const Cfg& cfg, std::size_t var, std::string msg) {
+		std::cout << std::endl;
+		std::cout << "*****************************" << std::endl;
+		std::cout << "Relaxed Pointer Race detected" << std::endl;
+		std::cout << msg << std::endl;
+		std::cout << "for cell-id: " << var << std::endl;
+		std::cout << "in: " << cfg << *cfg.shape << std::endl;
+		throw std::runtime_error("Relaxed Pointer Race detected.");
 	}
 
 	static inline void ensure_prf(const Shape& shape, std::size_t var, const Statement& stmt) {
@@ -85,8 +102,10 @@ namespace tmr {
 		}
 	}
 
-	#define CHECK_PRF(x) if (msetup == PRF) ensure_prf(input, x);
-	#define CHECK_PRF_ws(x, stmt) if (msetup == PRF) ensure_prf(input, x, stmt);
+	// TODO: check for udef/seg access
+	#define CHECK_RPRF(x) if ensure_prf(input, x);
+	#define CHECK_RPRF_ws(x, stmt) ensure_prf(input, x, stmt);
+	// TODO: check for null access
 	#define CHECK_ACCESS(x) check_ptr_access(input, x);
 	#define CHECK_ACCESS_ws(x, stmt) check_ptr_access(input, x, stmt);
 	#define CHECK_NO_REACH(x, y) check_no_reachability(input, x, y);

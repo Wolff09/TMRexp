@@ -24,7 +24,7 @@ void remove_observer_binding(Shape& shape, std::size_t obsct) {
 	assert(is_closed_under_reflexivity_and_transitivity(shape));
 }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsigned short tid) {
 	CHECK_STMT;
 
 	OValue in = cfg.inout[tid];
@@ -35,8 +35,8 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsi
 	std::size_t lhs = mk_var_index(input, stmt.expr(), tid);
 	// std::cout << " -- " << lhs << ".data = __in__; " << std::endl;
 
-	CHECK_PRF_ws(lhs, stmt);
-	if (msetup == PRF && (is_invalid(cfg, lhs) || cfg.sin[lhs])) raise_eprf(cfg, lhs, "Bad write to data field");
+	if (is_invalid(cfg, lhs)) raise_rpr(cfg, lhs, "Bad write to data field: dereference of invalid pointer.");
+	CHECK_RPRF_ws(lhs, stmt);
 
 	std::vector<Cfg> result;
 
@@ -89,11 +89,11 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsi
 
 			// TODO: the following should be "more correct" than the current setup, but it gives way more cfgs to explore
 			// Cfg tmp(cfg, shape);
-			// result.push_back(tmr::post_assignment_pointer_var_var(cfg, obs, lhs, tid, msetup, &stmt));
+			// result.push_back(tmr::post_assignment_pointer_var_var(cfg, obs, lhs, tid, &stmt));
 
-			Shape* res = tmr::post_assignment_pointer_shape_var_var(*shape, obs, lhs, msetup, &stmt);
+			Shape* res = tmr::post_assignment_pointer_shape_var_var(*shape, obs, lhs, &stmt);
 			result.push_back(mk_next_config(cfg, res, tid));
-			result.back().own.set_ownership(obs, result.back().own.is_owned(lhs));
+			result.back().own.set(obs, result.back().own.at(lhs));
 			delete shape;
 		}
 
@@ -135,14 +135,14 @@ bool is_inout_correct(const Shape& shape, const WriteOutputAssignment& stmt, OVa
 	return true;
 }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const WriteOutputAssignment& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const WriteOutputAssignment& stmt, unsigned short tid) {
 	CHECK_STMT;
 
 	const Shape& input = *cfg.shape;
 	auto var_index = mk_var_index(input, stmt.expr(), tid);
 
-	if (msetup == PRF && cfg.sin[var_index]) raise_eprf(cfg, var_index, "Bad read of data field.");
-	CHECK_PRF_ws(var_index, stmt);
+	if (is_invalid(cfg, var_index)) raise_rpr(cfg, var_index, "Bad read of data field: dereference of invalid pointer.");
+	CHECK_RPRF_ws(var_index, stmt);
 
 	// do nothing... we have no explicit notion of data variables and returning
 	std::vector<Cfg> result;

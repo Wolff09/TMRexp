@@ -14,27 +14,27 @@ static inline std::vector<Cfg> noop(const Cfg& cfg, unsigned short tid) {
 	return result;
 }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const Sequence& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const Sequence& stmt, unsigned short tid) {
 	CHECK_STMT;
 	return noop(cfg, tid);
 }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const Break& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const Break& stmt, unsigned short tid) {
 	CHECK_STMT;
 	return noop(cfg, tid);
 }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const CompareAndSwap& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const CompareAndSwap& stmt, unsigned short tid) {
 	CHECK_STMT;
-	return eval_cond_cas(cfg, stmt, stmt.next(), stmt.next(), tid, msetup);
+	return eval_cond_cas(cfg, stmt, stmt.next(), stmt.next(), tid);
 }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const Conditional& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const Conditional& stmt, unsigned short tid) {
 	CHECK_STMT;
-	return eval_cond(cfg, stmt, tid, msetup);
+	return eval_cond(cfg, stmt, tid);
 }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const Oracle& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const Oracle& stmt, unsigned short tid) {
 	CHECK_STMT;
 
 	std::vector<Cfg> result;
@@ -48,7 +48,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Oracle& stmt, unsigned short ti
 	return result;
 }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const CheckProphecy& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const CheckProphecy& stmt, unsigned short tid) {
 	CHECK_STMT;
 
 	std::vector<Cfg> result;
@@ -56,7 +56,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const CheckProphecy& stmt, unsigned s
 	return result;
 }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const Killer& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const Killer& stmt, unsigned short tid) {
 	CHECK_STMT;
 
 	if (stmt.kill_confused()) {
@@ -76,22 +76,15 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Killer& stmt, unsigned short ti
 	result.push_back(mk_next_config(cfg, shape, tid));
 	Cfg& back = result.back();
 
-	for (std::size_t i = 0; i < shape->size(); i++) {
-		back.ages->set_real(var_index, i, AgeRel::BOT);
-		back.ages->set_next(var_index, i, AgeRel::BOT);
-	}
-	back.ages->set_real(var_index, var_index, AgeRel::EQ);
-	back.ages->set_next(var_index, var_index, AgeRel::EQ);
-
 	for (std::size_t i = 0; i < back.shape->sizeLocals(); i++) {
-		back.own.own(back.shape->offset_locals(tid) + i);
-		back.sin[back.shape->offset_locals(tid) + i] = false;
+		back.own.set(back.shape->offset_locals(tid) + i, true);
+		// TODO: set (in)valid?
 	}
 
 	return result;
 }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const EnforceReach& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const EnforceReach& stmt, unsigned short tid) {
 	CHECK_STMT;
 
 	const Shape& shape = *cfg.shape;

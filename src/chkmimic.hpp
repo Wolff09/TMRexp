@@ -5,6 +5,6 @@
 
 namespace tmr {
 
-	bool chk_mimic(const Encoding& fixedpoint, MemorySetup msetup = PRF);
+	// bool chk_mimic(const Encoding& fixedpoint);
 
 }

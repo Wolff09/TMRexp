@@ -15,6 +15,7 @@ endif(NOT CMAKE_BUILD_TYPE)
 # don't get rid of assertions
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE RelWithDebInfo)
 
 
 # use c++11
@@ -29,7 +30,8 @@ if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
 	add_definitions(-fno-strict-aliasing)
 	add_definitions(-Wall -Wextra)
 	add_definitions(-Wno-unused-parameter -Wno-unused-function)
-	add_definitions(-fshow-column)
+	# add_definitions(-fshow-column)
+	add_definitions(-ferror-limit=5)
 	set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-std=c++11") #  -ftemplate-depth=512
 endif()
 
