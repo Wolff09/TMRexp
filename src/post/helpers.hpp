@@ -34,12 +34,20 @@ namespace tmr {
 		return shape.test(var, shape.index_FREE(), MT);
 	}*/
 
-	static inline bool is_valid(const Cfg& cfg, std::size_t var) {
-		return cfg.valid.at(var);
+	static inline bool is_valid_ptr(const Cfg& cfg, std::size_t var) {
+		return cfg.valid_ptr.at(var);
 	}
 
-	static inline bool is_invalid(const Cfg& cfg, std::size_t var) {
-		return !is_valid(cfg, var);
+	static inline bool is_invalid_ptr(const Cfg& cfg, std::size_t var) {
+		return !is_valid_ptr(cfg, var);
+	}
+
+	static inline bool is_valid_next(const Cfg& cfg, std::size_t var) {
+		return cfg.valid_next.at(var);
+	}
+
+	static inline bool is_invalid_next(const Cfg& cfg, std::size_t var) {
+		return !is_valid_next(cfg, var);
 	}
 
 	static inline void raise_epr(const Cfg& cfg, std::size_t var, std::string msg) {

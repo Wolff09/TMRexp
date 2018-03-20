@@ -82,10 +82,15 @@ std::pair<bool, const Cfg&> Encoding::take(Cfg&& new_cfg) {
 			}
 
 			for (std::size_t i = dst.offset_locals(0); i < dst.size(); i++) {
-				bool new_valid = cfg.valid.at(i) && new_cfg.valid.at(i);
-				if (cfg.valid.at(i) != new_valid) {
+				bool new_valid_ptr = cfg.valid_ptr.at(i) && new_cfg.valid_ptr.at(i);
+				if (cfg.valid_ptr.at(i) != new_valid_ptr) {
 					updated = true;
-					cfg.valid.set(i, new_valid);
+					cfg.valid_ptr.set(i, new_valid_ptr);
+				}
+				bool new_valid_next = cfg.valid_next.at(i) && new_cfg.valid_next.at(i);
+				if (cfg.valid_next.at(i) != new_valid_next) {
+					updated = true;
+					cfg.valid_next.set(i, new_valid_next);
 				}
 
 				bool new_own = cfg.own.at(i) && new_cfg.own.at(i);

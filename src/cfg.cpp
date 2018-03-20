@@ -31,7 +31,8 @@ std::ostream& tmr::operator<<(std::ostream& os, const Cfg& cfg) {
 	os << ", inout=[" << cfg.inout[0] << ", " << cfg.inout[1] << ", " << cfg.inout[2] << "]";
 	os << ", seen[0]=[" << cfg.seen[0] << ", " << cfg.seen[1] << "]";
 	os << ", own="; cfg.own.print(os);
-	os << ", valid="; cfg.valid.print(os);
+	os << ", valid_ptr="; cfg.valid_ptr.print(os);
+	os << ", valid_next="; cfg.valid_next.print(os);
 	// os << ", smrobs="; cfg.smrobs.print(os);
 	os << ", oracle[0]=[" << cfg.oracle[0] << ", " << cfg.oracle[1] << ", " << cfg.oracle[2] << "]";
 	os << ", shape";

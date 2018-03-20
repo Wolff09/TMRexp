@@ -102,7 +102,8 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& cfg, unsigned short tid, c
 				// reset ownership (undefined cells are owned by definition)
 				for (std::size_t i = 0; i < cfg.shape->sizeLocals(); i++) {
 					cfg.own.set(cfg.shape->offset_locals(tid) + i, true);
-					cfg.valid.set(cfg.shape->offset_locals(tid) + i, false);
+					cfg.valid_ptr.set(cfg.shape->offset_locals(tid) + i, false);
+					cfg.valid_next.set(cfg.shape->offset_locals(tid) + i, false);
 				}
 				// reset oracle
 				cfg.oracle[tid] = false;

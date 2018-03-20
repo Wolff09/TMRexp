@@ -85,39 +85,41 @@ static inline bool is_globally_reachable(const Shape& shape, std::size_t var) {
 
 
 Cfg tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
-	if (NON_LOCAL(lhs) && is_invalid(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoiling non-local variable");
+	if (NON_LOCAL(lhs) && is_invalid_ptr(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoiling non-local variable (ptr).");
+	if (NON_LOCAL(lhs) && is_invalid_next(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoiling non-local variable (next).");
 
 	Shape* shape = post_assignment_pointer_shape_var_var(*cfg.shape, lhs, rhs, stmt);
 	Cfg res = mk_next_config(cfg, shape, tid);
 	res.own.set(lhs, res.own.at(rhs));
 	// TODO: this could publish rhs
-	res.valid.set(lhs, is_valid(cfg, rhs));
+	res.valid_ptr.set(lhs, is_valid_ptr(cfg, rhs));
+	res.valid_next.set(lhs, is_valid_next(cfg, rhs));
 	return res;
 }
 
 Cfg tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
-	if (/*NON_LOCAL(lhs) &&*/ is_invalid(cfg, rhs)) raise_rpr(cfg, rhs, "Dereference of invalid pointer.");
+	if (is_invalid_ptr(cfg, rhs)) raise_rpr(cfg, rhs, "Dereference of invalid pointer.");
+	if (NON_LOCAL(lhs) && is_invalid_next(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoiling non-local variable.");
 
 	Shape* shape = post_assignment_pointer_shape_var_next(*cfg.shape, lhs, rhs, stmt);
 	Cfg res = mk_next_config(cfg, shape, tid);
 	res.own.set(lhs, false); // approximation
 	// TODO: we need valid for next fields
-	// res.valid.set(lhs, false);
-	res.valid.set(lhs, is_globally_reachable(*cfg.shape, rhs)); // TODO: is this correct?
+	res.valid_ptr.set(lhs, cfg.valid_next.at(rhs));
+	res.valid_next.set(lhs, is_globally_reachable(*cfg.shape, rhs)); // TODO: is this correct? only validate if guaranteed to be global?
 	return res;
 }
 
 Cfg tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
-	// if (NON_LOCAL(lhs) && is_invalid(cfg, rhs)) raise_epr(cfg, lhs, "Bad assignment: spoiling non-local variable.");
-	// if (is_globally_reachable(*cfg.shape, lhs) && is_invalid(cfg, rhs)) raise_epr(cfg, lhs, "Bad assignment: spoiling globally reachable next field.");
-	if (is_invalid(cfg, lhs)) raise_rpr(cfg, lhs, "Bad assignment: dereference of invalid pointer.");
-	if (is_invalid(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoinling next field."); // TODO: this should give false-positive
+	if (is_invalid_ptr(cfg, lhs)) raise_rpr(cfg, lhs, "Bad assignment: dereference of invalid pointer.");
+	if (is_globally_reachable(*cfg.shape, lhs) && is_invalid_ptr(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoinling next field.");
 
 	Shape* shape = post_assignment_pointer_shape_next_var(*cfg.shape, lhs, rhs, stmt);
 	Cfg res = mk_next_config(cfg, shape, tid);
 	// if we make rhs reachable from lhs, so we may publish it depending on the ownership of lhs
 	if (res.own.at(rhs) && !res.own.at(lhs))
 		res.own.set(rhs, false);
+	res.valid_next.set(lhs, cfg.valid_ptr.at(rhs));
 	return res;
 }
 
@@ -253,13 +255,18 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const NullAssignment& stmt, unsigned 
 		shape = post_assignment_pointer_shape_var_var(input, lhs, rhs);
 	} else {
 		assert(le.clazz() == Expr::SEL);
-		if (is_invalid(cfg, lhs)) raise_rpr(cfg, lhs, "Bad assignment: dereference of invalid pointer.");
+		if (is_invalid_ptr(cfg, lhs)) raise_rpr(cfg, lhs, "Bad assignment: dereference of invalid pointer.");
 		shape = post_assignment_pointer_shape_next_var(input, lhs, rhs, &stmt);
 	}
 
 	std::vector<Cfg> result;
 	result.push_back(mk_next_config(cfg, shape, tid));
-	if (le.clazz() == Expr::VAR) result.back().valid.set(lhs, true);
+	if (le.clazz() == Expr::VAR) {
+		result.back().valid_ptr.set(lhs, true);
+		result.back().valid_next.set(lhs, true); // TODO: correct?
+	} else {
+		result.back().valid_next.set(lhs, true);
+	}
 	// TODO: what about next fields?
 	return result;
 }

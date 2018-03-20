@@ -35,7 +35,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsi
 	std::size_t lhs = mk_var_index(input, stmt.expr(), tid);
 	// std::cout << " -- " << lhs << ".data = __in__; " << std::endl;
 
-	if (is_invalid(cfg, lhs)) raise_rpr(cfg, lhs, "Bad write to data field: dereference of invalid pointer.");
+	if (is_invalid_ptr(cfg, lhs)) raise_rpr(cfg, lhs, "Bad write to data field: dereference of invalid pointer.");
 	CHECK_RPRF_ws(lhs, stmt);
 
 	std::vector<Cfg> result;
@@ -141,12 +141,12 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const WriteOutputAssignment& stmt, un
 	const Shape& input = *cfg.shape;
 	auto var_index = mk_var_index(input, stmt.expr(), tid);
 
-	if (is_invalid(cfg, var_index)) raise_rpr(cfg, var_index, "Bad read of data field: dereference of invalid pointer.");
+	if (is_invalid_ptr(cfg, var_index)) raise_rpr(cfg, var_index, "Bad read of data field: dereference of invalid pointer.");
 	CHECK_RPRF_ws(var_index, stmt);
 
 	// do nothing... we have no explicit notion of data variables and returning
 	std::vector<Cfg> result;
 	result.push_back(mk_next_config(cfg, new Shape(*cfg.shape), tid));
-	if (is_invalid(cfg, var_index)) result.back().inout[tid] = OValue();
+	if (is_invalid_ptr(cfg, var_index)) result.back().inout[tid] = OValue();
 	return result;
 }

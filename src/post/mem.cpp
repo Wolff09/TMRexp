@@ -44,7 +44,8 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 		result.back().shape->set(var_index, i, BT_);
 	result.back().shape->set(var_index, var_index, EQ_);
 	result.back().own.set(var_index, true);
-	result.back().valid.set(var_index, true);
+	result.back().valid_ptr.set(var_index, true);
+	// result.back().valid_next.set(var_index, true);
 
 	/* malloc gives a freed cell */
 	// TODO: restrict reuse to dedicated cell
