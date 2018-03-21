@@ -24,8 +24,10 @@ bool cfg_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	// if (lhs.invalid > rhs.invalid) return false;
 	if (lhs.oracle < rhs.oracle) return true;
 	if (rhs.oracle < lhs.oracle) return false;
-	if (lhs.smrstate < rhs.smrstate) return true;
-	if (rhs.smrstate < lhs.smrstate) return false;
+	if (lhs.guard0state < rhs.guard0state) return true;
+	if (rhs.guard0state < lhs.guard0state) return false;
+	if (lhs.guard1state < rhs.guard1state) return true;
+	if (rhs.guard1state < lhs.guard1state) return false;
 
 	// if rhs is not smaller, return false
 	return false;

@@ -113,8 +113,8 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 // 	return false;
 // }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const Free& stmt, unsigned short tid) {
-	throw std::logic_error("Not yet implemented.");
+// std::vector<Cfg> tmr::post(const Cfg& cfg, const Free& stmt, unsigned short tid) {
+// 	throw std::logic_error("Not yet implemented.");
 	// TODO: this needs a complete rewrite
 
 	// CHECK_STMT;
@@ -215,4 +215,4 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Free& stmt, unsigned short tid)
 	// }
 
 	// return result;
-}
+// }

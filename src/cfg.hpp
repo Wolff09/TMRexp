@@ -81,20 +81,25 @@ namespace tmr {
 		mutable DynamicOwnership own;
 		mutable DynamicValidity valid_ptr;
 		mutable DynamicValidity valid_next;
-		mutable DynamicSMRState smrstate;
+		mutable DynamicSMRState guard0state;
+		mutable DynamicSMRState guard1state;
 		// TODO: realloc address smr state
+		bool freed;
+		bool retired;
 
 		Cfg(std::array<const Statement*, 3> pc, MultiState linstate, const State& obsstateprototype, Shape* shape/*, MultiInOut inout*/)
 		  : pc(pc), state(linstate), /*inout(inout),*/ shape(shape),
 		    own(false, shape->offset_locals(0), 2*shape->sizeLocals()),
 		    valid_ptr(false, shape->offset_locals(0), 2*shape->sizeLocals()),
 		    valid_next(false, shape->offset_locals(0), 2*shape->sizeLocals()),
-		    smrstate(&obsstateprototype, shape->offset_locals(0), 2*shape->sizeLocals())
+		    guard0state(NULL, shape->offset_locals(0), 2*shape->sizeLocals()),
+		    guard1state(NULL, shape->offset_locals(0), 2*shape->sizeLocals()),
+		    freed(true), retired(true)
 		{
 			for (std::size_t i = 0; i < seen.size(); i++) seen[i] = false;
 			for (std::size_t i = 0; i < oracle.size(); i++) oracle[i] = true;
 		}
-		Cfg(const Cfg& cfg, Shape* shape) : pc(cfg.pc), state(cfg.state), inout(cfg.inout), oracle(cfg.oracle), shape(shape), seen(cfg.seen), own(cfg.own), valid_ptr(cfg.valid_ptr), valid_next(cfg.valid_next), smrstate(cfg.smrstate) {}
+		Cfg(const Cfg& cfg, Shape* shape) : pc(cfg.pc), state(cfg.state), inout(cfg.inout), oracle(cfg.oracle), shape(shape), seen(cfg.seen), own(cfg.own), valid_ptr(cfg.valid_ptr), valid_next(cfg.valid_next), guard0state(cfg.guard0state), guard1state(cfg.guard1state), freed(cfg.freed), retired(cfg.retired) {}
 		Cfg copy() const;
 	};
 

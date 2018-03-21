@@ -231,7 +231,7 @@ namespace tmr {
 		states.push_back(mk_state("v8", false, false));
 		states.push_back(mk_state(n_fifo, false, true));
 
-		// ObsFree
+		// ObsFree // TODO: remove?
 		states.push_back(mk_state("u9", true, false));
 		states.push_back(mk_state("v9", true, false));
 		states.push_back(mk_state("u10", false, false));
@@ -355,10 +355,25 @@ namespace tmr {
 		return result;
 	}
 
-	static std::unique_ptr<Observer> smr_observer() {
-		// TODO: implement
+	static std::unique_ptr<Observer> smr_observer(const Function& guard, const Function& unguard, const Function& retire, const Function& free) {
 		std::vector<std::unique_ptr<State>> states;
-		states.push_back(mk_state("dummy", true, false));
+		
+		states.push_back(mk_state("s0", true, false));
+		states.push_back(mk_state("s1-g", false, false));
+		states.push_back(mk_state("s2-gr", false, false));
+		states.push_back(mk_state("s3-f", false, true));
+
+		State& s0 = *states[0];
+		State& s1 = *states[1];
+		State& s2 = *states[2];
+		State& s3 = *states[3];
+
+		add_trans(s0, s1, guard);
+		add_trans(s1, s2, retire);
+		add_trans(s2, s3, free);
+		add_trans(s1, s0, unguard);
+		add_trans(s2, s0, unguard);
+
 		auto result = std::unique_ptr<Observer>(new Observer(std::move(states), 0));
 		return result;
 	}

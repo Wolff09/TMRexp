@@ -33,16 +33,22 @@ static std::unique_ptr<Program> mk_program() {
 			EqCond(Var("top"), Null()),
 			Sqz(Brk()),
 			Sqz(
-				Assign(Var("node"),	Next("top")),
+				Gard("top", 0),
 				IfThen(
-					CasCond(CAS(Var("TopOfStack"), Var("top"), Var("node"), LinP("top"), use_age_fields)),
+					EqCond(Var("top"), Var("TopOfStack")),
 					Sqz(
-						Write("top"),
-						// Fr("top"),
-						Brk()
+						Assign(Var("node"),	Next("top")),
+						IfThen(
+							CasCond(CAS(Var("TopOfStack"), Var("top"), Var("node"), LinP("top"), use_age_fields)),
+							Sqz(
+								Write("top"),
+								Rtire("top"),
+								Brk()
+							)
+						),
+						Kill("node")
 					)
-				),
-				Kill("node")
+				)
 			)
 		),
 		Kill("top")
@@ -65,7 +71,7 @@ int main(int argc, char *argv[]) {
 	// make program and observer
 	std::unique_ptr<Program> program = mk_program();
 	std::unique_ptr<Observer> linobserver = stack_observer(find(*program, "push"), find(*program, "pop"), program->freefun());
-	std::unique_ptr<Observer> smrobserver = smr_observer();
+	std::unique_ptr<Observer> smrobserver = smr_observer(program->guardfun(), program->unguardfun(), program->retirefun(), program->freefun());
 
 	return run(*program, *linobserver, *smrobserver);
 }

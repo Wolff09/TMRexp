@@ -23,7 +23,8 @@ static std::vector<Cfg> get_post_cfgs(const Cfg& cfg, unsigned short tid) {
 		case Statement::INPUT:   return tmr::post(cfg, static_cast<const   ReadInputAssignment&>(stmt), tid);
 		case Statement::OUTPUT:  return tmr::post(cfg, static_cast<const WriteOutputAssignment&>(stmt), tid);
 		case Statement::MALLOC:  return tmr::post(cfg, static_cast<const                Malloc&>(stmt), tid);
-		case Statement::FREE:    return tmr::post(cfg, static_cast<const                  Free&>(stmt), tid);
+		case Statement::RETIRE:  return tmr::post(cfg, static_cast<const                Retire&>(stmt), tid);
+		case Statement::HPSET:   return tmr::post(cfg, static_cast<const                 HPset&>(stmt), tid);
 		case Statement::BREAK:   return tmr::post(cfg, static_cast<const                 Break&>(stmt), tid);
 		case Statement::LINP:    return tmr::post(cfg, static_cast<const    LinearizationPoint&>(stmt), tid);
 		case Statement::ITE:     return tmr::post(cfg, static_cast<const                   Ite&>(stmt), tid);
