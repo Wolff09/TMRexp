@@ -35,6 +35,8 @@ std::ostream& tmr::operator<<(std::ostream& os, const Cfg& cfg) {
 	os << ", valid_next="; cfg.valid_next.print(os);
 	os << ", guard0="; cfg.guard0state.print(os);
 	os << ", guard1="; cfg.guard1state.print(os);
+	os << ", freed=" << cfg.freed;
+	os << ", retired=" << cfg.retired;
 	os << ", oracle[0]=[" << cfg.oracle[0] << ", " << cfg.oracle[1] << ", " << cfg.oracle[2] << "]";
 	os << ", shape";
 	if (cfg.shape) os << ") with shape=" << "..." /* std::endl << *cfg.shape */ << std::endl;

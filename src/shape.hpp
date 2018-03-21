@@ -47,7 +47,8 @@ namespace tmr {
 			 *   n+1 - ...:   local variables (grouped by thread)
 			 */
 			inline std::size_t index_NULL() const { return 0; }
-			inline std::size_t index_FREE() const { return 1; }
+			// inline std::size_t index_FREE() const { return 1; }
+			inline std::size_t index_REUSE() const { return 1; }
 			inline std::size_t index_UNDEF() const { return 2; }
 			std::size_t index_ObserverVar(const unsigned short id) const {
 				assert(id < _numObsVars);

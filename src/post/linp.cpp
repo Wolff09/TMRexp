@@ -10,15 +10,16 @@
 using namespace tmr;
 
 static inline bool is_observed_behind_and_not_free(const Cfg& cfg, unsigned short tid) {
-	#if !REPLACE_INTERFERENCE_WITH_SUMMARY // we do not need hints when using summaries
-		std::size_t fri = cfg.shape->index_FREE();
-		for (std::size_t oct : {3,4}) {
-			if (!cfg.shape->test(oct, fri, MT)) {
-				if (!haveCommon(cfg.shape->at(oct, 5), EQ_MF_GF))
-					return true;
-			}
-		}
-	#endif
+	// TODO: do we need this?
+	// #if !REPLACE_INTERFERENCE_WITH_SUMMARY // we do not need hints when using summaries
+	// 	std::size_t fri = cfg.shape->index_FREE();
+	// 	for (std::size_t oct : {3,4}) {
+	// 		if (!cfg.shape->test(oct, fri, MT)) {
+	// 			if (!haveCommon(cfg.shape->at(oct, 5), EQ_MF_GF))
+	// 				return true;
+	// 		}
+	// 	}
+	// #endif
 	return false;
 }
 

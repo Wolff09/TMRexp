@@ -37,6 +37,10 @@ bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	// state
 	if (lhs.state < rhs.state) return true;
 	if (rhs.state < lhs.state) return false;
+	if (lhs.freed < rhs.freed) return true;
+	if (rhs.freed < lhs.freed) return false;
+	if (lhs.retired < rhs.retired) return true;
+	if (rhs.retired < lhs.retired) return false;
 
 	return false;
 }

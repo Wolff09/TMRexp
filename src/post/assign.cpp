@@ -150,12 +150,13 @@ Shape* tmr::post_assignment_pointer_shape_var_next(const Shape& input, const std
 	assert(consistent(*result));
 
 	result->set(lhs, result->index_NULL(), EQ_MT_GT_BT);
-	result->set(lhs, result->index_FREE(), /*EQ_*/MT_GT_BT);
+	// result->set(lhs, result->index_FREE(), /*EQ_*/MT_GT_BT);
 	result->set(lhs, result->index_UNDEF(), MT_GT_BT);
 
 	for (std::size_t i = result->offset_vars(); i < result->size(); i++)
 		result->set(lhs, i, PRED);
 	result->set(rhs, lhs, MT_);
+	result->set(lhs, result->index_REUSE(), PRED);
 
 	bool needs_iterating;
 	do {
@@ -241,9 +242,6 @@ Shape* tmr::post_assignment_pointer_shape_next_var(const Shape& input, const std
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, const NullAssignment& stmt, unsigned short tid) {
 	CHECK_STMT;
-
-	// TODO: what about ages?
-	// TODO: what about sins?
 
 	const Expr& le = stmt.lhs();
 	const Shape& input = *cfg.shape;

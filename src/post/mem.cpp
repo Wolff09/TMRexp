@@ -6,6 +6,7 @@
 #include "../helpers.hpp"
 #include "post/helpers.hpp"
 #include "post/setout.hpp"
+#include "post/assign.hpp"
 #include "config.hpp"
 
 using namespace tmr;
@@ -13,75 +14,63 @@ using namespace tmr;
 
 /******************************** MALLOC ********************************/
 
-bool free_cells_still_free(const Shape& input, const Shape& output) {
-	// if t↦FREE in input shape, then we want to have t↦FREE in output shape, too, to check for prf
-	for (std::size_t i = input.offset_vars(); i < input.size(); i++)
-		if (input.test(i, input.index_FREE(), MT))
-			if (!output.test(i, input.index_FREE(), MT))
-				return false;
-	return true;
-}
+// bool free_cells_still_free(const Shape& input, const Shape& output) {
+// 	// if t↦FREE in input shape, then we want to have t↦FREE in output shape, too, to check for prf
+// 	for (std::size_t i = input.offset_vars(); i < input.size(); i++)
+// 		if (input.test(i, input.index_FREE(), MT))
+// 			if (!output.test(i, input.index_FREE(), MT))
+// 				return false;
+// 	return true;
+// }
 
 #define NON_LOCAL(x) !(x >= cfg.shape->offset_locals(tid) && x < cfg.shape->offset_locals(tid) + cfg.shape->sizeLocals())
 ; // this semicolon is actually very useful: it fixes my syntax highlighting :)
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short tid) {
 	CHECK_STMT;
+	
 	const Shape& input = *cfg.shape;
-
-	std::vector<Cfg> result;
 	const auto var_index = mk_var_index(input, stmt.decl(), tid);
 
 	if (NON_LOCAL(var_index) && &stmt.function().prog().init_fun() != &stmt.function()) {
 			throw std::runtime_error("Allocations may not target global variables.");
 	}
 
-	// TODO: initialize next field to null
+	std::vector<Cfg> result;
 
 	/* malloc gives a fresh memory cell */
 	result.push_back(mk_next_config(cfg, new Shape(input), tid));
+	Cfg& fresh = result.back();
+
 	for (std::size_t i = 0; i < input.size(); i++)
-		result.back().shape->set(var_index, i, BT_);
-	result.back().shape->set(var_index, var_index, EQ_);
-	result.back().own.set(var_index, true);
-	result.back().valid_ptr.set(var_index, true);
-	// result.back().valid_next.set(var_index, true);
+		fresh.shape->set(var_index, i, BT_);
+	fresh.shape->set(var_index, var_index, EQ_);
+	fresh.shape->set(var_index, input.index_NULL(), MT_);
+	fresh.own.set(var_index, true);
+	fresh.valid_ptr.set(var_index, true);
+	fresh.valid_next.set(var_index, true);
+	fresh.guard0state.set(var_index, NULL);
+	fresh.guard1state.set(var_index, NULL);
+
 
 	/* malloc gives a freed cell */
-	// TODO: restrict reuse to dedicated cell
-	// const auto free_index = input.index_FREE();
-	// for (std::size_t i = input.offset_vars(); i < input.size(); i++) { // TODO: i = offset_program_vars ?
-	// 	if (i == var_index) continue;
-		
-	// 	Shape* split = isolate_partial_concretisation(input, i, free_index, MT_);
-	// 	if (split == NULL) continue;
+	if (cfg.freed) {
+		auto shape1 = post_assignment_pointer_shape_var_var(input, var_index, input.index_REUSE(), &stmt);
+		auto shape2 = post_assignment_pointer_shape_next_var(*shape1, var_index, input.index_NULL(), &stmt); // TODO: correct?
+		delete shape1;
 
-	// 	auto eqI = get_related(*split, i, EQ_);
-	// 	auto preI = get_related(*split, i, MF_GF);
+		result.push_back(mk_next_config(cfg, shape2, tid));
+		Cfg& reuse = result.back();
 
-	// 	// the cell pointed to by all cells in eqI is reallocated for var => var = eqI and eqI no longer free
-	// 	for (auto eqi : eqI) {
-	// 		split->set(eqi, free_index, GT_); // equal-to-i cell reallocated (use GT since next fields have to remain invalid)
-	// 		split->set(eqi, var_index, EQ_); // equal-to-i cell reallocated for var
-	// 	}
+		reuse.own.set(var_index, true);
+		reuse.valid_ptr.set(var_index, true);
+		reuse.valid_next.set(var_index, true);
+		reuse.guard0state.set(var_index, NULL);
+		reuse.guard1state.set(var_index, NULL);
 
-	// 	// all predecessors of eqI can no longer reach FREE via eqI
-	// 	for (auto prei : preI)
-	// 		if (!consistent(*split, prei, free_index, GT)) {
-	// 			split->remove_relation(prei, free_index, GT);
-	// 			if (split->at(prei, free_index).none())
-	// 				split->set(prei, free_index, BT_);
-	// 		}
-
-	// 	// var is now equal to i
-	// 	for (std::size_t j = 0; j < split->size(); j++)
-	// 		split->set(var_index, j, split->at(i, j));
-
-	// 	result.push_back(mk_next_config(cfg, split, tid));
-	// 	set_age_equal(result.back(), var_index, i);
-	// 	result.back().own.own(var_index); // TODO: we may own more
-	// 	result.back().sin[var_index] = false; // TODO: there may be less sins
-	// 	result.back().invalid[var_index] = false;
+		reuse.freed = false;
+		reuse.retired = false;
+	}
 
 	return result;
 }

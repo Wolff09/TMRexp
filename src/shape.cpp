@@ -17,6 +17,7 @@ Shape::Shape(std::size_t numObsVars, std::size_t numGlobVars, std::size_t numLoc
 	std::vector<RelSet> dummy_row(_bounds + _numLocVars, dummy_cell);
 	_cells = std::vector<std::vector<RelSet>>(_bounds + _numLocVars, dummy_row);
 	for (std::size_t i = offset_vars(); i < _cells.size(); i++) set(i, index_UNDEF(), MT);
+	set(index_REUSE(), index_NULL(), MT);
 	for (std::size_t i = 0; i < _cells.size(); i++) _cells[i][i] = singleton(EQ);
 }
 

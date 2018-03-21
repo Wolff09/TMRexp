@@ -94,7 +94,7 @@ namespace tmr {
 		    valid_next(false, shape->offset_locals(0), 2*shape->sizeLocals()),
 		    guard0state(NULL, shape->offset_locals(0), 2*shape->sizeLocals()),
 		    guard1state(NULL, shape->offset_locals(0), 2*shape->sizeLocals()),
-		    freed(true), retired(true)
+		    freed(true), retired(false)
 		{
 			for (std::size_t i = 0; i < seen.size(); i++) seen[i] = false;
 			for (std::size_t i = 0; i < oracle.size(); i++) oracle[i] = true;

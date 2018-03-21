@@ -41,9 +41,8 @@ namespace tmr {
 		switch (expr.clazz()) {
 			case Expr::VAR: return mk_var_index(shape, ((const VarExpr&) expr).decl(), tid);
 			case Expr::SEL: return mk_var_index(shape, ((const Selector&) expr).decl(), tid);
-			case Expr::NIL: return shape.index_FREE();
+			case Expr::NIL: return shape.index_NULL();
 		}
-		assert(false);
 	}
 
 	/**

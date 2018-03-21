@@ -10,26 +10,22 @@ using namespace tmr;
 
 bool check_special_relations_constraints(const Shape& shape) {
 	auto null = shape.index_NULL();
-	auto free = shape.index_FREE();
+	auto reuse = shape.index_REUSE();
 	auto undef = shape.index_UNDEF();
 	// ensure that null and undef are unrelated
 	if (shape.at(null, undef).count() != 1 || !shape.at(null, undef).test(BT)) return false;
-	// ensure that null and free are unrelated
-	if (shape.at(null, free).count() != 1 || !shape.at(null, free).test(BT)) return false;
-	// ensure that undef and free are unrelated
-	if (shape.at(undef, free).count() != 1 || !shape.at(undef, free).test(BT)) return false;
+	// ensure that null and reuse are unrelated
+	if (shape.at(null, reuse).count() != 1 || !shape.at(null, reuse).test(BT)) return false;
+	// ensure that undef and reuse are unrelated
+	if (shape.at(undef, reuse).count() != 1 || !shape.at(undef, reuse).test(BT)) return false;
 	for (std::size_t i = shape.offset_vars(); i < shape.size(); i++) {
 		// cell term i may only relate with =, ↦, ⇢ or ⋈ to NULL
 		if (shape.at(i, null).test(MF)) return false;
 		if (shape.at(i, null).test(GF)) return false;
-		// cell term i may only relate with ↦, ⇢ or ⋈ to FREE
-		if (shape.at(i, free).test(EQ)) return false;
-		if (shape.at(i, free).test(MF)) return false;
-		if (shape.at(i, free).test(GF)) return false;
 		// cell term i may only relate with ↦, ⇢ or ⋈ to UNDEFINED
-		if (shape.at(i, free).test(EQ)) return false;
-		if (shape.at(i, free).test(MF)) return false;
-		if (shape.at(i, free).test(GF)) return false;
+		if (shape.at(i, undef).test(EQ)) return false;
+		if (shape.at(i, undef).test(MF)) return false;
+		if (shape.at(i, undef).test(GF)) return false;
 	}
 	return true;
 }
