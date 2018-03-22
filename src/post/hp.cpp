@@ -64,8 +64,9 @@ static inline std::vector<Cfg> smrpost(const Cfg& cfg, const Function& eqevt, co
 	std::vector<Cfg> result;
 	for (Shape* shape : shapes) {
 		result.push_back(mk_next_config(cfg, shape, tid));
-		if (fire0) fire_event(cfg, cfg.guard0state, eqevt, neqevt, var, tid);
-		if (fire1) fire_event(cfg, cfg.guard1state, eqevt, neqevt, var, tid);
+		// if (&eqevt == &cfg.pc[0]->function().prog().guardfun()) { std::cout << "here i am: " << fire0; result.back().guard0state.print(std::cout); }
+		if (fire0) fire_event(cfg, result.back().guard0state, eqevt, neqevt, var, tid);
+		if (fire1) fire_event(cfg, result.back().guard1state, eqevt, neqevt, var, tid);
 	}
 
 	return result;
@@ -79,8 +80,10 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Retire& stmt, unsigned short ti
 	auto var = mk_var_index(*cfg.shape, stmt.decl(), tid);
 
 	if (!cfg.valid_ptr.at(var)) raise_rpr(cfg, var, "Call to retire with invalid pointer.");
-	// TODO: retire only on non-owned, non-local, non-globalreach pointers
+	if (cfg.own.at(var)) raise_epr(cfg, var, "Owned addresses must not be retired.");
+	if (var < cfg.shape->offset_locals(tid)) throw std::logic_error("Retire must not use non-local pointers.");
 	
+	// TODO: retire should also be fired for other threads?
 	return smrpost(cfg, evt, evt, var, tid, true, true);
 }
 

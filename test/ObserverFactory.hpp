@@ -11,8 +11,8 @@ namespace tmr {
 		return std::make_unique<State>(name, is_initial, is_final);
 	}
 
-	static void add_trans(State& src, const State& dst, const Function& evt) {
-		Guard g({ Equality(OValue::Empty()) });
+	static void add_trans(State& src, const State& dst, const Function& evt, OValue ov = OValue::Empty()) {
+		Guard g({ ov });
 		src.add_transition(std::make_unique<Transition>(evt, g, dst));
 	}
 
@@ -368,11 +368,11 @@ namespace tmr {
 		State& s2 = *states[2];
 		State& s3 = *states[3];
 
-		add_trans(s0, s1, guard);
-		add_trans(s1, s2, retire);
-		add_trans(s2, s3, free);
-		add_trans(s1, s0, unguard);
-		add_trans(s2, s0, unguard);
+		add_trans(s0, s1, guard, OValue::Anonymous());
+		add_trans(s1, s2, retire, OValue::Anonymous());
+		add_trans(s2, s3, free, OValue::Anonymous());
+		add_trans(s1, s0, unguard, OValue::Anonymous());
+		add_trans(s2, s0, unguard, OValue::Anonymous());
 
 		auto result = std::unique_ptr<Observer>(new Observer(std::move(states), 0));
 		return result;

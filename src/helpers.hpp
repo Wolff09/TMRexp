@@ -20,6 +20,7 @@ namespace tmr {
 	static const constexpr RelSet MT_BT          = RelSet(34); // contains: ↦, ⋈
 	static const constexpr RelSet MT_GF          = RelSet(18); // contains: ↦, ⇠
 	static const constexpr RelSet MT_GT          = RelSet(10); // contains: ↦, ⇢
+	static const constexpr RelSet GT_BT          = RelSet(40); // contains: ⇢, ⋈
 	static const constexpr RelSet EQ_MT_GT       = RelSet(11); // contains: =, ↦, ⇢
 	static const constexpr RelSet EQ_MF_GF       = RelSet(21); // contains: =, ↤, ⇠
 	static const constexpr RelSet EQ_GT_GF       = RelSet(25); // contains: =, ⇢, ⇠

@@ -82,7 +82,6 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& cfg, unsigned short tid, c
 		std::vector<Cfg> postcfgs = tmr::post(cfg, tid);
 		result.reserve(result.size() + postcfgs.size());
 		for (Cfg& cfg : postcfgs) {
-			assert(cfg.shape != NULL);
 			// if the cfg.pc[tid] is at an statement that is a noop (post image just copies the cfg), filter it out
 			// to do so we advance the pc to next non-noop statement
 			// this must be done before handling returning fuctions as the pc might be set to NULL
@@ -95,7 +94,7 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& cfg, unsigned short tid, c
 				// are now out of scope -> set them to UNDEF (don't free them as they are pointers)
 				// also removes the local ages
 				set_locals_undef(cfg, tid);
-				// the must have been input or output
+				// there must have been input or output
 				assert(cfg.inout[tid].type() != OValue::DUMMY);
 				// additionally, the inout data value goes out of scope
 				cfg.inout[tid] = OValue();
@@ -144,7 +143,7 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& cfg, unsigned short tid, c
 std::vector<Cfg> tmr::mk_all_post(const Cfg& cfg, const Program& prog) {
 	std::vector<Cfg> result;
 
-	// TODO: initialize with null
+	result = post_free(cfg, 0, prog);
 
 	/*   thread 0   */
 	mk_tid_post(result, cfg, 0, prog);

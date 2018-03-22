@@ -83,6 +83,69 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 
 /******************************** FREE ********************************/
 
+static bool is_globally_reachable(const Shape& shape, std::size_t var) {
+	for (auto i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
+		if (haveCommon(shape.at(i, var), EQ_MT_GT)) {
+			std::cout << std::endl << "var=" << var << "; i=" << i << "; shape.at(i, var):" << shape.at(i,var) << std::endl;
+			return true;
+		}
+	}
+	return false;
+}
+
+static Shape* extract_shared_unreachable(const Shape& shape, std::size_t var) {
+	// extracts a subshape of the given one where var is not globally reachable, not null, and not udef; or null if no such shape exists
+	Shape* old = tmr::isolate_partial_concretisation(shape, var, shape.index_NULL(), MT_GT_BT); // TODO: correct?
+	if (!old) return NULL;
+	Shape* result = tmr::isolate_partial_concretisation(*old, var, shape.index_UNDEF(), MT_GT_BT); // TODO: correct?
+	delete old;
+	for (std::size_t i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
+		if (!result) break; // happens if var is definitely reachable from some shared variable, definitely null, or definitely udef
+		old = result;
+		result = tmr::isolate_partial_concretisation(*old, i, var, MF_GF_BT); // shared i does not reach var
+		delete old;
+	}
+	return result;
+}
+
+static inline bool is_free_forbidden(const DynamicSMRState& state, std::size_t var, const Program& prog) {
+	return state.at(var) && state.at(var)->next(prog.freefun(), OValue::Anonymous()).is_final();
+}
+
+std::vector<Cfg> tmr::post_free(const Cfg& cfg, unsigned short tid, const Program& prog) {
+	const Shape& input = *cfg.shape;
+	std::vector<Cfg> result;
+
+	for (std::size_t i = input.offset_locals(tid); i < input.offset_locals(tid) + input.sizeLocals(); i++) {
+		if (cfg.own.at(i)) continue;
+		if (is_free_forbidden(cfg.guard0state, i, prog)) continue;
+		if (is_free_forbidden(cfg.guard1state, i, prog)) continue;
+		
+		auto shape = extract_shared_unreachable(*cfg.shape, i);
+		if (!shape) continue;
+
+		result.push_back(Cfg(cfg, shape));
+		auto& cf = result.back();
+
+		// TODO: one could think about precisely querying what becomes invalid
+		for (std::size_t j = 0; j < cf.shape->size(); j++) {
+			if (cf.shape->test(i, j, EQ)) {
+				cf.valid_ptr.set(j, false);
+				cf.valid_next.set(j, false);
+				// TODO: set next ptr to UDEF
+				if (j == shape->index_REUSE()) {
+					cf.freed = true;
+					cf.retired = false;
+					// TODO: what if REUSE was not retired?
+				}
+			}
+		}
+	}
+
+	return result;
+}
+
+
 // static std::vector<OValue> get_possible_data(const Cfg& cfg, std::size_t var) {
 // 	std::vector<OValue> result;
 // 	const Shape& shape = *cfg.shape;

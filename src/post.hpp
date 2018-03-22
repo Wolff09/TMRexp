@@ -36,4 +36,5 @@ namespace tmr {
 	std::vector<Cfg> post(const Cfg& cfg, const Killer& stmt, unsigned short tid);
 	std::vector<Cfg> post(const Cfg& cfg, const EnforceReach& stmt, unsigned short tid);
 
+	std::vector<Cfg> post_free(const Cfg& cfg, unsigned short tid, const Program& prog);
 }

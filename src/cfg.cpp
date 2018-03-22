@@ -6,8 +6,18 @@ using namespace tmr;
 template<typename T, T D>
 void DynamicStore<T, D>::print(std::ostream& os) const {
 	os << "(+" << _offset << ")[";
-	for (const auto& elem : _store)
-		os << "" << elem << ", ";
+	os << "" << _store.at(0);
+	for (std::size_t i = 1; i < _store.size(); i++)
+		os << ", " << _store.at(i);
+	os << "]";
+}
+
+template<>
+void DynamicStore<const State*, nullptr>::print(std::ostream& os) const {
+	os << "(+" << _offset << ")[";
+	os << "" << (_store.at(0) ? _store.at(0)->name() : "_");
+	for (std::size_t i = 1; i < _store.size(); i++)
+		os << ", " << (_store.at(i) ? _store.at(i)->name() : "_");
 	os << "]";
 }
 
