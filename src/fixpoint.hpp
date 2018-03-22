@@ -27,6 +27,6 @@ namespace tmr {
 	};
 
 
-	std::unique_ptr<Encoding> fixed_point(const Program& prog, const Observer& linobs, const Observer& smrobs);
+	std::unique_ptr<Encoding> fixed_point(const Program& prog, const Observer& linobs);
 
 }

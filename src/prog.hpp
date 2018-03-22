@@ -46,6 +46,7 @@ namespace tmr {
 	class Function;
 	class Program;
 
+	class Observer;
 
 	class Variable {
 		private:
@@ -591,6 +592,7 @@ namespace tmr {
 			std::unique_ptr<Function> _init_fun;
 			std::size_t _idSize = 0;
 			Sequence* _init() const { return _init_fun->_stmts.get(); }
+			std::unique_ptr<Observer> _smrobs;
 			bool _has_hint = false;
 			std::function<bool(void*)> _hint;
 			bool _increase_precision_chk_mimick = false;
@@ -616,6 +618,8 @@ namespace tmr {
 			bool apply_hint(void* param) const { assert(has_hint()); return _hint(param); }
 			void set_chk_mimic_precision(bool val) { _increase_precision_chk_mimick = val; }
 			bool precise_check_mimick() const { return _increase_precision_chk_mimick; }
+			const Observer& smr_observer() const { return *_smrobs; }
+			void smr_observer(std::unique_ptr<Observer> smr) { _smrobs = std::move(smr); }
 	};
 
 
@@ -702,3 +706,5 @@ namespace tmr {
 	}
 
 }
+
+#include "observer.hpp"

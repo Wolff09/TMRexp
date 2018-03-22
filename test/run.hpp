@@ -21,7 +21,7 @@ namespace tmr {
 	}
 
 
-	int run(const Program& program, const Observer& linobserver, const Observer& smrobserver, bool expect_success=true) {
+	int run(const Program& program, const Observer& linobserver, bool expect_success=true) {
 		// print setup
 		std::cout << "***********************************************************" << std::endl;
 		std::cout << "**                         SETUP                         **" << std::endl;
@@ -33,7 +33,7 @@ namespace tmr {
 
 		// execute conformance check
 		auto t_start = std::chrono::high_resolution_clock::now();
-		CCResult result = check_conformance(program, linobserver, smrobserver);
+		CCResult result = check_conformance(program, linobserver);
 		auto t_end = std::chrono::high_resolution_clock::now();
 		std::string answer = result.conformance ?  "  CORRECT" : "INCORRECT";
 

@@ -83,14 +83,15 @@ static inline bool is_globally_reachable(const Shape& shape, std::size_t var) {
 	return false;
 }
 
-static inline update_guard(const Cfg& cfg, DynamicSMRState& state, std::size_t dst, std::size_t src) {
-	// if (src >= cfg.shape->offset_program_vars() && src <= cfg.shape->offset_locals(0)) {
-	// 	// src is a shared pointer
-	// 	state.set(dst, )
-	// } else {
-	// 	state.set(dst, state.at(src));
-	// }
-	// TODO: implement
+static inline void update_guard(DynamicSMRState& state, std::size_t dst, std::size_t src, bool copy_from_src, const Cfg& cfg, unsigned short tid) {
+	// copies guard information or uses initial state for global addresses; provide a cfg with pc[tid] != null
+	if (src >= cfg.shape->offset_program_vars() && src <= cfg.shape->offset_locals(0)) {
+		// src is a shared pointer
+		state.set(dst, cfg.pc[tid]->function().prog().smr_observer().initial_state().states().at(0));
+	} else {
+		if (copy_from_src) state.set(dst, state.at(src));
+		else state.set(dst, state.at(0)); // supposed to give default value
+	}
 }
 
 
@@ -104,6 +105,8 @@ Cfg tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, 
 	res.own.set(rhs, res.own.at(lhs)); // TODO: correct?
 	res.valid_ptr.set(lhs, is_valid_ptr(cfg, rhs));
 	res.valid_next.set(lhs, is_valid_next(cfg, rhs));
+	update_guard(res.guard0state, lhs, rhs, true, cfg, tid);
+	update_guard(res.guard1state, lhs, rhs, true, cfg, tid);
 	return res;
 }
 
@@ -117,6 +120,8 @@ Cfg tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs,
 	// TODO: we need valid for next fields
 	res.valid_ptr.set(lhs, cfg.valid_next.at(rhs));
 	res.valid_next.set(lhs, is_globally_reachable(*cfg.shape, rhs)); // TODO: is this correct? only validate if guaranteed to be global?
+	update_guard(res.guard0state, lhs, rhs, false, cfg, tid);
+	update_guard(res.guard1state, lhs, rhs, false, cfg, tid);
 	return res;
 }
 
@@ -130,6 +135,7 @@ Cfg tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std::size_t lhs,
 	if (res.own.at(rhs) && !res.own.at(lhs))
 		res.own.set(rhs, false);
 	res.valid_next.set(lhs, cfg.valid_ptr.at(rhs));
+	// TODO: prevent setting next field of gloablly reachable cells to retired cell?
 	return res;
 }
 

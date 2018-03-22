@@ -56,7 +56,7 @@ static std::unique_ptr<Program> mk_program() {
 
 	std::string name = "TreibersStack";
 
-	return Prog(
+	auto prog = Prog(
 		name,
 		{"TopOfStack"},
 		{"node", "top"},
@@ -64,6 +64,10 @@ static std::unique_ptr<Program> mk_program() {
 		Fun("push", true, std::move(pushbody)),
 		Fun("pop", false, std::move(popbody))
 	);
+
+	prog->smr_observer(smr_observer(prog->guardfun(), prog->unguardfun(), prog->retirefun(), prog->freefun()));
+
+	return prog;
 }
 
 
@@ -71,7 +75,6 @@ int main(int argc, char *argv[]) {
 	// make program and observer
 	std::unique_ptr<Program> program = mk_program();
 	std::unique_ptr<Observer> linobserver = stack_observer(find(*program, "push"), find(*program, "pop"), program->freefun());
-	std::unique_ptr<Observer> smrobserver = smr_observer(program->guardfun(), program->unguardfun(), program->retirefun(), program->freefun());
 
-	return run(*program, *linobserver, *smrobserver);
+	return run(*program, *linobserver);
 }

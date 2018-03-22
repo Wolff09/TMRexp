@@ -12,20 +12,13 @@ using namespace tmr;
 
 /******************************** INITIAL CFG ********************************/
 
-Cfg mk_init_cfg(const Program& prog, const Observer& linobs, const Observer& smrobs) {
+Cfg mk_init_cfg(const Program& prog, const Observer& linobs) {
 	std::size_t numThreads = 1;
-
-	auto smrraw = smrobs.initial_state().states();
-	if (smrraw.size() != 1) throw std::logic_error("Unexpected form of SMR observer.");
-	const State& smrinitial = *smrraw.front();
 
 	Cfg init(
 		{{ &prog.init(), NULL, NULL }},
 		linobs.initial_state(),
-		smrinitial,
 		new Shape(linobs.numVars(), prog.numGlobals(), prog.numLocals(), numThreads)
-		// TODO: SMR observer
-		// MultiInOut()
 	);
 	while (init.pc[0] != NULL) {
 		std::vector<Cfg> postpc = tmr::post(init, 0);
@@ -59,11 +52,11 @@ void RemainingWork::add(Cfg&& cfg) {
 
 /******************************** FIXED POINT ********************************/
 
-std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& linobs, const Observer& smrobs) {
+std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& linobs) {
 	std::unique_ptr<Encoding> enc = std::make_unique<Encoding>();
 
 	RemainingWork work(*enc);
-	work.add(mk_init_cfg(prog, linobs, smrobs));
+	work.add(mk_init_cfg(prog, linobs));
 	assert(!work.done());
 
 	while (!work.done()) {

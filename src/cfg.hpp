@@ -87,7 +87,7 @@ namespace tmr {
 		bool freed;
 		bool retired;
 
-		Cfg(std::array<const Statement*, 3> pc, MultiState linstate, const State& obsstateprototype, Shape* shape/*, MultiInOut inout*/)
+		Cfg(std::array<const Statement*, 3> pc, MultiState linstate, Shape* shape/*, MultiInOut inout*/)
 		  : pc(pc), state(linstate), /*inout(inout),*/ shape(shape),
 		    own(false, shape->offset_locals(0), 2*shape->sizeLocals()),
 		    valid_ptr(false, shape->offset_locals(0), 2*shape->sizeLocals()),
