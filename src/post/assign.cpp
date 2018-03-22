@@ -83,6 +83,16 @@ static inline bool is_globally_reachable(const Shape& shape, std::size_t var) {
 	return false;
 }
 
+static inline update_guard(const Cfg& cfg, DynamicSMRState& state, std::size_t dst, std::size_t src) {
+	// if (src >= cfg.shape->offset_program_vars() && src <= cfg.shape->offset_locals(0)) {
+	// 	// src is a shared pointer
+	// 	state.set(dst, )
+	// } else {
+	// 	state.set(dst, state.at(src));
+	// }
+	// TODO: implement
+}
+
 
 Cfg tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	if (NON_LOCAL(lhs) && is_invalid_ptr(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoiling non-local variable (ptr).");
@@ -91,7 +101,7 @@ Cfg tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, 
 	Shape* shape = post_assignment_pointer_shape_var_var(*cfg.shape, lhs, rhs, stmt);
 	Cfg res = mk_next_config(cfg, shape, tid);
 	res.own.set(lhs, res.own.at(rhs));
-	// TODO: this could publish rhs
+	res.own.set(rhs, res.own.at(lhs)); // TODO: correct?
 	res.valid_ptr.set(lhs, is_valid_ptr(cfg, rhs));
 	res.valid_next.set(lhs, is_valid_next(cfg, rhs));
 	return res;

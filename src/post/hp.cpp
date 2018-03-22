@@ -77,7 +77,10 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Retire& stmt, unsigned short ti
 	CHECK_STMT;
 	auto& evt = stmt.function().prog().retirefun();
 	auto var = mk_var_index(*cfg.shape, stmt.decl(), tid);
+
 	if (!cfg.valid_ptr.at(var)) raise_rpr(cfg, var, "Call to retire with invalid pointer.");
+	// TODO: retire only on non-owned, non-local, non-globalreach pointers
+	
 	return smrpost(cfg, evt, evt, var, tid, true, true);
 }
 
