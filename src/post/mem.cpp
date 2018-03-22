@@ -39,18 +39,23 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 	std::vector<Cfg> result;
 
 	/* malloc gives a fresh memory cell */
-	result.push_back(mk_next_config(cfg, new Shape(input), tid));
-	Cfg& fresh = result.back();
+	{
+		auto shape1 = new Shape(input);
+		for (std::size_t i = 0; i < input.size(); i++)
+			shape1->set(var_index, i, BT_);
+		shape1->set(var_index, var_index, EQ_);
+		auto shape2 = post_assignment_pointer_shape_next_var(*shape1, var_index, input.index_NULL(), &stmt); // TODO: correct?
+		delete shape1;
 
-	for (std::size_t i = 0; i < input.size(); i++)
-		fresh.shape->set(var_index, i, BT_);
-	fresh.shape->set(var_index, var_index, EQ_);
-	fresh.shape->set(var_index, input.index_NULL(), MT_);
-	fresh.own.set(var_index, true);
-	fresh.valid_ptr.set(var_index, true);
-	fresh.valid_next.set(var_index, true);
-	fresh.guard0state.set(var_index, NULL);
-	fresh.guard1state.set(var_index, NULL);
+		result.push_back(mk_next_config(cfg, shape2, tid));
+		Cfg& fresh = result.back();
+
+		fresh.own.set(var_index, true);
+		fresh.valid_ptr.set(var_index, true);
+		fresh.valid_next.set(var_index, true);
+		fresh.guard0state.set(var_index, NULL);
+		fresh.guard1state.set(var_index, NULL);
+	}
 
 
 	/* malloc gives a freed cell */

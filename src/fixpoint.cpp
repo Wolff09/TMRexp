@@ -49,6 +49,8 @@ void RemainingWork::add(Cfg&& cfg) {
 	// std::cout << "Adding: " << cfg << *cfg.shape << std::endl;
 	// if (cfg.shape->test(5,1,EQ)) { std::cout << std::endl << "5=1" << std::endl; exit(0); }
 	// if (cfg.shape->test(6,1,EQ) && cfg.freed) { std::cout << std::endl << "6=1 freed" << std::endl; exit(0); }
+	// if (cfg.shape->test(1,3,EQ)) { std::cout << std::endl << "1=3" << std::endl; exit(0); }
+
 
 	auto res = _enc.take(std::move(cfg));
 	if (res.first) _work.insert(&res.second);
