@@ -224,7 +224,7 @@ namespace tmr {
 			const Statement* _next = NULL;
 
 		public:
-			enum Class { SQZ, ASSIGN, MALLOC, /*FREE,*/ RETIRE, HPSET, ITE, WHILE, BREAK, LINP, INPUT, OUTPUT, CAS, SETNULL, ATOMIC, ORACLE, CHECKP, KILL, REACH };
+			enum Class { SQZ, ASSIGN, MALLOC, /*FREE,*/ RETIRE, HPSET, HPRELEASE, ITE, WHILE, BREAK, LINP, INPUT, OUTPUT, CAS, SETNULL, ATOMIC, ORACLE, CHECKP, KILL, REACH };
 			virtual ~Statement() = default;
 			virtual Class clazz() const = 0;
 			unsigned short id() const { assert(_id != 0); return _id; }
@@ -415,6 +415,19 @@ namespace tmr {
 			HPset(std::unique_ptr<VarExpr> var, std::size_t index) : _var(std::move(var)), _hpindex(index) {}
 			const VarExpr& var() const { return *_var; }
 			const Variable& decl() const { return _var->decl(); }
+			std::size_t hpindex() const { return _hpindex; }
+	};
+
+	class HPrelease : public Statement {
+		private:
+			std::size_t _hpindex;
+
+		public:
+			Statement::Class clazz() const { return Statement::Class::HPRELEASE; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os, std::size_t indent) const;
+
+			HPrelease(std::size_t index) : _hpindex(index) {}
 			std::size_t hpindex() const { return _hpindex; }
 	};
 
@@ -669,6 +682,7 @@ namespace tmr {
 	// std::unique_ptr<Free> Fr(std::string var);
 	std::unique_ptr<Retire> Rtire(std::string var);
 	std::unique_ptr<HPset> Gard(std::string var, std::size_t index);
+	std::unique_ptr<HPrelease> UGard(std::size_t index);
 	std::unique_ptr<Break> Brk();
 	std::unique_ptr<Killer> Kill(std::string var);
 	std::unique_ptr<Killer> Kill();

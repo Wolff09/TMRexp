@@ -39,11 +39,11 @@ const Cfg& RemainingWork::pop() {
 }
 
 void RemainingWork::add(Cfg&& cfg) {
-	std::cout << "Adding: " << cfg << *cfg.shape << std::endl;
+	// std::cout << "Adding: " << cfg << *cfg.shape << std::endl;
 	// if (cfg.shape->test(5,1,EQ)) { std::cout << std::endl << "5=1" << std::endl; exit(0); }
 	// if (cfg.shape->test(6,1,EQ) && cfg.freed) { std::cout << std::endl << "6=1 freed" << std::endl; exit(0); }
 	// if (cfg.shape->test(1,3,EQ)) { std::cout << std::endl << "1=3" << std::endl; exit(0); }
-	if (cfg.pc[0] && cfg.guard0state.at(7) && !cfg.guard0state.at(7)->is_initial() && !cfg.valid_ptr.at(7)) { std::cout << std::endl << "invalid guard" << std::endl; exit(0); }
+	// if (cfg.pc[0] && cfg.guard0state.at(7) && !cfg.guard0state.at(7)->is_initial() && !cfg.valid_ptr.at(7)) { std::cout << std::endl << "invalid guard" << std::endl; exit(0); }
 
 
 	auto res = _enc.take(std::move(cfg));
@@ -68,8 +68,8 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 			const Cfg& topost = work.pop();
 			SEQUENTIAL_STEPS++;
 
-			std::cout << std::endl << std::endl << std::endl << "================================================================" << std::endl;
-			std::cout << "Post for: " << topost << *topost.shape << std::endl << "-------------------------------" << std::endl;
+			// std::cout << std::endl << std::endl << std::endl << "================================================================" << std::endl;
+			// std::cout << "Post for: " << topost << *topost.shape << std::endl << "-------------------------------" << std::endl;
 			work.add(tmr::mk_all_post(topost, prog));
 			
 			counter++;

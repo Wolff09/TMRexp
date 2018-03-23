@@ -359,20 +359,31 @@ namespace tmr {
 		std::vector<std::unique_ptr<State>> states;
 		
 		states.push_back(mk_state("s0", true, false));
-		states.push_back(mk_state("s1-g", false, false));
-		states.push_back(mk_state("s2-gr", false, false));
-		states.push_back(mk_state("s3-f", false, true));
+		states.push_back(mk_state("g", false, false));
+		states.push_back(mk_state("gr", false, false));
+		states.push_back(mk_state("r", false, false));
+		states.push_back(mk_state("rg", false, false));
+		states.push_back(mk_state("f", false, true));
 
 		State& s0 = *states[0];
-		State& s1 = *states[1];
-		State& s2 = *states[2];
-		State& s3 = *states[3];
+		State& sG = *states[1];
+		State& sGR = *states[2];
+		State& sR = *states[3];
+		State& sRG = *states[4];
+		State& sF = *states[5];
 
-		add_trans(s0, s1, guard, OValue::Anonymous());
-		add_trans(s1, s2, retire, OValue::Anonymous());
-		add_trans(s2, s3, free, OValue::Anonymous());
-		add_trans(s1, s0, unguard, OValue::Anonymous());
-		add_trans(s2, s0, unguard, OValue::Anonymous());
+		add_trans(s0, sG, guard, OValue::Anonymous());
+		add_trans(sG, sGR, retire, OValue::Anonymous());
+		add_trans(sGR, sF, free, OValue::Anonymous());
+		add_trans(sG, s0, unguard, OValue::Anonymous());
+		add_trans(sGR, s0, unguard, OValue::Anonymous());
+
+		add_trans(s0, sF, free, OValue::Anonymous());
+		add_trans(s0, sR, retire, OValue::Anonymous());
+		add_trans(sR, s0, free, OValue::Anonymous());
+		add_trans(sR, sRG, guard, OValue::Anonymous());
+		add_trans(sRG, sR, unguard, OValue::Anonymous());
+		add_trans(sRG, sG, free, OValue::Anonymous());
 
 		auto result = std::unique_ptr<Observer>(new Observer(std::move(states), 0));
 		return result;

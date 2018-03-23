@@ -299,6 +299,12 @@ std::unique_ptr<HPset> tmr::Gard(std::string var, std::size_t index) {
 	return res;
 }
 
+std::unique_ptr<HPrelease> tmr::UGard(std::size_t index) {
+	if (index > 1) throw std::logic_error("HP index must be 0 or 1.");
+	std::unique_ptr<HPrelease> res(new HPrelease(index));
+	return res;
+}
+
 std::unique_ptr<Malloc> tmr::Mllc(std::string var) {
 	std::unique_ptr<Malloc> res(new Malloc(Var(var)));
 	return res;
@@ -496,6 +502,9 @@ void Retire::namecheck(const std::map<std::string, Variable*>& name2decl) {
 
 void HPset::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	_var->namecheck(name2decl);
+}
+
+void HPrelease::namecheck(const std::map<std::string, Variable*>& name2decl) {
 }
 
 void LinearizationPoint::namecheck(const std::map<std::string, Variable*>& name2decl) {
@@ -826,6 +835,11 @@ void Retire::print(std::ostream& os, std::size_t indent) const {
 void HPset::print(std::ostream& os, std::size_t indent) const {
 	printID;
 	os << "guard[" << _hpindex << "](" << var() << ");";
+}
+
+void HPrelease::print(std::ostream& os, std::size_t indent) const {
+	printID;
+	os << "unguard[" << _hpindex << "];";
 }
 
 void LinearizationPoint::print(std::ostream& os, std::size_t indent) const {

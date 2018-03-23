@@ -103,6 +103,9 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& cfg, unsigned short tid, c
 					cfg.own.set(cfg.shape->offset_locals(tid) + i, true);
 					cfg.valid_ptr.set(cfg.shape->offset_locals(tid) + i, false);
 					cfg.valid_next.set(cfg.shape->offset_locals(tid) + i, false);
+					// TODO: reset guards?
+					cfg.guard0state.set(cfg.shape->offset_locals(tid) + i, nullptr);
+					cfg.guard1state.set(cfg.shape->offset_locals(tid) + i, nullptr);
 				}
 				// reset oracle
 				cfg.oracle[tid] = false;

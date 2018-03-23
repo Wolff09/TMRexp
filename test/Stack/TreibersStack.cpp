@@ -43,12 +43,14 @@ static std::unique_ptr<Program> mk_program() {
 							Sqz(
 								Write("top"),
 								Rtire("top"),
+								// UGard(0),
 								Brk()
 							)
 						),
 						Kill("node")
 					)
-				)
+				)//,
+				//UGard(0)
 			)
 		),
 		Kill("top")
