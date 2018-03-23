@@ -46,12 +46,13 @@ static inline std::vector<Shape*> split_shape(const Cfg& cfg, std::size_t begin,
 	return result;
 }
 
-static inline void fire_event(const Cfg& cfg, DynamicSMRState& state, const Function& eqevt, const Function& neqevt, std::size_t var, std::size_t begin, std::size_t end) {
+static inline void fire_event(const Cfg& cfg, DynamicSMRState& state, const Function* eqevt, const Function* neqevt, std::size_t var, std::size_t begin, std::size_t end) {
 	const Shape& shape = *cfg.shape;
 	for (std::size_t i = begin; i < end; i++) {
 		auto& evt = shape.test(var, i, EQ) ? eqevt : neqevt;
+		if (!evt) continue;
 		if (state.at(i)) {
-			state.set(i, &state.at(i)->next(evt, OValue::Anonymous()));
+			state.set(i, &state.at(i)->next(*evt, OValue::Anonymous()));
 		}
 		if (cfg.own.at(i) && shape.test(var, i, EQ)) {
 			throw std::logic_error("Owned cells must not be guarded/retired.");
@@ -59,7 +60,7 @@ static inline void fire_event(const Cfg& cfg, DynamicSMRState& state, const Func
 	}
 }
 
-static inline std::vector<Cfg> smrpost(const Cfg& cfg, const Function& eqevt, const Function& neqevt, std::size_t var, bool fire0, bool fire1, unsigned short tid, std::size_t begin, std::size_t end) {
+static inline std::vector<Cfg> smrpost(const Cfg& cfg, const Function* eqevt, const Function* neqevt, std::size_t var, bool fire0, bool fire1, unsigned short tid, std::size_t begin, std::size_t end) {
 	auto shapes = split_shape(cfg, begin, end);
 	std::vector<Cfg> result;
 	for (Shape* shape : shapes) {
@@ -71,7 +72,7 @@ static inline std::vector<Cfg> smrpost(const Cfg& cfg, const Function& eqevt, co
 	return result;
 }
 
-static inline std::vector<Cfg> smrpost(const Cfg& cfg, const Function& eqevt, const Function& neqevt, std::size_t var, bool fire0, bool fire1, unsigned short tid) {
+static inline std::vector<Cfg> smrpost(const Cfg& cfg, const Function* eqevt, const Function* neqevt, std::size_t var, bool fire0, bool fire1, unsigned short tid) {
 	const Shape& shape = *cfg.shape;
 	std::size_t begin = shape.offset_locals(tid);
 	std::size_t end = shape.offset_locals(tid)+shape.sizeLocals();
@@ -82,17 +83,18 @@ static inline std::vector<Cfg> smrpost(const Cfg& cfg, const Function& eqevt, co
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, const Retire& stmt, unsigned short tid) {
 	CHECK_STMT;
-	auto& evt = stmt.function().prog().retirefun();
+	auto& evt = stmt.function().prog().retirefun(); // fire no event if guard is for another address
 	auto var = mk_var_index(*cfg.shape, stmt.decl(), tid);
 
 	if (!cfg.valid_ptr.at(var)) raise_rpr(cfg, var, "Call to retire with invalid pointer.");
 	if (cfg.own.at(var)) raise_epr(cfg, var, "Owned addresses must not be retired.");
 	if (var < cfg.shape->offset_locals(tid)) throw std::logic_error("Retire must not use non-local pointers.");
+	// TODO: no retire of shared reachable
 
 	std::size_t begin = cfg.shape->offset_locals(0);
 	std::size_t end = cfg.shape->offset_locals(tid)+cfg.shape->sizeLocals();
 	
-	return smrpost(cfg, evt, evt, var, true, true, tid, begin, end);
+	return smrpost(cfg, &evt, nullptr, var, true, true, tid, begin, end);
 }
 
 
@@ -103,7 +105,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const HPset& stmt, unsigned short tid
 	auto& eqevt = stmt.function().prog().guardfun();
 	auto& neqevt = stmt.function().prog().unguardfun();
 	auto var = mk_var_index(*cfg.shape, stmt.decl(), tid);
-	return smrpost(cfg, eqevt, neqevt, var, stmt.hpindex() == 0, stmt.hpindex() == 1, tid);
+	return smrpost(cfg, &eqevt, &neqevt, var, stmt.hpindex() == 0, stmt.hpindex() == 1, tid);
 }
 
 
