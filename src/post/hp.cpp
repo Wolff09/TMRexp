@@ -8,11 +8,13 @@
 #include "post/setout.hpp"
 #include "config.hpp"
 
+#include "counter.hpp" // TODO: delete (included for debugging)
+
 using namespace tmr;
 
 
 static inline std::vector<Shape*> split_shape(const Cfg& cfg, std::size_t begin, std::size_t end) {
-	// split shape such that no relation of two local variables for thread tid contain = and !=
+	// split shape such that no relation contains = and !=
 
 	std::vector<Shape*> result;
 	std::vector<Shape*> worklist;
@@ -56,6 +58,10 @@ static inline void fire_event(const Cfg& cfg, DynamicSMRState& state, const Func
 		}
 		if (cfg.own.at(i) && shape.test(var, i, EQ)) {
 			throw std::logic_error("Owned cells must not be guarded/retired.");
+		} else if (evt->name() == "retire" && i < cfg.shape->offset_locals(0)) {
+			throw std::logic_error("Invariant violation: shared cells must not be retired.");
+			// if (i == 5) throw std::logic_error("TopOfStack must not be retired.");
+			// if (i >=  && shape.test(i, 5, EQ)) throw std::logic_error("TopOfStack alias must not be retired.");
 		}
 	}
 }
@@ -65,8 +71,15 @@ static inline std::vector<Cfg> smrpost(const Cfg& cfg, const Function* eqevt, co
 	std::vector<Cfg> result;
 	for (Shape* shape : shapes) {
 		result.push_back(mk_next_config(cfg, shape, tid));
-		if (fire0) fire_event(cfg, result.back().guard0state, eqevt, neqevt, var, begin, end);
-		if (fire1) fire_event(cfg, result.back().guard1state, eqevt, neqevt, var, begin, end);
+		if (fire0) fire_event(result.back(), result.back().guard0state, eqevt, neqevt, var, begin, end);
+		if (fire1) fire_event(result.back(), result.back().guard1state, eqevt, neqevt, var, begin, end);
+		// if (SEQUENTIAL_STEPS > 90000 && cfg.pc[0]->id()==22) {
+		// 	std::cout << "restulting cfg: " << result.back() << *result.back().shape << std::endl;
+		// 	if (result.back().guard0state.at(7)->name() == "r" && result.back().shape->test(5,7,EQ)) {
+		// 		std::cout << "bug!" << std::endl;
+		// 		exit(0);
+		// 	}
+		// }
 	}
 
 	return result;
@@ -91,7 +104,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Retire& stmt, unsigned short ti
 	if (var < cfg.shape->offset_locals(tid)) throw std::logic_error("Retire must not use non-local pointers.");
 	// TODO: no retire of shared reachable
 
-	std::size_t begin = cfg.shape->offset_locals(0);
+	std::size_t begin = cfg.shape->offset_program_vars(); // cfg.shape->offset_locals(0);
 	std::size_t end = cfg.shape->offset_locals(tid)+cfg.shape->sizeLocals();
 	
 	return smrpost(cfg, &evt, nullptr, var, true, true, tid, begin, end);
