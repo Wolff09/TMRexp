@@ -34,9 +34,9 @@ bool do_shapes_match(const Cfg& cfg, const Cfg& interferer) {
 	assert(cfg.shape->index_ObserverVar(1) == 4);
 
 	for (std::size_t i = 0; i < end; i++) {
-		if (i == 3 || i == 4) continue;
+		// if (i == 3 || i == 4) continue;
 		for (std::size_t j = i+1; j < end; j++) {
-			if (j == 3 || j == 4) continue;
+			// if (j == 3 || j == 4) continue;
 			if (intersection(cfg.shape->at(i, j), interferer.shape->at(i, j)).none())
 				return false;
 		}
@@ -373,7 +373,7 @@ static inline void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
 	for (std::size_t i = cfg.shape->offset_locals(extended_thread_tid); i < cfg.shape->size(); i++) {
 		cfg.own.set(i, true);
 		cfg.valid_ptr.set(i, false);
-		cfg.valid_ptr.set(i, false);
+		cfg.valid_next.set(i, false);
 		cfg.guard0state.set(i, nullptr);
 		cfg.guard1state.set(i, nullptr);
 	}
@@ -408,6 +408,7 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
 	if (!extended) return {};
 
 	const Cfg& tmp = *extended;
+	// std::cout << "Extension is: " << tmp << *tmp.shape << std::endl;
 
 	// do one post step for the extended thread
 	INTERFERENCE_STEPS++;
@@ -417,6 +418,7 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
 	// the resulting cfgs need to be projected to 1 threads, then push them to result vector
 	// std::cout << std::endl << std::endl << "interference: " << tmp << *tmp.shape;
 	for (Cfg& pcfg : postcfgs) {
+		// std::cout << "Post: " << pcfg << *pcfg.shape << std::endl;
 		project_away(pcfg, extended_thread_tid);
 	}
 
@@ -455,15 +457,15 @@ void tmr::mk_all_interference(Encoding& enc, RemainingWork& work) {
 		std::cerr << "interference...   ";
 		std::size_t counter = 0;
 
-		std::cout << std::endl << std::endl << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << std::endl << std::endl << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
 
 		std::size_t bucket_counter = 0;
 		for (auto& kvp : enc) {
