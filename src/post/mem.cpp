@@ -60,21 +60,31 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 
 	/* malloc gives a freed cell */
 	if (cfg.freed) {
-		auto shape1 = post_assignment_pointer_shape_var_var(input, var_index, input.index_REUSE(), &stmt);
-		auto shape2 = post_assignment_pointer_shape_next_var(*shape1, var_index, input.index_NULL(), &stmt); // TODO: correct?
-		delete shape1;
+		auto old = post_assignment_pointer_shape_var_var(input, var_index, input.index_REUSE(), &stmt);
+		auto shape = post_assignment_pointer_shape_next_var(*old, var_index, input.index_NULL(), &stmt); // TODO: correct?
+		delete old;
 
-		result.push_back(mk_next_config(cfg, shape2, tid));
-		Cfg& reuse = result.back();
+		// ensure that the newly allocated cell is not shared reachable -- invariant integrated into analysis
+		for (std::size_t i = cfg.shape->offset_program_vars(); i < cfg.shape->offset_locals(0); i++) {
+			if (!shape) break;
+			old = shape;
+			shape = isolate_partial_concretisation(*old, i, var_index, MF_GF_BT);
+			delete old;
+		}
 
-		reuse.own.set(var_index, true);
-		reuse.valid_ptr.set(var_index, true);
-		reuse.valid_next.set(var_index, true);
-		reuse.guard0state.set(var_index, NULL);
-		reuse.guard1state.set(var_index, NULL);
+		if (shape) {
+			result.push_back(mk_next_config(cfg, shape, tid));
+			Cfg& reuse = result.back();
 
-		reuse.freed = false;
-		reuse.retired = false;
+			reuse.own.set(var_index, true);
+			reuse.valid_ptr.set(var_index, true);
+			reuse.valid_next.set(var_index, true);
+			reuse.guard0state.set(var_index, NULL);
+			reuse.guard1state.set(var_index, NULL);
+
+			reuse.freed = false;
+			reuse.retired = false;
+		}
 	}
 
 	return result;

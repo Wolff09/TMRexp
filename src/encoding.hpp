@@ -39,6 +39,9 @@ namespace tmr {
 				for (const auto& kvp : _map) size += kvp.second.size();
 				return size;
 			}
+			std::size_t bucket_count() const {
+				return _map.size();
+			}
 
 			/**
 			 * @brief Extends the encoding with the given configuration.

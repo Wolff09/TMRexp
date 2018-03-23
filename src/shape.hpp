@@ -10,17 +10,16 @@ namespace tmr {
 	class Shape {
 		private:
 			std::vector<std::vector<RelSet>> _cells;
-			std::size_t _numObsVars;
 			std::size_t _numGlobVars;
 			std::size_t _numLocVars;
-			std::size_t _numThreads;
 			std::size_t _bounds;
+			constexpr const static std::size_t _numObsVars=2;
 
 		public:
 			Shape(std::size_t numObsVars, std::size_t numGlobVars, std::size_t numLocVars, unsigned short numThreads);
 			std::size_t size() const { return _bounds; }
 			std::size_t sizeLocals() const { return _numLocVars; }
-			std::size_t sizeObservers() const { return _numObsVars; }
+			std::size_t sizeObservers() const { return 2; }
 			void print(std::ostream& os) const;
 			
 			// shape access
@@ -62,13 +61,13 @@ namespace tmr {
 			std::size_t index_LocalVar(const Variable& var, unsigned short tid) const {
 				assert(var.local());
 				assert(var.id() < _numLocVars);
-				assert(tid < _numThreads);
+				// assert(tid < _numThreads);
 				return 3 + _numObsVars + _numGlobVars + tid*_numLocVars + var.id();
 			}
 			inline std::size_t offset_vars() const { return 3; }
 			std::size_t offset_program_vars() const { return 3+_numObsVars; }
 			std::size_t offset_locals(unsigned short tid) const {
-				assert(tid < _numThreads);
+				// assert(tid < _numThreads);
 				return 3 + _numObsVars + _numGlobVars + tid*_numLocVars;
 			}
 

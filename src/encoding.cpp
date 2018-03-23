@@ -29,6 +29,10 @@ bool cfg_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	if (lhs.guard1state < rhs.guard1state) return true;
 	if (rhs.guard1state < lhs.guard1state) return false;
 
+	// more precision
+	if (lhs.valid_ptr < rhs.valid_ptr) return true;
+	if (rhs.valid_ptr < lhs.valid_ptr) return false;
+
 	// if rhs is not smaller, return false
 	return false;
 }

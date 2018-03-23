@@ -39,7 +39,7 @@ std::ostream& tmr::operator<<(std::ostream& os, const Cfg& cfg) {
 	else os << "NULL";
 	os << ", state=" << cfg.state;
 	os << ", inout=[" << cfg.inout[0] << ", " << cfg.inout[1] << ", " << cfg.inout[2] << "]";
-	os << ", seen[0]=[" << cfg.seen[0] << ", " << cfg.seen[1] << "]";
+	os << ", seen=[" << cfg.seen[0] << ", " << cfg.seen[1] << "]";
 	os << ", own="; cfg.own.print(os);
 	os << ", valid_ptr="; cfg.valid_ptr.print(os);
 	os << ", valid_next="; cfg.valid_next.print(os);

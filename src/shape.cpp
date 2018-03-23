@@ -6,11 +6,9 @@ using namespace tmr;
 /******************************** CONSTRUCTION ********************************/
 
 Shape::Shape(std::size_t numObsVars, std::size_t numGlobVars, std::size_t numLocVars, unsigned short numThreads) :
-             _numObsVars(numObsVars),
              _numGlobVars(numGlobVars),
              _numLocVars(numLocVars),
-             _numThreads(numThreads),
-             _bounds(3 + numObsVars + numGlobVars + numThreads*numLocVars) {
+             _bounds(3 + 2 + numGlobVars + numThreads*numLocVars) {
 
 	// init shape
 	RelSet dummy_cell = singleton(BT);
@@ -19,6 +17,9 @@ Shape::Shape(std::size_t numObsVars, std::size_t numGlobVars, std::size_t numLoc
 	for (std::size_t i = offset_vars(); i < _cells.size(); i++) set(i, index_UNDEF(), MT);
 	set(index_REUSE(), index_NULL(), MT);
 	for (std::size_t i = 0; i < _cells.size(); i++) _cells[i][i] = singleton(EQ);
+
+	if (numObsVars != _numObsVars) throw std::logic_error("Number of observer variables not supported.");
+	if (numThreads != 1) throw std::logic_error("There must be exactly one threads.");
 }
 
 
@@ -26,12 +27,12 @@ Shape::Shape(std::size_t numObsVars, std::size_t numGlobVars, std::size_t numLoc
 
 void Shape::extend() {
 	_bounds += _numLocVars;
-	_numThreads++;
+	// _numThreads++;
 }
 
 void Shape::shrink() {
 	_bounds -= _numLocVars;
-	_numThreads--;
+	// _numThreads--;
 }
 
 
