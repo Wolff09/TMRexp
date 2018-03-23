@@ -74,6 +74,8 @@ bool Transition::enabled(const Function& event, OValue oval) const {
 
 State::State(std::string name, bool is_initial, bool is_final) : _name(name), _is_initial(is_initial), _is_final(is_final) {}
 
+State::State(std::string name, bool is_initial, bool is_final, bool is_special) : _name(name), _is_initial(is_initial), _is_final(is_final), _is_special(is_special) {}
+
 const State& State::next(const Function& evt_name, OValue evt_val) const {
 	// search for an enabled transition (assuming there is at most one)
 	for (const auto& t : _out)
