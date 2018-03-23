@@ -16,13 +16,13 @@ static inline std::vector<Shape*> split_shape(const Cfg& cfg, std::size_t begin,
 
 	std::vector<Shape*> result;
 	std::vector<Shape*> worklist;
-	worklist.reserve(cfg.shape->sizeLocals()*2);
+	worklist.reserve((end - begin)*2);
 	worklist.push_back(new Shape(*cfg.shape));
 
 	while (!worklist.empty()) {
 		Shape* s = worklist.back();
-		if (s == NULL) continue;
 		worklist.pop_back();
+		if (s == NULL) continue;
 		bool is_split = true;
 
 		for (std::size_t i = begin; i < end; i++) {
@@ -64,7 +64,6 @@ static inline std::vector<Cfg> smrpost(const Cfg& cfg, const Function& eqevt, co
 	std::vector<Cfg> result;
 	for (Shape* shape : shapes) {
 		result.push_back(mk_next_config(cfg, shape, tid));
-		// if (&eqevt == &cfg.pc[0]->function().prog().guardfun()) { std::cout << "here i am: " << fire0; result.back().guard0state.print(std::cout); }
 		if (fire0) fire_event(cfg, result.back().guard0state, eqevt, neqevt, var, begin, end);
 		if (fire1) fire_event(cfg, result.back().guard1state, eqevt, neqevt, var, begin, end);
 	}
@@ -74,7 +73,7 @@ static inline std::vector<Cfg> smrpost(const Cfg& cfg, const Function& eqevt, co
 
 static inline std::vector<Cfg> smrpost(const Cfg& cfg, const Function& eqevt, const Function& neqevt, std::size_t var, bool fire0, bool fire1, unsigned short tid) {
 	const Shape& shape = *cfg.shape;
-	std::size_t begin = shape.offset_locals(0);
+	std::size_t begin = shape.offset_locals(tid);
 	std::size_t end = shape.offset_locals(tid)+shape.sizeLocals();
 	return smrpost(cfg, eqevt, neqevt, var, fire0, fire1, tid, begin, end);
 }
@@ -89,9 +88,11 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Retire& stmt, unsigned short ti
 	if (!cfg.valid_ptr.at(var)) raise_rpr(cfg, var, "Call to retire with invalid pointer.");
 	if (cfg.own.at(var)) raise_epr(cfg, var, "Owned addresses must not be retired.");
 	if (var < cfg.shape->offset_locals(tid)) throw std::logic_error("Retire must not use non-local pointers.");
+
+	std::size_t begin = cfg.shape->offset_locals(0);
+	std::size_t end = cfg.shape->offset_locals(tid)+cfg.shape->sizeLocals();
 	
-	// TODO: retire should also be fired for other threads?
-	return smrpost(cfg, evt, evt, var, true, true, tid);
+	return smrpost(cfg, evt, evt, var, true, true, tid, begin, end);
 }
 
 
