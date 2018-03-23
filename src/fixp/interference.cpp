@@ -61,20 +61,22 @@ bool do_shapes_match(const Cfg& cfg, const Cfg& interferer) {
 	return true;
 }
 
-// static bool is_noop(const Statement& pc) {
-// 	switch (pc.clazz()) {
-// 		case Statement::SQZ:     return true;
-// 		case Statement::WHILE:   return true;
-// 		// case Statement::OUTPUT:  return true;
-// 		case Statement::BREAK:   return true;
-// 		case Statement::ORACLE:  return true;
-// 		case Statement::CHECKP:  return true;
-// 		#if KILL_IS_NOOP
-// 			case Statement::KILL:    return true;
-// 		#endif
-// 		default: return false;
-// 	}
-// }
+static bool is_noop(const Statement& pc) {
+	switch (pc.clazz()) {
+		case Statement::SQZ:       return true;
+		case Statement::WHILE:     return true;
+		// case Statement::OUTPUT: return true;
+		case Statement::BREAK:     return true;
+		case Statement::ORACLE:    return true;
+		case Statement::CHECKP:    return true;
+		case Statement::HPSET:     return true;
+		case Statement::HPRELEASE: return true;
+		// #if KILL_IS_NOOP
+		// 	case Statement::KILL:  return true;
+		// #endif
+		default: return false;
+	}
+}
 
 // static bool can_skip(const Cfg& cfg) {
 // 	#define SKIP {INTERFERENCE_SKIPPED++; return true;}
@@ -94,7 +96,7 @@ bool do_shapes_match(const Cfg& cfg, const Cfg& interferer) {
 // 		case Statement::MALLOC:
 // 			set_tmp(static_cast<const Malloc&>(pc).var());
 // 			// malloc means redirecting pointers
-// 			if (tmp >= cfg.shape->offset_locals(0)) SKIP; // we are not interested in local redirections
+// 			if (!cfg.freed && tmp >= cfg.shape->offset_locals(0)) SKIP; // we are not interested in local redirections
 // 			NO_SKIP; // ...but want to see redirecting globals...
 // 		case Statement::CAS:
 // 			set_tmp(static_cast<const CompareAndSwap&>(pc).dst());
@@ -111,14 +113,11 @@ bool do_shapes_match(const Cfg& cfg, const Cfg& interferer) {
 // 		case Statement::SETNULL:
 // 			set_tmp(static_cast<const NullAssignment&>(pc).lhs());
 // 			break;
-// 		case Statement::FREE:
-// 			set_tmp(static_cast<const Free&>(pc).var());
-// 			break;
 // 		default:
 // 			NO_SKIP;
 // 	}
 
-// 	if (cfg.own.is_owned(tmp)) SKIP;
+// 	if (cfg.own.at(tmp)) SKIP;
 // 	NO_SKIP;
 // }
 
@@ -159,7 +158,7 @@ bool do_shapes_match(const Cfg& cfg, const Cfg& interferer) {
 // 			NO_SKIP;
 // 	}
 
-// 	if (cfg.own.is_owned(tmp)) SKIP;
+// 	if (cfg.own.at(tmp)) SKIP;
 // 	NO_SKIP;
 // }
 
@@ -168,10 +167,10 @@ bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
 	unsigned short interferer_tid = 0;
 
 	// 0. Optimizations
-	// #if SKIP_NOOPS
-	// 	if (is_noop(*cfg.pc[0])) return false;
-	// 	if (is_noop(*interferer.pc[0])) return false;
-	// #endif
+	#if SKIP_NOOPS
+		if (is_noop(*cfg.pc[0])) return false;
+		if (is_noop(*interferer.pc[0])) return false;
+	#endif
 
 	// #if INTERFERENCE_OPTIMIZATION
 	// 	if (can_skip_victim(cfg)) return false;
