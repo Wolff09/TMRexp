@@ -4,8 +4,8 @@ using namespace tmr;
 
 
 static std::unique_ptr<Program> mk_program() {
-	bool use_age_fields = true;
-	bool age_compare = true;
+	bool use_age_fields = false;
+	bool age_compare = false;
 
 	// init
 	auto init = Sqz(
@@ -21,19 +21,25 @@ static std::unique_ptr<Program> mk_program() {
 		Read("h"),
 		Loop(Sqz(
 			Assign(Var("t"), Var("Tail")),
-			Assign(Var("n"), Next("t")),
+			Gard("t", 0),
 			IfThen(
 				EqCond(Var("t"), Var("Tail"), age_compare),
-				Sqz(IfThenElse(
-					EqCond(Var("n"), Null()),
-					Sqz(
-						IfThen(
-							// CasCond(CAS(Next("t"), Null(), Var("h"), LinP(), use_age_fields)),
-							CasCond(CAS(Next("t"), Var("n"), Var("h"), LinP(), use_age_fields)),
-							Sqz(Brk())
-					)),
-					Sqz(CAS(Var("Tail"), Var("t"), Var("n"), use_age_fields))
-				))
+				Sqz(
+					Assign(Var("n"), Next("t")),
+					IfThen(
+						EqCond(Var("t"), Var("Tail"), age_compare),
+						Sqz(IfThenElse(
+							EqCond(Var("n"), Null()),
+							Sqz(
+								IfThen(
+									// CasCond(CAS(Next("t"), Null(), Var("h"), LinP(), use_age_fields)),
+									CasCond(CAS(Next("t"), Var("n"), Var("h"), LinP(), use_age_fields)),
+									Sqz(Brk())
+							)),
+							Sqz(CAS(Var("Tail"), Var("t"), Var("n"), use_age_fields))
+						))
+					)
+				)
 			),
 			Kill("t"),
 			Kill("n"),
@@ -46,88 +52,48 @@ static std::unique_ptr<Program> mk_program() {
 	auto linpc = CompCond(OCond(), CompCond(EqCond(Var("h"), Var("Head"), age_compare), CompCond(EqCond(Var("h"), Var("t")), EqCond(Var("n"), Null()))));
 	auto deqbody = Sqz(Loop(Sqz(
 		Assign(Var("h"), Var("Head")),
-		Assign(Var("t"), Var("Tail")),
-		Orcl(),
-		Assign(Var("n"), Next("h"), LinP(std::move(linpc))),
-		IfThenElse(
+		Gard("h", 0),
+		IfThen(
 			EqCond(Var("h"), Var("Head"), age_compare),
 			Sqz(
-				ChkP(true),
+				Assign(Var("t"), Var("Tail")),
+				Orcl(),
+				Assign(Var("n"), Next("h"), LinP(std::move(linpc))),
+				Gard("n", 1),
 				IfThenElse(
-					EqCond(Var("h"), Var("t")),
+					EqCond(Var("h"), Var("Head"), age_compare),
 					Sqz(
-						IfThen(
-							EqCond(Var("n"), Null()),
-							Sqz(Brk())
-						),
-						CAS(Var("Tail"), Var("t"), Var("n"), use_age_fields)
-					),
-					Sqz(
-						Write("n"),
-						IfThen(
-							CasCond(CAS(Var("Head"), Var("h"), Var("n"), LinP("n"), use_age_fields)),
+						ChkP(true),
+						IfThenElse(
+							EqCond(Var("h"), Var("t")),
 							Sqz(
-								Fr("h"),
-								Brk()
+								IfThen(
+									EqCond(Var("n"), Null()),
+									Sqz(Brk())
+								),
+								CAS(Var("Tail"), Var("t"), Var("n"), use_age_fields)
+							),
+							Sqz(
+								Write("n"),
+								IfThen(
+									CasCond(CAS(Var("Head"), Var("h"), Var("n"), LinP("n"), use_age_fields)),
+									Sqz(
+										// Fr("h"),
+										Brk()
+									)
+								)
 							)
 						)
-					)
+					),
+					Sqz(ChkP(false))
 				)
-			),
-			Sqz(ChkP(false))
+			)
 		),
 		Kill("h"),
 		Kill("t"),
 		Kill("n"),
 		Kill()
 	)));
-
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY
-		// enq summary
-		auto enqsum = AtomicSqz(
-			Assign(Var("t"), Next("Tail")),
-			IfThenElse(
-				EqCond(Var("t"), Null()),
-				Sqz(
-					Mllc("n"),
-					SetNull(Next("n")),
-					Read("n"),
-					CAS(Next("Tail"), Var("t"), Var("n"), LinP(), use_age_fields),
-					ChkReach("t")
-				),
-				Sqz(
-					Assign(Var("h"), Var("Tail")),
-					CAS(Var("Tail"), Var("Tail"), Var("t"), use_age_fields),
-					ChkReach("h")
-				)
-			)
-		);
-
-		// deq summary
-		auto deqsum = AtomicSqz(
-			Assign(Var("n"), Next("Head")),
-			IfThenElse(
-				EqCond(Var("Head"), Var("Tail")),
-				Sqz(
-					IfThenElse(
-						EqCond(Var("n"), Null()),
-						Sqz(LinP()),
-						Sqz(
-							Assign(Var("h"), Var("Tail")),
-							CAS(Var("Tail"), Var("Tail"), Var("n"), use_age_fields),
-							ChkReach("h")
-						)
-					)
-				),
-				Sqz(
-					Assign(Var("h"), Var("Head")),
-					Write("n"),
-					CAS(Var("Head"), Var("Head"), Var("n"), LinP("n"), use_age_fields),
-					Fr("h")
-				)
-			)
-		);
-	#endif
 
 	std::string name = "MichealAndScottQueue";
 
@@ -136,16 +102,12 @@ static std::unique_ptr<Program> mk_program() {
 		{"Head", "Tail"},
 		{"h", "t", "n"},
 		std::move(init),
-		#if REPLACE_INTERFERENCE_WITH_SUMMARY
-			Fun("enq", true, std::move(enqbody), std::move(enqsum)),
-			Fun("deq", false, std::move(deqbody), std::move(deqsum))
-		#else
-			Fun("enq", true, std::move(enqbody)),
-			Fun("deq", false, std::move(deqbody))
-		#endif
+		Fun("enq", true, std::move(enqbody)),
+		Fun("deq", false, std::move(deqbody))
 	);
 
-	prog->set_chk_mimic_precision(true);
+	prog->smr_observer(smr_observer(prog->guardfun(), prog->unguardfun(), prog->retirefun(), prog->freefun()));
+
 	return prog;
 }
 

@@ -40,8 +40,8 @@ namespace tmr {
 			// convert cell term to index
 			/* Layout:
 			 *   0:           NULL
-			 *   1:           UNDEF
-			 *   2:           FREE
+			 *   1:           REUSE
+			 *   2:           UNDEF
 			 *   3 - k:       observer variables
 			 *   k+1 - n:     global variables
 			 *   n+1 - ...:   local variables (grouped by thread)

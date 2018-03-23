@@ -97,7 +97,7 @@ namespace tmr {
 		    freed(true), retired(false)
 		{
 			for (std::size_t i = 0; i < seen.size(); i++) seen[i] = false;
-			for (std::size_t i = 0; i < oracle.size(); i++) oracle[i] = true;
+			for (std::size_t i = 0; i < oracle.size(); i++) oracle[i] = false;
 		}
 		Cfg(const Cfg& cfg, Shape* shape) : pc(cfg.pc), state(cfg.state), inout(cfg.inout), oracle(cfg.oracle), shape(shape), seen(cfg.seen), own(cfg.own), valid_ptr(cfg.valid_ptr), valid_next(cfg.valid_next), guard0state(cfg.guard0state), guard1state(cfg.guard1state), freed(cfg.freed), retired(cfg.retired) {}
 		Cfg copy() const;

@@ -72,11 +72,12 @@ Cfg tmr::post_assignment_pointer(const Cfg& cfg, const Expr& lhs, const Expr& rh
 /******************************** POINTER WTIH CFG ********************************/
 
 #define NON_LOCAL(x) !(x >= cfg.shape->offset_locals(tid) && x < cfg.shape->offset_locals(tid) + cfg.shape->sizeLocals())
+#define SHARED_VAR(x) (x >= cfg.shape->offset_program_vars() && x < cfg.shape->offset_locals(0))
 ; // this one is actually very useful: it fixes my syntax highlighting :)
 
-static inline bool is_globally_reachable(const Shape& shape, std::size_t var) {
+static inline bool is_globally_reachable(const Shape& shape, std::size_t var, RelSet match=EQ_MT_GT) {
 	for (auto i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
-		if (haveCommon(shape.at(i, var), EQ_MT_GT)) {
+		if (haveCommon(shape.at(i, var), match)) {
 			return true;
 		}
 	}
@@ -98,6 +99,7 @@ static inline void update_guard(DynamicSMRState& state, std::size_t dst, std::si
 Cfg tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	if (NON_LOCAL(lhs) && is_invalid_ptr(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoiling non-local variable (ptr).");
 	if (NON_LOCAL(lhs) && is_invalid_next(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoiling non-local variable (next).");
+	if (SHARED_VAR(lhs) && !cfg.own.at(rhs) && !is_globally_reachable(*cfg.shape, rhs)) raise_epr(cfg, rhs, "Invariant violation: pushing potentially retired address to shared heap.");
 
 	Shape* shape = post_assignment_pointer_shape_var_var(*cfg.shape, lhs, rhs, stmt);
 	Cfg res = mk_next_config(cfg, shape, tid);
@@ -113,6 +115,12 @@ Cfg tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, 
 Cfg tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	if (is_invalid_ptr(cfg, rhs)) raise_rpr(cfg, rhs, "Dereference of invalid pointer.");
 	if (NON_LOCAL(lhs) && is_invalid_next(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoiling non-local variable.");
+	if (SHARED_VAR(lhs) || is_globally_reachable(*cfg.shape, lhs)) {
+		bool shared = is_globally_reachable(*cfg.shape, rhs);
+		bool owned = cfg.own.at(rhs);
+		bool owned_succ = is_globally_reachable(*cfg.shape, rhs, EQ_MF_GF) || cfg.shape->test(rhs, cfg.shape->index_NULL(), EQ); // next reaches shared or null
+		if (!shared && !(owned && owned_succ)) raise_epr(cfg, rhs, "Invariant violation: pushing potentially retired address to shared heap.");
+	}
 
 	Shape* shape = post_assignment_pointer_shape_var_next(*cfg.shape, lhs, rhs, stmt);
 	Cfg res = mk_next_config(cfg, shape, tid);
@@ -128,6 +136,11 @@ Cfg tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs,
 Cfg tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	if (is_invalid_ptr(cfg, lhs)) raise_rpr(cfg, lhs, "Bad assignment: dereference of invalid pointer.");
 	if (is_globally_reachable(*cfg.shape, lhs) && is_invalid_ptr(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoinling next field.");
+	if (SHARED_VAR(lhs) || is_globally_reachable(*cfg.shape, lhs)) {
+		bool owned = cfg.own.at(rhs);
+		bool owned_succ = cfg.shape->test(rhs, cfg.shape->index_NULL(), MT); // next is null
+		if (!owned || !owned_succ) raise_epr(cfg, rhs, "Invariant violation: pushing potentially retired address to shared heap. ##");
+	}
 
 	Shape* shape = post_assignment_pointer_shape_next_var(*cfg.shape, lhs, rhs, stmt);
 	Cfg res = mk_next_config(cfg, shape, tid);
@@ -135,7 +148,6 @@ Cfg tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std::size_t lhs,
 	if (res.own.at(rhs) && !res.own.at(lhs))
 		res.own.set(rhs, false);
 	res.valid_next.set(lhs, cfg.valid_ptr.at(rhs));
-	// TODO: prevent setting next field of gloablly reachable cells to retired cell?
 	return res;
 }
 
