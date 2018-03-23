@@ -42,21 +42,21 @@ bool do_shapes_match(const Cfg& cfg, const Cfg& interferer) {
 		}
 	}
 
-	for (std::size_t i : {3, 4}) {
-		if (cfg.shape->at(i, cfg.shape->index_UNDEF()) == MT_ ^ interferer.shape->at(i, interferer.shape->index_UNDEF()) == MT_) {
-			return false;
-		}
+	// for (std::size_t i : {3, 4}) {
+	// 	if (cfg.shape->at(i, cfg.shape->index_UNDEF()) == MT_ ^ interferer.shape->at(i, interferer.shape->index_UNDEF()) == MT_) {
+	// 		return false;
+	// 	}
 
-		bool is_global = is_observed_global(cfg, i) || is_observed_global(interferer, i);
-		if (!is_global) continue;
+	// 	bool is_global = is_observed_global(cfg, i) || is_observed_global(interferer, i);
+	// 	if (!is_global) continue;
 
-		bool is_owned = is_observed_owned(cfg, i) || is_observed_owned(interferer, i);
-		if (is_owned) continue;
+	// 	bool is_owned = is_observed_owned(cfg, i) || is_observed_owned(interferer, i);
+	// 	if (is_owned) continue;
 
-		for (std::size_t j = 0; j < end; j++)
-			if (intersection(cfg.shape->at(i, j), interferer.shape->at(i, j)).none())
-				return false;
-	}
+	// 	for (std::size_t j = 0; j < end; j++)
+	// 		if (intersection(cfg.shape->at(i, j), interferer.shape->at(i, j)).none())
+	// 			return false;
+	// }
 
 	return true;
 }
@@ -409,6 +409,7 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
 
 	const Cfg& tmp = *extended;
 	// std::cout << "Extension is: " << tmp << *tmp.shape << std::endl;
+	// if (SEQUENTIAL_STEPS > 90000 && tmp.pc[0]->id()==22) {std::cout << "Interference post for: " << tmp << *tmp.shape << std::endl;}
 
 	// do one post step for the extended thread
 	INTERFERENCE_STEPS++;

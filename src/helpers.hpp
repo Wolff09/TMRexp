@@ -83,7 +83,7 @@ namespace tmr {
 	 *          is split such that it contains either {=} or {↦,⇢} or {↤,⇠} or {⋈}
 	 *          (or subsets of those).
 	 */
-	std::vector<Shape*> disambiguate(const Shape& shape, const std::size_t index);
+	std::vector<Shape*> disambiguate(const Shape& shape, const std::size_t index, bool foobar=false);
 
 	/**
 	 * @brief Merges shapes yielding a fresh one. If the provided list is empty, NULL is returned.

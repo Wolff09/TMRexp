@@ -13,9 +13,9 @@ endif(NOT CMAKE_BUILD_TYPE)
 
 
 # don't get rid of assertions
-set(CMAKE_BUILD_TYPE Debug)
+# set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_BUILD_TYPE Release)
-set(CMAKE_BUILD_TYPE RelWithDebInfo)
+# set(CMAKE_BUILD_TYPE RelWithDebInfo)
 
 
 # use c++11

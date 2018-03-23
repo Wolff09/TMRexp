@@ -38,8 +38,10 @@ const Cfg& RemainingWork::pop() {
 	return *top;
 }
 
+static bool output = false;
+
 void RemainingWork::add(Cfg&& cfg) {
-	std::cout << "Adding: " << cfg << *cfg.shape << std::endl;
+	if (SEQUENTIAL_STEPS > 90000 && output) { std::cout << "Adding: " << cfg << *cfg.shape << std::endl; }
 	// if (cfg.shape->test(5,1,EQ)) { std::cout << std::endl << "5=1" << std::endl; exit(0); }
 	// if (cfg.shape->test(6,1,EQ) && cfg.freed) { std::cout << std::endl << "6=1 freed" << std::endl; exit(0); }
 	// if (cfg.shape->test(1,3,EQ)) { std::cout << std::endl << "1=3" << std::endl; exit(0); }
@@ -47,6 +49,13 @@ void RemainingWork::add(Cfg&& cfg) {
 	// if (cfg.pc[0] && cfg.pc[0]->id()==30 && !cfg.valid_ptr.at(6) && cfg.shape->test(5, 7, EQ)) { std::cout << "node invalid with option to CAS" << std::endl; exit(0); }
 	// if (cfg.own.at(6) && haveCommon(cfg.shape->at(5,6), EQ_MT_GT)) { std::cout << "owned node shared reachable" << std::endl; exit(0); }
 	// if (cfg.state.states().at(4)->name() == "u5" && cfg.shape->test(5,0,EQ)) { std::cout << "foobar: u5 with option of empty stack" << std::endl; /*exit(0);*/ }
+	// if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && !cfg.guard0state.at(7)) { std::cout << "top has no smr state" << std::endl; exit(0); }
+	// if (cfg.pc[0] && cfg.pc[0]->id()>20 && cfg.pc[0]->id()<=27 && cfg.guard0state.at(7)->name() == "r") { std::cout << "top has 'r' smr state" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
+	if (cfg.pc[0] && cfg.pc[0]->id()>=22 && cfg.pc[0]->id()<=27 && cfg.guard0state.at(7)->name() == "r" && cfg.shape->test(5,7,EQ)) { std::cout << "top has 'r' smr state despite being shared reachable" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
+	if (cfg.pc[0] && cfg.pc[0]->id()==27 && cfg.guard0state.at(7)->name() == "rg" && cfg.shape->test(5,7,EQ)) { std::cout << "top has 'rg' smr state despite being shared reachable" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
+	if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && cfg.guard0state.at(7)->name() == "rg") { std::cout << "top has 'rg' smr state" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
+	if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && !cfg.valid_ptr.at(7)) { std::cout << "top invalid despite guard" << std::endl; exit(0); }
+
 
 	auto res = _enc.take(std::move(cfg));
 	if (res.first) _work.insert(&res.second);
@@ -66,27 +75,31 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 		std::size_t counter = 0;
 
 		std::cerr << "post image...     ";
-		std::cout << std::endl << std::endl << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
-		std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << std::endl << std::endl << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
+		// std::cout << "*******************************************************************************************" << std::endl;
 		while (!work.done()) {
 			const Cfg& topost = work.pop();
 			SEQUENTIAL_STEPS++;
 
-			std::cout << "===============================" << std::endl;
-			std::cout << "Post for: " << topost << *topost.shape << std::endl << "-------------------------------" << std::endl;
+			// output = true;
+			// if (SEQUENTIAL_STEPS > 90000) {
+			// 	std::cout << "===============================" << std::endl;
+			// 	std::cout << "Post for: " << topost << *topost.shape << std::endl << "-------------------------------" << std::endl;
+			// }
 			work.add(tmr::mk_all_post(topost, prog));
 			
 			counter++;
 			if (counter%10000 == 0) std::cerr << "[" << counter/1000 << "k-" << enc->size()/1000 << "k]";
 		}
 		std::cerr << " done! [enc.size()=" << enc->size() << ", iterations=" << counter << ", enc.bucket_count()=" << enc->bucket_count() << "]" << std::endl;
+		output = false;
 
 		tmr::mk_all_interference(*enc, work);
 	}

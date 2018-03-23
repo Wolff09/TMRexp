@@ -251,7 +251,7 @@ struct shape_ptr_comparator {
 	}
 };
 
-std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t row) {
+std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t row, bool foobar) {
 	assert(consistent(toSplit));
 	
 	std::vector<Shape*> result;
@@ -274,7 +274,7 @@ std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t ro
 				delete shape;
 			}
 			work.pop();
-		} else if (col == row) {
+		} else if (col == row || (foobar && col >= toSplit.offset_locals(0))) {
 			// disambiguate reflexivity
 			assert(shape->at(col, row) == EQ_);
 			work.top().first++;
