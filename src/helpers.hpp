@@ -86,6 +86,13 @@ namespace tmr {
 	std::vector<Shape*> disambiguate(const Shape& shape, const std::size_t index, bool foobar=false);
 
 	/**
+	 * @brief Disambiguates the reachability information about the passed cell.
+	 * @details The passed shape is split up such that in the resulting shapes the
+	 *          cell contains either {=} or {↦,⇢} or {↤,⇠} or {⋈} (or subsets of those).
+	 */
+	std::vector<Shape*> disambiguate_cell(const Shape& shape, const std::size_t row, const std::size_t col);
+
+	/**
 	 * @brief Merges shapes yielding a fresh one. If the provided list is empty, NULL is returned.
 	 */
 	Shape* merge(std::vector<Shape*>& shapes);

@@ -47,7 +47,9 @@ bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	if (rhs.retired < lhs.retired) return false;
 
 	for (std::size_t i = 0; i < lhs.shape->offset_locals(0); i++) {
+		if (i == 1 || i == 2) continue;
 		for (std::size_t j = i+1; j < lhs.shape->offset_locals(0); j++) {
+			if (j == 1 || j == 2) continue;
 			auto lhs_cell = lhs.shape->at(i,j).to_ulong();
 			auto rhs_cell = rhs.shape->at(i,j).to_ulong();
 			if (lhs_cell < rhs_cell) return true;
@@ -65,6 +67,7 @@ std::pair<bool, const Cfg&> Encoding::take(Cfg&& /*new_cfg*/input) {
 	std::vector<Shape*> cur = { new Shape(*input.shape) };
 	std::vector<Shape*> prev;
 	for (std::size_t i = 0; i < input.shape->offset_locals(0); i++) {
+		if (i == 1 || i == 2) continue;
 		cur.swap(prev);
 
 		for (Shape* s : cur) delete s;

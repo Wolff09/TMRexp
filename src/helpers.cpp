@@ -274,7 +274,7 @@ std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t ro
 				delete shape;
 			}
 			work.pop();
-		} else if (col == row || (foobar && col >= toSplit.offset_locals(0))) {
+		} else if (col == row || (foobar && (col >= toSplit.offset_locals(0) || col == 1 || col == 2))) {
 			// disambiguate reflexivity
 			assert(shape->at(col, row) == EQ_);
 			work.top().first++;
@@ -322,6 +322,21 @@ std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t ro
 	}
 
 	assert(result.size() > 0);
+	return result;
+}
+
+std::vector<Shape*> tmr::disambiguate_cell(const Shape& shape, const std::size_t row, const std::size_t col) {
+	if (!needsSplitting(shape.at(row, col))) return { new Shape(shape) };
+	std::vector<RelSet> cellsplit = split_cell(shape.at(row, col));
+	std::vector<Shape*> result;
+	result.reserve(4);
+	for (RelSet rs : cellsplit) {
+		Shape* s = new Shape(shape);
+		s->set(row, col, rs);
+		bool success = mk_concretisation(*s);
+		if (success) result.push_back(s);
+		else delete s;
+	}
 	return result;
 }
 

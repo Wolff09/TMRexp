@@ -3,6 +3,7 @@
 
 #include <stdexcept>
 #include <assert.h>
+#include <deque>
 #include "relset.hpp"
 #include "../helpers.hpp"
 #include "post/helpers.hpp"
@@ -16,30 +17,32 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Assignment& stmt, unsigned shor
 	const Expr& lhs = stmt.lhs();
 	const Expr& rhs = stmt.rhs();
 
-	Cfg res = stmt.lhs().type() == DATA ? post_assignment_data(   cfg, lhs, rhs, tid, &stmt)
-	                                    : post_assignment_pointer(cfg, lhs, rhs, tid, &stmt);
+	auto result = stmt.lhs().type() == DATA ? post_assignment_data(   cfg, lhs, rhs, tid, &stmt)
+	                                        : post_assignment_pointer(cfg, lhs, rhs, tid, &stmt);
 
 	if (stmt.fires_lp()) {
-		// evaluate the condition, branch if needed, then fire
-		// this is also present in linp.cpp => reuse
-
-		// pc in res was already advanced, should be the linearization point
+		// pc in res was already advanced, it is the linearization point
 		assert(res.pc[tid] == &stmt.lp());
 
-		// do a post for the linearization point
-		return tmr::post(res, stmt.lp(), tid);
-	} else {
-		// nothing to fire => nothing to do
-		std::vector<Cfg> result;
-		result.push_back(std::move(res));
-		return result;
+		std::vector<Cfg> tmp;
+		tmp.swap(result);
+		result.reserve(tmp.size()*2);
+
+		// post for linearization point
+		for (const Cfg& cf : tmp) {
+			auto linpres = tmr::post(cf, stmt.lp(), tid);
+			std::move(linpres.begin(), linpres.end(), std::back_inserter(result));
+			// result.insert(result.end(), linpres.begin(), linpres.end());
+		}
 	}
+
+	return result;
 }
 
 
 /******************************** DATA: LHS.DATA = RHS.DATA ********************************/
 
-Cfg tmr::post_assignment_data(const Cfg& cfg, const Expr& lhs, const Expr& rhs, unsigned short tid, const Statement* stmt) {
+std::vector<Cfg> tmr::post_assignment_data(const Cfg& cfg, const Expr& lhs, const Expr& rhs, unsigned short tid, const Statement* stmt) {
 	assert(false);
 	throw std::logic_error("Malicious call to tmr::post_assignment_data()");
 }
@@ -48,7 +51,7 @@ Cfg tmr::post_assignment_data(const Cfg& cfg, const Expr& lhs, const Expr& rhs, 
 /******************************** POINTER ********************************/
 
 
-Cfg tmr::post_assignment_pointer(const Cfg& cfg, const Expr& lhs, const Expr& rhs, unsigned short tid, const Statement* stmt) {
+std::vector<Cfg> tmr::post_assignment_pointer(const Cfg& cfg, const Expr& lhs, const Expr& rhs, unsigned short tid, const Statement* stmt) {
 	assert(lhs.type() == POINTER && rhs.type() == POINTER);
 	const Shape& input = *cfg.shape;
 	
@@ -84,35 +87,53 @@ static inline bool is_globally_reachable(const Shape& shape, std::size_t var, Re
 	return false;
 }
 
+static inline const State* get_observer_state_for_shared(const Statement& stmt) {
+	return stmt.function().prog().smr_observer().initial_state().states().at(0);
+}
+
 static inline void update_guard(DynamicSMRState& state, std::size_t dst, std::size_t src, bool copy_from_src, const Cfg& cfg, unsigned short tid) {
 	// copies guard information or uses initial state for global addresses; provide a cfg with pc[tid] != null
 	if (src >= cfg.shape->offset_program_vars() && src <= cfg.shape->offset_locals(0)) {
 		// src is a shared pointer
-		state.set(dst, cfg.pc[tid]->function().prog().smr_observer().initial_state().states().at(0));
+		state.set(dst, get_observer_state_for_shared(*cfg.pc[tid]));
 	} else {
 		if (copy_from_src) state.set(dst, state.at(src));
 		else state.set(dst, state.at(0)); // supposed to give default value
 	}
 }
 
+static inline std::deque<std::pair<Shape*, bool>> split_on_global_reach(const Shape& shape, std::size_t var) {
+	std::deque<std::pair<Shape*, bool>> result;
+	auto remaining = std::make_unique<Shape>(shape);
+	for (std::size_t i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
+		Shape* globreach = isolate_partial_concretisation(*remaining, i, var, EQ_MT_GT);
+		if (globreach) result.emplace_back(globreach, true);
+		remaining.reset(isolate_partial_concretisation(*remaining, i, var, MF_GF_BT));
+		if (!remaining) break;
+	}
+	if (remaining) result.emplace_back(remaining.release(), false);
+	return result;
+}
 
-Cfg tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
+
+std::vector<Cfg> tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	if (NON_LOCAL(lhs) && is_invalid_ptr(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoiling non-local variable (ptr).");
 	if (NON_LOCAL(lhs) && is_invalid_next(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoiling non-local variable (next).");
 	if (SHARED_VAR(lhs) && !cfg.own.at(rhs) && !is_globally_reachable(*cfg.shape, rhs)) raise_epr(cfg, rhs, "Invariant violation: pushing potentially retired address to shared heap.");
 
 	Shape* shape = post_assignment_pointer_shape_var_var(*cfg.shape, lhs, rhs, stmt);
-	Cfg res = mk_next_config(cfg, shape, tid);
+	auto result = mk_next_config_vec(cfg, shape, tid);
+	Cfg& res = result.back();
 	res.own.set(lhs, res.own.at(rhs));
 	res.own.set(rhs, res.own.at(lhs)); // TODO: correct?
 	res.valid_ptr.set(lhs, is_valid_ptr(cfg, rhs));
 	res.valid_next.set(lhs, is_valid_next(cfg, rhs));
 	update_guard(res.guard0state, lhs, rhs, true, cfg, tid);
 	update_guard(res.guard1state, lhs, rhs, true, cfg, tid);
-	return res;
+	return result;
 }
 
-Cfg tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
+std::vector<Cfg> tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	if (is_invalid_ptr(cfg, rhs)) raise_rpr(cfg, rhs, "Dereference of invalid pointer.");
 	if (NON_LOCAL(lhs) && is_invalid_next(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoiling non-local variable.");
 	if (SHARED_VAR(lhs) || is_globally_reachable(*cfg.shape, lhs)) {
@@ -122,18 +143,39 @@ Cfg tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs,
 		if (!shared && !(owned && owned_succ)) raise_epr(cfg, rhs, "Invariant violation: pushing potentially retired address to shared heap.");
 	}
 
-	Shape* shape = post_assignment_pointer_shape_var_next(*cfg.shape, lhs, rhs, stmt);
-	Cfg res = mk_next_config(cfg, shape, tid);
-	res.own.set(lhs, false); // approximation
-	// TODO: we need valid for next fields
-	res.valid_ptr.set(lhs, cfg.valid_next.at(rhs));
-	res.valid_next.set(lhs, is_globally_reachable(*cfg.shape, rhs)); // TODO: is this correct? only validate if guaranteed to be global?
-	update_guard(res.guard0state, lhs, rhs, false, cfg, tid);
-	update_guard(res.guard1state, lhs, rhs, false, cfg, tid);
-	return res;
+	auto tmp = split_on_global_reach(*cfg.shape, rhs);
+	std::vector<Cfg> result;
+	result.reserve(tmp.size());
+
+	for (std::pair<Shape*, bool> pair : tmp) {
+		Shape* tmpshape = pair.first;
+		bool rhs_shared_reachable = pair.second;
+
+		Shape* shape = post_assignment_pointer_shape_var_next(*tmpshape, lhs, rhs, stmt);
+		delete tmpshape;
+
+		result.push_back(mk_next_config(cfg, shape, tid));
+		Cfg& res = result.back();
+
+		res.own.set(lhs, false); // approximation
+		if (rhs_shared_reachable) {
+			res.valid_ptr.set(lhs, true);
+			res.valid_next.set(lhs, true);
+			res.guard0state.set(lhs, get_observer_state_for_shared(*cfg.pc[tid]));
+			res.guard1state.set(lhs, get_observer_state_for_shared(*cfg.pc[tid]));
+
+		} else {
+			res.valid_ptr.set(lhs, cfg.valid_next.at(rhs));
+			res.valid_next.set(lhs, false); // is_globally_reachable(*cfg.shape, rhs)
+			res.guard0state.set(lhs, nullptr);
+			res.guard1state.set(lhs, nullptr);
+		}
+	}
+
+	return result;
 }
 
-Cfg tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
+std::vector<Cfg> tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	if (is_invalid_ptr(cfg, lhs)) raise_rpr(cfg, lhs, "Bad assignment: dereference of invalid pointer.");
 	if (is_globally_reachable(*cfg.shape, lhs) && is_invalid_ptr(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoinling next field.");
 	if (SHARED_VAR(lhs) || is_globally_reachable(*cfg.shape, lhs)) {
@@ -147,15 +189,16 @@ Cfg tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std::size_t lhs,
 	}
 
 	Shape* shape = post_assignment_pointer_shape_next_var(*cfg.shape, lhs, rhs, stmt);
-	Cfg res = mk_next_config(cfg, shape, tid);
+	auto result = mk_next_config_vec(cfg, shape, tid);
+	Cfg& res = result.back();
 	// if we make rhs reachable from lhs, so we may publish it depending on the ownership of lhs
 	if (res.own.at(rhs) && !res.own.at(lhs))
 		res.own.set(rhs, false);
 	res.valid_next.set(lhs, cfg.valid_ptr.at(rhs));
-	return res;
+	return result;
 }
 
-Cfg tmr::post_assignment_pointer_next_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
+std::vector<Cfg> tmr::post_assignment_pointer_next_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	throw std::logic_error("Unsupported operation tmr::post_assignment_pointer_next_next");
 }
 
