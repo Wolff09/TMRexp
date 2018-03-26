@@ -79,6 +79,7 @@ static std::unique_ptr<Program> mk_program() {
 									CasCond(CAS(Var("Head"), Var("h"), Var("n"), LinP("n"), use_age_fields)),
 									Sqz(
 										// Fr("h"),
+										Rtire("h"),
 										Brk()
 									)
 								)

@@ -46,16 +46,16 @@ bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	if (lhs.retired < rhs.retired) return true;
 	if (rhs.retired < lhs.retired) return false;
 
-	for (std::size_t i = 0; i < lhs.shape->offset_locals(0); i++) {
-		if (i == 1 || i == 2) continue;
-		for (std::size_t j = i+1; j < lhs.shape->offset_locals(0); j++) {
-			if (j == 1 || j == 2) continue;
-			auto lhs_cell = lhs.shape->at(i,j).to_ulong();
-			auto rhs_cell = rhs.shape->at(i,j).to_ulong();
-			if (lhs_cell < rhs_cell) return true;
-			if (rhs_cell < lhs_cell) return false;
-		}
-	}
+	// for (std::size_t i = 0; i < lhs.shape->offset_locals(0); i++) {
+	// 	if (i == 2) continue;
+	// 	for (std::size_t j = i+1; j < lhs.shape->offset_locals(0); j++) {
+	// 		if (j == 2) continue;
+	// 		auto lhs_cell = lhs.shape->at(i,j).to_ulong();
+	// 		auto rhs_cell = rhs.shape->at(i,j).to_ulong();
+	// 		if (lhs_cell < rhs_cell) return true;
+	// 		if (rhs_cell < lhs_cell) return false;
+	// 	}
+	// }
 
 	return false;
 }
@@ -63,24 +63,25 @@ bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 
 /******************************** ENCODING TAKE ********************************/
 
-std::pair<bool, const Cfg&> Encoding::take(Cfg&& /*new_cfg*/input) {
-	std::vector<Shape*> cur = { new Shape(*input.shape) };
-	std::vector<Shape*> prev;
-	for (std::size_t i = 0; i < input.shape->offset_locals(0); i++) {
-		if (i == 1 || i == 2) continue;
-		cur.swap(prev);
+std::pair<bool, const Cfg&> Encoding::take(Cfg&& new_cfg) {
+// std::pair<bool, const Cfg&> Encoding::take(Cfg&& input) {
+	// std::vector<Shape*> cur = { new Shape(*input.shape) };
+	// std::vector<Shape*> prev;
+	// for (std::size_t i = 0; i < input.shape->offset_locals(0); i++) {
+	// 	if (i == 2) continue;
+	// 	cur.swap(prev);
 
-		for (Shape* s : cur) delete s;
-		cur.clear();
+	// 	for (Shape* s : cur) delete s;
+	// 	cur.clear();
 
-		for (Shape* s : prev) {
-			auto dis = disambiguate(*s, i, true);
-			for (Shape* d : dis) cur.push_back(d);
-		}
-	}
+	// 	for (Shape* s : prev) {
+	// 		auto dis = disambiguate(*s, i, true);
+	// 		for (Shape* d : dis) cur.push_back(d);
+	// 	}
+	// }
 
-	for (Shape* shape : cur) {
-		Cfg new_cfg(input, shape);
+	// for (Shape* shape : cur) {
+	// 	Cfg new_cfg(input, shape);
 
 
 		__store__::iterator pos = _map.find(new_cfg);
@@ -144,7 +145,7 @@ std::pair<bool, const Cfg&> Encoding::take(Cfg&& /*new_cfg*/input) {
 			}
 		}
 
-	}
+	// }
 
 	throw std::logic_error("Encoding could not take Shape leading to empty disabiguation.");
 }

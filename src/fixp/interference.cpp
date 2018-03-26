@@ -10,21 +10,21 @@ using namespace tmr;
 
 // /******************************** CHECK MATCH ********************************/
 
-bool is_observed_owned(const Cfg& cfg, std::size_t obs) {
-	std::size_t begin = cfg.shape->offset_locals(0);
-	std::size_t end = begin + cfg.shape->sizeLocals();
-	for (std::size_t i = begin; i < end; i++)
-		if (cfg.own.at(i) && cfg.shape->test(obs, i, EQ))
-			return true;
-	return false;
-}
+// bool is_observed_owned(const Cfg& cfg, std::size_t obs) {
+// 	std::size_t begin = cfg.shape->offset_locals(0);
+// 	std::size_t end = begin + cfg.shape->sizeLocals();
+// 	for (std::size_t i = begin; i < end; i++)
+// 		if (cfg.own.at(i) && cfg.shape->test(obs, i, EQ))
+// 			return true;
+// 	return false;
+// }
 
-bool is_observed_global(const Cfg& cfg, std::size_t obs) {
-	for (std::size_t j = 5; j < cfg.shape->offset_locals(0); j++)
-		if (intersection(cfg.shape->at(obs, j), MT_GT_BT).none())
-			return true;
-	return false;
-}
+// bool is_observed_global(const Cfg& cfg, std::size_t obs) {
+// 	for (std::size_t j = 5; j < cfg.shape->offset_locals(0); j++)
+// 		if (intersection(cfg.shape->at(obs, j), MT_GT_BT).none())
+// 			return true;
+// 	return false;
+// }
 
 bool do_shapes_match(const Cfg& cfg, const Cfg& interferer) {
 	std::size_t end = cfg.shape->offset_locals(0);
@@ -69,7 +69,7 @@ static bool is_noop(const Statement& pc) {
 		case Statement::BREAK:     return true;
 		case Statement::ORACLE:    return true;
 		case Statement::CHECKP:    return true;
-		case Statement::HPSET:     return true;
+		// case Statement::HPSET:     return true;
 		case Statement::HPRELEASE: return true;
 		// #if KILL_IS_NOOP
 		// 	case Statement::KILL:  return true;
@@ -163,9 +163,6 @@ static bool is_noop(const Statement& pc) {
 // }
 
 bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
-	// check whether 'interferer' can interfere with cfg
-	unsigned short interferer_tid = 0;
-
 	// 0. Optimizations
 	#if SKIP_NOOPS
 		if (is_noop(*cfg.pc[0])) return false;
@@ -195,7 +192,7 @@ bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
 	//    So we just ensure that two "out"-threads have seen the same values.
 	//    For everything else, we rely on the later shape comparison (if a value was seen
 	//    it is not in relation with UNDEF, otherwise it is).
-	if (cfg.seen != interferer.seen && !cfg.pc[0]->function().has_input() && !interferer.pc[interferer_tid]->function().has_input())
+	if (cfg.seen != interferer.seen && !cfg.pc[0]->function().has_input() && !interferer.pc[0]->function().has_input())
 		return false;
 	// for (std::size_t i : {0, 1}) {
 	// 	if (cfg.seen[i] != interferer.seen[i]) {
@@ -204,6 +201,8 @@ bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
 	// 		if (!cfgin && !intin) return false;
 	// 	}
 	// }
+	// if (cfg.seen != interferer.seen)
+	// 	return false;
 
 	// 5. cfg.shape must be a superset of interferer.shape on the non-local cell terms
 	if (!do_shapes_match(cfg, interferer))
@@ -235,25 +234,31 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 	// some cells can be intersected in advance, have to be unified
 	std::size_t end = dst.shape->offset_locals(0);
 	for (std::size_t i = 0; i < end; i++) {
-		if (i == 3 || i == 4) continue;
 		for (std::size_t j = i+1; j < end; j++) {
-			if (j == 3 || j == 4) continue;
 			shape->set(i, j, intersection(dst.shape->at(i, j), interferer.shape->at(i, j)));
 		}
 	}
-	for (std::size_t i : {3, 4}) {
-		bool is_global = is_observed_global(dst, i) || is_observed_global(interferer, i);
-		if (is_global) {
-			for (std::size_t j = 0; j < end; j++) {
-				shape->set(i, j, intersection(dst.shape->at(i, j), interferer.shape->at(i, j)));
-			}
-		} else {
-			// TODO: copy if owned, do setunion only if necessary?
-			for (std::size_t j = 0; j < end; j++) {
-				shape->set(i, j, setunion(dst.shape->at(i, j), interferer.shape->at(i, j)));
-			}
-		}
-	}
+	// std::size_t end = dst.shape->offset_locals(0);
+	// for (std::size_t i = 0; i < end; i++) {
+	// 	if (i == 3 || i == 4) continue;
+	// 	for (std::size_t j = i+1; j < end; j++) {
+	// 		if (j == 3 || j == 4) continue;
+	// 		shape->set(i, j, intersection(dst.shape->at(i, j), interferer.shape->at(i, j)));
+	// 	}
+	// }
+	// for (std::size_t i : {3, 4}) {
+	// 	bool is_global = is_observed_global(dst, i) || is_observed_global(interferer, i);
+	// 	if (is_global) {
+	// 		for (std::size_t j = 0; j < end; j++) {
+	// 			shape->set(i, j, intersection(dst.shape->at(i, j), interferer.shape->at(i, j)));
+	// 		}
+	// 	} else {
+	// 		// TODO: copy if owned, do setunion only if necessary?
+	// 		for (std::size_t j = 0; j < end; j++) {
+	// 			shape->set(i, j, setunion(dst.shape->at(i, j), interferer.shape->at(i, j)));
+	// 		}
+	// 	}
+	// }
 
 	// 1.1 extend shape: add locals of interfering thread
 	for (std::size_t i = 0; i < interferer.shape->sizeLocals(); i++) {
@@ -291,10 +296,12 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 				shape->set(dst_row, dst_col, BT_);
 			else if ((is_row_owned && is_col_valid) || (is_col_owned && is_row_valid))
 				ABORT //shape->set(dst_row, dst_col, RelSet(0));
-			else if (is_row_owned)
-				shape->set(dst_row, dst_col, MT_GT_BT);
-			else if (is_col_owned)
-				shape->set(dst_row, dst_col, MF_GF_BT);
+			// else if (is_row_owned)
+			// 	shape->set(dst_row, dst_col, MT_GT_BT);
+			// else if (is_col_owned)
+			// 	shape->set(dst_row, dst_col, MF_GF_BT);
+			else
+				shape->set(dst_row, dst_col, PRED);
 		}
 	}
 
@@ -394,10 +401,10 @@ static inline void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
 // /******************************** INTERFERENCE ********************************/
 
 std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
-	// std::cout << "===============================" << std::endl;
-	// std::cout << "Interference for: " << c1 << *c1.shape << std::endl;
-	// std::cout << "and: " << c2 << *c2.shape << std::endl;
-	// std::cout << "-------------------------------" << std::endl;
+	// bool cond =  c1.pc[0]->id()==56 && c1.shape->test(7,9,MT) && c1.shape->test(9,5,MT) && c1.shape->test(7,5,GT) && c2.pc[0]->id()==57;
+	// bool cond = c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c2.pc[0]->id()==30;
+	bool cond =  c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c1.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && !c1.freed && c2.pc[0]->id()==8;
+	// bool cond =  c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c1.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && c2.pc[0]->id()==9 && c2.shape->test(6,1,EQ) && c2.shape->test(7,5,EQ);
 
 	// this function assumes that c2 can interfere c1
 	// extend c1 with (parts of) c2, compute post on the extended cfg, project away the extended part
@@ -408,8 +415,16 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
 	if (!extended) return {};
 
 	const Cfg& tmp = *extended;
-	// std::cout << "Extension is: " << tmp << *tmp.shape << std::endl;
-	// if (SEQUENTIAL_STEPS > 90000 && tmp.pc[0]->id()==22) {std::cout << "Interference post for: " << tmp << *tmp.shape << std::endl;}
+	// bool cond =  tmp.pc[0]->id()==26 && !tmp.valid_ptr.at(7) && tmp.pc[1]->id()==9 && tmp.shape->test(7,8,EQ);
+	// bool cond =  tmp.pc[0]->id()==26 && tmp.shape->test(7,1,EQ) && tmp.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && c2.pc[0]->id()==9 && c2.shape->test(6,1,EQ) && c2.shape->test(7,5,EQ) ;
+	if (cond) {
+		std::cout << "===============================" << "\n";
+		std::cout << "Interference for: " << c1 << *c1.shape << "\n";
+		std::cout << "and: " << c2 << *c2.shape << "\n";
+		std::cout << "-------------------------------" << "\n";
+		std::cout << "Interference post for: " << tmp << *tmp.shape;
+		std::cout << "-------------------------------" << "\n";
+	}
 
 	// do one post step for the extended thread
 	INTERFERENCE_STEPS++;
@@ -417,11 +432,21 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
 
 	
 	// the resulting cfgs need to be projected to 1 threads, then push them to result vector
-	// std::cout << std::endl << std::endl << "interference: " << tmp << *tmp.shape;
 	for (Cfg& pcfg : postcfgs) {
-		// std::cout << "Post: " << pcfg << *pcfg.shape << std::endl;
+		// bool cond1 = c1.pc[0]->id()>=56 && c2.pc[0]->id()<=57;
+		// if (cond1) {
+		// 	std::cout << "===============================" << "\n";
+		// 	std::cout << "Interference for: " << c1 << *c1.shape << "\n";
+		// 	std::cout << "and: " << c2 << *c2.shape << "\n";
+		// 	std::cout << "-------------------------------" << "\n";
+		// 	std::cout << "Interference post for: " << tmp << *tmp.shape << "\n";
+		// 	std::cout << "Produced (before projection): " << pcfg << *pcfg.shape << "\n";
+		// }
+
+		if (cond) std::cout << "Produced (before porjection): " << pcfg << *pcfg.shape << std::endl;
 		project_away(pcfg, extended_thread_tid);
 	}
+	if (cond) exit(0);
 
 	return postcfgs;
 }
@@ -444,10 +469,20 @@ void mk_regional_interference(RemainingWork& work, Encoding::__sub__store__& reg
 				const Cfg& c2 = *it2;
 				if (c2.pc[0] == NULL) continue;
 
+				bool cond = false; // c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c1.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && !c1.freed;// && c2.shape->test(6,1,EQ) && c2.shape->test(7,5,EQ);
+				if (cond) {
+					std::cout << "===============================" << "\n";
+					std::cout << "Interference check for: " << c1 << *c1.shape << "\n";
+					std::cout << "and: " << c2 << *c2.shape << "\n";
+				}
 				if (can_interfere(c1, c2)) {
+					if (cond) std::cout << "interference!" << std::endl;
 					work.add(mk_one_interference(c1, c2));
 					work.add(mk_one_interference(c2, c1));
 					counter++;
+				} else {
+					if (cond) std::cout << "NO interference!" << std::endl;
+					if (cond) exit(0);
 				}
 			}
 		}

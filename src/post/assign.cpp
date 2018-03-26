@@ -179,10 +179,6 @@ std::vector<Cfg> tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std
 	if (is_invalid_ptr(cfg, lhs)) raise_rpr(cfg, lhs, "Bad assignment: dereference of invalid pointer.");
 	if (is_globally_reachable(*cfg.shape, lhs) && is_invalid_ptr(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoinling next field.");
 	if (SHARED_VAR(lhs) || is_globally_reachable(*cfg.shape, lhs)) {
-		std::cout << "lhs = " << lhs << std::endl;
-		std::cout << "rhs = " << rhs << std::endl;
-		std::cout << "SHARED_VAR(lhs) = " << SHARED_VAR(lhs) << std::endl;
-		std::cout << "is_globally_reachable(*cfg.shape, lhs) = " << is_globally_reachable(*cfg.shape, lhs) << std::endl;
 		bool owned = cfg.own.at(rhs);
 		bool owned_succ = cfg.shape->test(rhs, cfg.shape->index_NULL(), MT); // next is null
 		if (!owned || !owned_succ) raise_epr(cfg, rhs, "Invariant violation: pushing potentially retired address to shared heap. ##");

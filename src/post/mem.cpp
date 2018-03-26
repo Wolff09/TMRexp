@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <assert.h>
+#include <deque>
 #include "relset.hpp"
 #include "../helpers.hpp"
 #include "post/helpers.hpp"
@@ -93,16 +94,6 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 
 /******************************** FREE ********************************/
 
-static bool is_globally_reachable(const Shape& shape, std::size_t var) {
-	for (auto i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
-		if (haveCommon(shape.at(i, var), EQ_MT_GT)) {
-			std::cout << std::endl << "var=" << var << "; i=" << i << "; shape.at(i, var):" << shape.at(i,var) << std::endl;
-			return true;
-		}
-	}
-	return false;
-}
-
 static Shape* extract_shared_unreachable(const Shape& shape, std::size_t var) {
 	// extracts a subshape of the given one where var is not globally reachable, not null, and not udef; or null if no such shape exists
 	Shape* old = tmr::isolate_partial_concretisation(shape, var, shape.index_NULL(), MT_GT_BT); // TODO: correct?
@@ -118,8 +109,39 @@ static Shape* extract_shared_unreachable(const Shape& shape, std::size_t var) {
 	return result;
 }
 
+static inline std::deque<Shape*> split_shape_for_eq(const Shape& input, std::size_t begin, std::size_t end) {
+	// same as in hp.cpp
+	std::deque<Shape*> result;
+	result.push_back(new Shape(input));
+	for (std::size_t i = begin; i < end; i++) {
+		for (std::size_t j = i+1; j < end; j++) {
+			std::size_t size = result.size();
+			for (std::size_t k = 0; k < size; k++) {
+				Shape* shape = result.at(k);
+				Shape* eq_shape = isolate_partial_concretisation(*shape, i, j, EQ_);
+				Shape* neq_shape = isolate_partial_concretisation(*shape, i, j, MT_GT_MF_GF_BT);
+				result[k] = eq_shape ? eq_shape : neq_shape;
+				if (eq_shape && neq_shape) result.push_back(neq_shape);
+				delete shape;
+			}
+		}
+	}
+	// erase NULL
+	for (auto it = result.begin(); it != result.end(); ) {
+        if (*it == NULL) it = result.erase(it);
+        else ++it;
+    }
+    return result;
+}
+
 static inline bool is_free_forbidden(const DynamicSMRState& state, std::size_t var, const Program& prog) {
 	return state.at(var) && state.at(var)->next(prog.freefun(), OValue::Anonymous()).is_final();
+}
+
+static inline void fire_free_event(DynamicSMRState& state, std::size_t var, const Program& prog) {
+	if (state.at(var)) {
+		state.set(var, &state.at(var)->next(prog.freefun(), OValue::Anonymous()));
+	}
 }
 
 std::vector<Cfg> tmr::post_free(const Cfg& cfg, unsigned short tid, const Program& prog) {
@@ -131,22 +153,28 @@ std::vector<Cfg> tmr::post_free(const Cfg& cfg, unsigned short tid, const Progra
 		if (is_free_forbidden(cfg.guard0state, i, prog)) continue;
 		if (is_free_forbidden(cfg.guard1state, i, prog)) continue;
 		
-		auto shape = extract_shared_unreachable(*cfg.shape, i);
-		if (!shape) continue;
+		auto tmp = extract_shared_unreachable(*cfg.shape, i);
+		if (!tmp) continue;
 
-		result.push_back(Cfg(cfg, shape));
-		auto& cf = result.back();
+		auto eqsplit = split_shape_for_eq(*tmp, 0, tmp->size());
+		for (Shape* shape : eqsplit){
 
-		// TODO: one could think about precisely querying what becomes invalid
-		for (std::size_t j = 0; j < cf.shape->size(); j++) {
-			if (cf.shape->test(i, j, EQ)) {
-				cf.valid_ptr.set(j, false);
-				cf.valid_next.set(j, false);
-				// TODO: set next ptr to UDEF
-				if (j == shape->index_REUSE()) {
-					cf.freed = true;
-					cf.retired = false;
-					// TODO: what if REUSE was not retired?
+			result.push_back(Cfg(cfg, shape));
+			auto& cf = result.back();
+
+			// TODO: one could think about precisely querying what becomes invalid
+			for (std::size_t j = 0; j < cf.shape->size(); j++) {
+				if (cf.shape->test(i, j, EQ)) {
+					cf.valid_ptr.set(j, false);
+					cf.valid_next.set(j, false);
+					fire_free_event(cf.guard0state, j, prog);
+					fire_free_event(cf.guard1state, j, prog);
+					// TODO: set next ptr to UDEF
+					if (j == shape->index_REUSE()) {
+						cf.freed = true;
+						cf.retired = false;
+						// TODO: what if REUSE was not retired?
+					}
 				}
 			}
 		}
@@ -155,6 +183,16 @@ std::vector<Cfg> tmr::post_free(const Cfg& cfg, unsigned short tid, const Progra
 	return result;
 }
 
+
+// static bool is_globally_reachable(const Shape& shape, std::size_t var) {
+// 	for (auto i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
+// 		if (haveCommon(shape.at(i, var), EQ_MT_GT)) {
+// 			std::cout << std::endl << "var=" << var << "; i=" << i << "; shape.at(i, var):" << shape.at(i,var) << std::endl;
+// 			return true;
+// 		}
+// 	}
+// 	return false;
+// }
 
 // static std::vector<OValue> get_possible_data(const Cfg& cfg, std::size_t var) {
 // 	std::vector<OValue> result;

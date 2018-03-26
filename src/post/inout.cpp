@@ -111,29 +111,29 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsi
 
 /******************************** OUTPUT: __out__ = RHS.DATA ********************************/
 
-bool is_inout_correct(const Shape& shape, const WriteOutputAssignment& stmt, OValue inout, unsigned short tid) {
-	// std::cout << "Checking inout["<<tid<<"]=" << inout << " for shape" << std::endl << shape << std::endl;
-	auto var_index = mk_var_index(shape, stmt.expr(), tid);
-	if (inout.type() == OValue::ANONYMOUS) {
-		for (std::size_t i = 0; i < shape.sizeObservers(); i++)
-			if (shape.test(var_index, shape.index_ObserverVar(i), EQ)) {
-				// std::cout << "Should output: Anonymous; could output: Observed("<<i<<") (since: "<< shape.index_ObserverVar(i) << " = " << var_index << ")" << std::endl;
-				return false;
-			}
-	} else if (inout.type() == OValue::OBSERVABLE) {
-		if (shape.at(var_index, shape.index_ObserverVar(inout.id())) != EQ_) {
-			// std::cout << "Should output: Observed("<<inout.id()<<"); but no equality" << std::endl;
-			return false;
-		}
-		for (std::size_t i = 0; i < shape.sizeObservers(); i++)
-			if (i == inout.id()) continue;
-			else if (shape.test(var_index, shape.index_ObserverVar(i), EQ)) {
-				// std::cout << "Should output: Observed("<<inout.id()<<"); could output: Observed("<<i<<")" << std::endl;
-				return false;
-			}
-	}
-	return true;
-}
+// bool is_inout_correct(const Shape& shape, const WriteOutputAssignment& stmt, OValue inout, unsigned short tid) {
+// 	// std::cout << "Checking inout["<<tid<<"]=" << inout << " for shape" << std::endl << shape << std::endl;
+// 	auto var_index = mk_var_index(shape, stmt.expr(), tid);
+// 	if (inout.type() == OValue::ANONYMOUS) {
+// 		for (std::size_t i = 0; i < shape.sizeObservers(); i++)
+// 			if (shape.test(var_index, shape.index_ObserverVar(i), EQ)) {
+// 				// std::cout << "Should output: Anonymous; could output: Observed("<<i<<") (since: "<< shape.index_ObserverVar(i) << " = " << var_index << ")" << std::endl;
+// 				return false;
+// 			}
+// 	} else if (inout.type() == OValue::OBSERVABLE) {
+// 		if (shape.at(var_index, shape.index_ObserverVar(inout.id())) != EQ_) {
+// 			// std::cout << "Should output: Observed("<<inout.id()<<"); but no equality" << std::endl;
+// 			return false;
+// 		}
+// 		for (std::size_t i = 0; i < shape.sizeObservers(); i++)
+// 			if (i == inout.id()) continue;
+// 			else if (shape.test(var_index, shape.index_ObserverVar(i), EQ)) {
+// 				// std::cout << "Should output: Observed("<<inout.id()<<"); could output: Observed("<<i<<")" << std::endl;
+// 				return false;
+// 			}
+// 	}
+// 	return true;
+// }
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, const WriteOutputAssignment& stmt, unsigned short tid) {
 	CHECK_STMT;
@@ -147,6 +147,6 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const WriteOutputAssignment& stmt, un
 	// do nothing... we have no explicit notion of data variables and returning
 	std::vector<Cfg> result;
 	result.push_back(mk_next_config(cfg, new Shape(*cfg.shape), tid));
-	if (is_invalid_ptr(cfg, var_index)) result.back().inout[tid] = OValue();
+	// if (is_invalid_ptr(cfg, var_index)) result.back().inout[tid] = OValue();
 	return result;
 }

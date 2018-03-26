@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <assert.h>
+#include <deque>
 #include "relset.hpp"
 #include "../helpers.hpp"
 #include "post/helpers.hpp"
@@ -13,40 +14,65 @@
 using namespace tmr;
 
 
-static inline std::vector<Shape*> split_shape(const Cfg& cfg, std::size_t begin, std::size_t end) {
-	// split shape such that no relation contains = and !=
-
-	std::vector<Shape*> result;
-	std::vector<Shape*> worklist;
-	worklist.reserve((end - begin)*2);
-	worklist.push_back(new Shape(*cfg.shape));
-
-	while (!worklist.empty()) {
-		Shape* s = worklist.back();
-		worklist.pop_back();
-		if (s == NULL) continue;
-		bool is_split = true;
-
-		for (std::size_t i = begin; i < end; i++) {
-			for (std::size_t j = i+1; j < end; j++) {
-				if (s->test(i, j, EQ) && intersection(s->at(i, j), MT_GT_MF_GF_BT).any()) {
-					worklist.push_back(isolate_partial_concretisation(*s, i, j, EQ_));
-					worklist.push_back(isolate_partial_concretisation(*s, i, j, MT_GT_MF_GF_BT));
-					is_split = false;
-					break;
-				}
+static inline std::deque<Shape*> split_shape(const Cfg& cfg, std::size_t begin, std::size_t end, bool splitReuse=false) {
+	std::deque<Shape*> result;
+	result.push_back(new Shape(*cfg.shape));
+	for (std::size_t i = splitReuse ? cfg.shape->index_REUSE() : begin; i < end; i = i < begin ? begin : i+1) {
+		for (std::size_t j = i+1; j < end; j++) {
+			std::size_t size = result.size();
+			for (std::size_t k = 0; k < size; k++) {
+				Shape* shape = result.at(k);
+				if (!shape) continue;
+				Shape* eq_shape = isolate_partial_concretisation(*shape, i, j, EQ_);
+				Shape* neq_shape = isolate_partial_concretisation(*shape, i, j, MT_GT_MF_GF_BT);
+				result[k] = eq_shape ? eq_shape : neq_shape;
+				if (eq_shape && neq_shape) result.push_back(neq_shape);
+				delete shape;
 			}
 		}
-
-		if (is_split) {
-			result.push_back(s);
-		} else {
-			delete s;
-		}
 	}
-
-	return result;
+	// erase NULL
+	for (auto it = result.begin(); it != result.end(); ) {
+        if (*it == NULL) it = result.erase(it);
+        else ++it;
+    }
+    return result;
 }
+
+// static inline std::vector<Shape*> split_shape(const Cfg& cfg, std::size_t begin, std::size_t end) {
+// 	// split shape such that no relation contains = and !=
+
+// 	std::vector<Shape*> result;
+// 	std::vector<Shape*> worklist;
+// 	worklist.reserve((end - begin)*2);
+// 	worklist.push_back(new Shape(*cfg.shape));
+
+// 	while (!worklist.empty()) {
+// 		Shape* s = worklist.back();
+// 		worklist.pop_back();
+// 		if (s == NULL) continue;
+// 		bool is_split = true;
+
+// 		for (std::size_t i = begin; i < end; i++) {
+// 			for (std::size_t j = i+1; j < end; j++) {
+// 				if (s->test(i, j, EQ) && intersection(s->at(i, j), MT_GT_MF_GF_BT).any()) {
+// 					worklist.push_back(isolate_partial_concretisation(*s, i, j, EQ_));
+// 					worklist.push_back(isolate_partial_concretisation(*s, i, j, MT_GT_MF_GF_BT));
+// 					is_split = false;
+// 					break;
+// 				}
+// 			}
+// 		}
+
+// 		if (is_split) {
+// 			result.push_back(s);
+// 		} else {
+// 			delete s;
+// 		}
+// 	}
+
+// 	return result;
+// }
 
 static inline void fire_event(const Cfg& cfg, DynamicSMRState& state, const Function* eqevt, const Function* neqevt, std::size_t var, std::size_t begin, std::size_t end) {
 	const Shape& shape = *cfg.shape;
@@ -107,7 +133,19 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Retire& stmt, unsigned short ti
 	std::size_t begin = cfg.shape->offset_program_vars(); // cfg.shape->offset_locals(0);
 	std::size_t end = cfg.shape->offset_locals(tid)+cfg.shape->sizeLocals();
 	
-	return smrpost(cfg, &evt, nullptr, var, true, true, tid, begin, end);
+	// return smrpost(cfg, &evt, nullptr, var, true, true, tid, begin, end);
+	auto shapes = split_shape(cfg, begin, end, true);
+	std::vector<Cfg> result;
+	for (Shape* shape : shapes) {
+		result.push_back(mk_next_config(cfg, shape, tid));
+		fire_event(result.back(), result.back().guard0state, &evt, nullptr, var, begin, end);
+		fire_event(result.back(), result.back().guard1state, &evt, nullptr, var, begin, end);
+		if (shape->test(var, shape->index_REUSE(), EQ)) {
+			if (result.back().retired) raise_epr(cfg, var, "Double retire on REUSE address.");
+			result.back().retired = true;
+		}
+	}
+	return result;
 }
 
 
