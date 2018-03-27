@@ -72,6 +72,8 @@ void RemainingWork::add(Cfg&& cfg) {
 
 /******************************** FIXED POINT ********************************/
 
+#define WORKLIST_INTERFERENCE true
+
 std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& linobs) {
 	std::unique_ptr<Encoding> enc = std::make_unique<Encoding>();
 
@@ -91,42 +93,55 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 	work.add(std::move(init10));
 	work.add(std::move(init11));
 
-	// fixpoint
-	while (!work.done()) {
-		std::size_t counter = 0;
+	#if WORKLIST_INTERFERENCE
+		/* SEQUENTIAL and INTERFERENCE steps intertwined using WORKLIST */
 
-		std::cerr << "post image...     ";
-		// std::cout << std::endl << std::endl << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
+		std::size_t counter = 0;
+		std::cerr << "Fixpoint Computation..." << std::endl;
+		std::cerr << "\t[#steps\t\t#enc\t\t#interference]" << std::endl;
+
 		while (!work.done()) {
 			const Cfg& topost = work.pop();
-			SEQUENTIAL_STEPS++;
-
-			// output = topost.pc[0] && topost.pc[0]->id()==26 && topost.shape->test(7,1,EQ) && topost.shape->test(7,5,MT) && topost.guard0state.at(7) && topost.guard0state.at(7)->is_special();
-			// output = topost.pc[0] && topost.pc[0]->id()>=29 && topost.pc[0]->id()<=35 && !topost.valid_ptr.at(7);
-			// output = SEQUENTIAL_STEPS > 10000;
-			if (output) {
-				std::cout << "===============================" << std::endl;
-				std::cout << "Post for: " << topost << *topost.shape << std::endl << "-------------------------------" << std::endl;
-			}
 			work.add(tmr::mk_all_post(topost, prog));
-			// output = false;
-			
-			counter++;
-			if (counter%1000 == 0) std::cerr << "[" << counter/1000 << "k-" << enc->size()/1000 << "k]";
-		}
-		std::cerr << " done! [enc.size()=" << enc->size() << ", iterations=" << counter << ", enc.bucket_count()=" << enc->bucket_count() << "]" << std::endl;
-		output = false;
+			mk_cfg_interference(*enc, work, topost);
 
-		tmr::mk_all_interference(*enc, work);
-	}
+			counter++;
+			if (counter%500 == 0) {
+				std::cerr << "\t[";
+				std::cerr << counter/1000 << "." << (counter-((counter/1000)*1000))/100 << "k\t\t";
+				std::cerr << enc->size()/1000 << "." << (enc->size()-((enc->size()/1000)*1000))/100 << "k\t\t";
+				std::cerr << INTERFERENCE_STEPS/1000 << "k]";
+				std::cerr << std::endl;
+			}
+		}
+
+	#else
+		/* independent SEQUENTIAL and INTERFERENCE steps */
+
+		while (!work.done()) {
+			std::size_t counter = 0;
+			std::cerr << "post image...     [#enc]";
+
+			// sequential steps
+			while (!work.done()) {
+				const Cfg& topost = work.pop();
+				work.add(tmr::mk_all_post(topost, prog));
+
+				SEQUENTIAL_STEPS++;
+				counter++;
+				if (counter%1000 == 0) {
+					std::cerr << "[" << enc->size()/1000 << "k]" << std::flush;
+				}
+			}
+			std::cerr << " done! [#enc=" << enc->size()/1000 << "." << (enc->size()-((enc->size()/1000)*1000))/100 << "k";
+			std::cerr << ", #step=" << counter/1000 << "k]" << std::endl;
+			std::cerr << ", #steptotal=" << SEQUENTIAL_STEPS/1000 << "k]" << std::endl;
+
+			// interference steps
+			tmr::mk_all_interference(*enc, work);
+		}
+
+	#endif
 
 	std::cout << std::endl << "Fixed point computed " << enc->size() << " distinct configurations." << std::endl;
 	return enc;

@@ -2,6 +2,7 @@
 
 
 // fixed point configuration
+// #define WORKLIST_INTERFERENCE false
 #define REPLACE_INTERFERENCE_WITH_SUMMARY false
 
 // summary configurations

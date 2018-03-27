@@ -42,7 +42,7 @@ namespace tmr {
 		std::cout << "***********************************************************" << std::endl;
 		std::cout << "**     CONFORMACE CHECK DONE, PROGRAM IS: " << answer << "!     **" << std::endl;
 		std::cout << "***********************************************************" << std::endl << std::endl;
-		std::cerr << "==> " << answer << std::endl;
+		std::cerr << std::endl << "==> " << answer << std::endl;
 
 		if (!result.conformance)
 			std::cout << std::endl << "Reason: " << std::endl << "    " << result.reason << std::endl << std::endl;

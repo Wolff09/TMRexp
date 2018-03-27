@@ -248,12 +248,9 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
 /******************************** INTERFERENCE FOR ALL THREADS ********************************/
 
 void mk_regional_interference(RemainingWork& work, Encoding::__sub__store__& region, std::size_t& counter) {
-	// begin = first cfg
-	// end = post last cfg
-
-	// std::size_t old_size;
-	// do {
-	// 	old_size = region.size();
+	std::size_t old_size;
+	do {
+		old_size = region.size();
 		for (auto it1 = region.begin(); it1 != region.end(); it1++) {
 			const Cfg& c1 = *it1;
 			if (c1.pc[0] == NULL) continue;
@@ -262,50 +259,41 @@ void mk_regional_interference(RemainingWork& work, Encoding::__sub__store__& reg
 				const Cfg& c2 = *it2;
 				if (c2.pc[0] == NULL) continue;
 
-				// bool cond = false; // c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c1.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && !c1.freed;// && c2.shape->test(6,1,EQ) && c2.shape->test(7,5,EQ);
-				// bool cond = c1.pc[0]->id()==35 && c2.pc[0]->id()==35 && c1.inout[0].type() == OValue::ANONYMOUS && c2.inout[0].type() == OValue::ANONYMOUS;
-				// bool cond = false;
-				// if (cond) {
-				// 	std::cout << "===============================" << "\n";
-				// 	std::cout << "Interference check for: " << c1 << *c1.shape << "\n";
-				// 	std::cout << "and: " << c2 << *c2.shape << "\n";
-				// }
 				if (can_interfere(c1, c2)) {
-					// if (cond) std::cout << "interference!" << std::endl;
 					work.add(mk_one_interference(c1, c2));
 					work.add(mk_one_interference(c2, c1));
-					counter++;
-				} else {
-					// if (cond) std::cout << "NO interference!" << std::endl;
-					// if (cond) exit(0);
+					counter += 2;
 				}
 			}
 		}
-	// } while (old_size < region.size());
+	} while (old_size < region.size());
 }
 
 void tmr::mk_all_interference(Encoding& enc, RemainingWork& work) {	
-		std::cerr << "interference...   ";
+		std::cerr << "interference...   [" << enc.bucket_count() << " buckets" << "][#bucketsize]";
 		std::size_t counter = 0;
 
-		// std::cout << std::endl << std::endl << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-		// std::cout << "*******************************************************************************************" << std::endl;
-
-		// std::size_t bucket_counter = 0;
 		for (auto& kvp : enc) {
-			std::cerr << "[" << kvp.second.size() << "-" << enc.size()/1000 << "k]";
-			mk_regional_interference(work, kvp.second, counter);
+			std::cerr << "[" << kvp.second.size() << "]" << std::flush;
 
-			// bucket_counter++;
-			// if (bucket_counter%100 == 0) std::cerr << "[" << bucket_counter << "/" << enc.bucket_count() << "]";
+			mk_regional_interference(work, kvp.second, counter);
 		}
 
-		std::cerr << " done! [enc.size()=" << enc.size() << ", matches=" << counter << ", enc.bucket_count()=" << enc.bucket_count() << "]" << std::endl;
+		std::cerr << " done! [#enc=" << enc.size()/1000 << "." << (enc.size()-((enc.size()/1000)*1000))/100 << "k";
+		std::cerr << ", #step=" << counter/1000 << "k]" << std::endl;
+		std::cerr << ", #steptotal=" << INTERFERENCE_STEPS/1000 << "k]" << std::endl;
 }
+
+void tmr::mk_cfg_interference(Encoding& enc, RemainingWork& work, const Cfg& cfg) {
+	if (!cfg.pc[0]) return;
+	auto& bucket = enc.get_bucket(cfg);
+	for (auto it = bucket.begin(); it != bucket.end(); it++) {
+		const Cfg& other = *it;
+		if (other.pc[0] == NULL) continue;
+		if (can_interfere(cfg, other)) {
+			work.add(mk_one_interference(cfg, other));
+			work.add(mk_one_interference(other, cfg));
+		}
+	}
+}
+
