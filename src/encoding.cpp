@@ -123,11 +123,12 @@ std::pair<bool, const Cfg&> Encoding::take(Cfg&& new_cfg) {
 				}
 
 				for (std::size_t i = dst.offset_locals(0); i < dst.size(); i++) {
-					bool new_valid_ptr = cfg.valid_ptr.at(i) && new_cfg.valid_ptr.at(i);
-					if (cfg.valid_ptr.at(i) != new_valid_ptr) {
-						updated = true;
-						cfg.valid_ptr.set(i, new_valid_ptr);
-					}
+					// bool new_valid_ptr = cfg.valid_ptr.at(i) && new_cfg.valid_ptr.at(i);
+					// if (cfg.valid_ptr.at(i) != new_valid_ptr) {
+					// 	throw std::logic_error("This case must not apply due to cfg_comparator.");
+					// 	updated = true;
+					// 	cfg.valid_ptr.set(i, new_valid_ptr);
+					// }
 					bool new_valid_next = cfg.valid_next.at(i) && new_cfg.valid_next.at(i);
 					if (cfg.valid_next.at(i) != new_valid_next) {
 						updated = true;

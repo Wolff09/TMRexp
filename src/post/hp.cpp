@@ -129,6 +129,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Retire& stmt, unsigned short ti
 	if (cfg.own.at(var)) raise_epr(cfg, var, "Owned addresses must not be retired.");
 	if (var < cfg.shape->offset_locals(tid)) throw std::logic_error("Retire must not use non-local pointers.");
 	// TODO: no retire of shared reachable
+	// TODO: no double retire?
 
 	std::size_t begin = cfg.shape->offset_program_vars(); // cfg.shape->offset_locals(0);
 	std::size_t end = cfg.shape->offset_locals(tid)+cfg.shape->sizeLocals();

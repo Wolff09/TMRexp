@@ -183,7 +183,7 @@ bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
 		return false;
 
 	// 3. prevent some data combinations which are excluded by the data independence argument
-	if (cfg.inout[0] == interferer.inout[0] && cfg.inout[0].type() != OValue::DUMMY)
+	if (cfg.inout[0] == interferer.inout[0] && cfg.inout[0].type() != OValue::DUMMY) // TODO: == observable?
 		return false;
 
 	// 4. interfering thread should not be behind or ahead (too far) of seen
@@ -403,8 +403,9 @@ static inline void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
 std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
 	// bool cond =  c1.pc[0]->id()==56 && c1.shape->test(7,9,MT) && c1.shape->test(9,5,MT) && c1.shape->test(7,5,GT) && c2.pc[0]->id()==57;
 	// bool cond = c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c2.pc[0]->id()==30;
-	bool cond =  c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c1.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && !c1.freed && c2.pc[0]->id()==8;
+	// bool cond = c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c1.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && !c1.freed && c2.pc[0]->id()==8;
 	// bool cond =  c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c1.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && c2.pc[0]->id()==9 && c2.shape->test(6,1,EQ) && c2.shape->test(7,5,EQ);
+	bool cond = c1.pc[0]->id()==35 && c2.pc[0]->id()==35 && c1.inout[0].type() == OValue::DUMMY && c2.inout[0].type() == OValue::DUMMY;
 
 	// this function assumes that c2 can interfere c1
 	// extend c1 with (parts of) c2, compute post on the extended cfg, project away the extended part
