@@ -72,7 +72,7 @@ void RemainingWork::add(Cfg&& cfg) {
 
 /******************************** FIXED POINT ********************************/
 
-#define WORKLIST_INTERFERENCE true
+#define WORKLIST_INTERFERENCE false
 
 std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& linobs) {
 	std::unique_ptr<Encoding> enc = std::make_unique<Encoding>();
@@ -134,7 +134,7 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 				}
 			}
 			std::cerr << " done! [#enc=" << enc->size()/1000 << "." << (enc->size()-((enc->size()/1000)*1000))/100 << "k";
-			std::cerr << ", #step=" << counter/1000 << "k]" << std::endl;
+			std::cerr << ", #step=" << counter/1000 << "k";
 			std::cerr << ", #steptotal=" << SEQUENTIAL_STEPS/1000 << "k]" << std::endl;
 
 			// interference steps

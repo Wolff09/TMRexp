@@ -248,25 +248,21 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
 /******************************** INTERFERENCE FOR ALL THREADS ********************************/
 
 void mk_regional_interference(RemainingWork& work, Encoding::__sub__store__& region, std::size_t& counter) {
-	std::size_t old_size;
-	do {
-		old_size = region.size();
-		for (auto it1 = region.begin(); it1 != region.end(); it1++) {
-			const Cfg& c1 = *it1;
-			if (c1.pc[0] == NULL) continue;
+	for (auto it1 = region.begin(); it1 != region.end(); it1++) {
+		const Cfg& c1 = *it1;
+		if (c1.pc[0] == NULL) continue;
 
-			for (auto it2 = it1; it2 != region.end(); it2++) {
-				const Cfg& c2 = *it2;
-				if (c2.pc[0] == NULL) continue;
+		for (auto it2 = it1; it2 != region.end(); it2++) {
+			const Cfg& c2 = *it2;
+			if (c2.pc[0] == NULL) continue;
 
-				if (can_interfere(c1, c2)) {
-					work.add(mk_one_interference(c1, c2));
-					work.add(mk_one_interference(c2, c1));
-					counter += 2;
-				}
+			if (can_interfere(c1, c2)) {
+				work.add(mk_one_interference(c1, c2));
+				work.add(mk_one_interference(c2, c1));
+				counter += 2;
 			}
 		}
-	} while (old_size < region.size());
+	}
 }
 
 void tmr::mk_all_interference(Encoding& enc, RemainingWork& work) {	
@@ -280,7 +276,7 @@ void tmr::mk_all_interference(Encoding& enc, RemainingWork& work) {
 		}
 
 		std::cerr << " done! [#enc=" << enc.size()/1000 << "." << (enc.size()-((enc.size()/1000)*1000))/100 << "k";
-		std::cerr << ", #step=" << counter/1000 << "k]" << std::endl;
+		std::cerr << ", #step=" << counter/1000 << "k";
 		std::cerr << ", #steptotal=" << INTERFERENCE_STEPS/1000 << "k]" << std::endl;
 }
 
