@@ -144,7 +144,8 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Retire& stmt, unsigned short ti
 		if (shape->test(var, shape->index_REUSE(), EQ)) {
 			bool is_retired = cf.retired;
 			bool is_observed = cf.shape->test(var, shape->index_ObserverVar(0), EQ) || cf.shape->test(var, shape->index_ObserverVar(1), EQ);
-			if (is_retired && is_observed) raise_epr(cfg, var, "Double retire on REUSE+observed address.");
+			bool is_observed_committed = cf.inout[tid].type() == OValue::OBSERVABLE;
+			if (is_retired && is_observed && is_observed_committed) raise_epr(cfg, var, "Double retire on REUSE+observed address.");
 			cf.retired = true;
 		}
 	}

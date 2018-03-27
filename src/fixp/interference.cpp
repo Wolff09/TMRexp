@@ -8,27 +8,9 @@
 using namespace tmr;
 
 
-// /******************************** CHECK MATCH ********************************/
+/******************************** CHECK MATCH ********************************/
 
-bool do_shapes_match(const Cfg& cfg, const Cfg& interferer) {
-	std::size_t end = cfg.shape->offset_locals(0);
-
-	assert(cfg.shape->sizeObservers() == 2);
-	assert(cfg.shape->index_ObserverVar(0) == 3);
-	assert(cfg.shape->index_ObserverVar(1) == 4);
-
-	for (std::size_t i = 0; i < end; i++) {
-		// if (i == 3 || i == 4) continue;
-		for (std::size_t j = i+1; j < end; j++) {
-			// if (j == 3 || j == 4) continue;
-			if (intersection(cfg.shape->at(i, j), interferer.shape->at(i, j)).none())
-				return false;
-		}
-	}
-	return true;
-}
-
-static bool is_noop(const Statement& pc) {
+static inline bool is_noop(const Statement& pc) {
 	switch (pc.clazz()) {
 		case Statement::SQZ:       return true;
 		case Statement::WHILE:     return true;
@@ -43,14 +25,25 @@ static bool is_noop(const Statement& pc) {
 	}
 }
 
-bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
+static inline bool do_shapes_match(const Cfg& cfg, const Cfg& interferer) {
+	std::size_t end = cfg.shape->offset_locals(0);
+	for (std::size_t i = 0; i < end; i++) {
+		for (std::size_t j = i+1; j < end; j++) {
+			if (intersection(cfg.shape->at(i, j), interferer.shape->at(i, j)).none())
+				return false;
+		}
+	}
+	return true;
+}
+
+static inline bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
 	// 0. Optimizations
 	#if SKIP_NOOPS
 		if (is_noop(*cfg.pc[0])) return false;
 		if (is_noop(*interferer.pc[0])) return false;
 	#endif
 
-	// 1. REUSE must be in the same state
+	// 1. REUSE address must be in the same state
 	if (cfg.freed != interferer.freed || cfg.retired != interferer.retired)
 		return false;
 
@@ -74,7 +67,7 @@ bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
 }
 
 
-// /******************************** EXTENSION ********************************/
+/******************************** EXTENSION ********************************/
 
 Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer) {
 	// extend dst with interferer (create a copy of dst, then extend the copy)
@@ -83,7 +76,7 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer) {
 	Shape* shape = new Shape(*dst.shape);	
 	shape->extend();
 
-	// some cells can be intersected in advance, have to be unified
+	// 1.1 extend shape: correlate shared information (intersection between victim and interferer shape)
 	std::size_t end = dst.shape->offset_locals(0);
 	for (std::size_t i = 0; i < end; i++) {
 		for (std::size_t j = i+1; j < end; j++) {
@@ -91,7 +84,7 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer) {
 		}
 	}
 
-	// 1.1 extend shape: add locals of interfering thread
+	// 1.2 extend shape: add locals of interfering thread
 	for (std::size_t i = 0; i < interferer.shape->sizeLocals(); i++) {
 		std::size_t src_col = interferer.shape->offset_locals(0) + i;
 		std::size_t dst_col = dst.shape->size() + i;
@@ -135,23 +128,12 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer) {
 		}
 	}
 
-	// 1.2 extend shape: remove inconsistent predicates
-	bool needs_iterating;
-	do {
-		needs_iterating = false;
-		for (std::size_t i = 0; i < shape->size(); i++)
-			for (std::size_t j = i+1; j < shape->size(); j++) {
-				for (Rel r : shape->at(i, j))
-					if (!consistent(*shape, i, j, r)) {
-						shape->remove_relation(i, j, r);
-						needs_iterating = true;
-					}
-				if (shape->at(i, j).none()) {
-					delete shape;
-					return NULL;
-				}
-			}
-	} while (needs_iterating);
+	// 1.3 extend shape: remove inconsistent predicates
+	bool success = make_concretisation(*shape);
+	if (!success) {
+		delete shape;
+		return NULL;
+	}
 
 	// 2. create new cfg
 	Cfg* result = new Cfg(dst, shape);
@@ -187,7 +169,7 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer) {
 }
 
 
-// /******************************** PROJECTION ********************************/
+/******************************** PROJECTION ********************************/
 
 static inline void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
 	// reset own, valid, smr states to default value
@@ -208,7 +190,7 @@ static inline void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
 }
 
 
-// /******************************** INTERFERENCE ********************************/
+/******************************** INTERFERENCE ********************************/
 
 std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
 	// bool cond =  c1.pc[0]->id()==56 && c1.shape->test(7,9,MT) && c1.shape->test(9,5,MT) && c1.shape->test(7,5,GT) && c2.pc[0]->id()==57;
@@ -316,13 +298,13 @@ void tmr::mk_all_interference(Encoding& enc, RemainingWork& work) {
 		// std::cout << "*******************************************************************************************" << std::endl;
 		// std::cout << "*******************************************************************************************" << std::endl;
 
-		std::size_t bucket_counter = 0;
+		// std::size_t bucket_counter = 0;
 		for (auto& kvp : enc) {
-			// std::cerr << "[" << kvp.second.size() << "-" << enc.size()/1000 << "k]";
+			std::cerr << "[" << kvp.second.size() << "-" << enc.size()/1000 << "k]";
 			mk_regional_interference(work, kvp.second, counter);
 
-			bucket_counter++;
-			if (bucket_counter%100 == 0) std::cerr << "[" << bucket_counter << "/" << enc.bucket_count() << "]";
+			// bucket_counter++;
+			// if (bucket_counter%100 == 0) std::cerr << "[" << bucket_counter << "/" << enc.bucket_count() << "]";
 		}
 
 		std::cerr << " done! [enc.size()=" << enc.size() << ", matches=" << counter << ", enc.bucket_count()=" << enc.bucket_count() << "]" << std::endl;

@@ -78,6 +78,12 @@ namespace tmr {
 	Shape* isolate_partial_concretisation(const Shape& shape, const std::size_t row, const std::size_t col, const RelSet match);
 
 	/**
+	 * @brief Removes inconsistent relations in the given shape.
+	 * @details Returns false iff. the given shape contains definitely inconsistent relations.
+	 */
+	bool make_concretisation(Shape& shape);
+
+	/**
 	 * @brief Disambiguates the reachability information about the passed variable.
 	 * @details For a passed variable x, any cell relating x with another cell term
 	 *          is split such that it contains either {=} or {↦,⇢} or {↤,⇠} or {⋈}

@@ -61,6 +61,7 @@ void RemainingWork::add(Cfg&& cfg) {
 	// if (output && cfg.pc[0] && cfg.pc[0]->id()==26) { std::cout << "Adding after free: " << cfg << *cfg.shape << std::endl; exit(0); }
 	// if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && !cfg.valid_ptr.at(7)) { std::cout << "top invalid despite guard" << std::endl; exit(0); }
 	// if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && cfg.guard0state.at(7)->name() == "rg") { std::cout << "top has 'rg' smr state" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
+	// if (cfg.pc[0] && cfg.pc[0]->id()>=41 && cfg.pc[0]->id()<=43 && !cfg.valid_ptr.at(7)) { std::cout << "top h invalid despite guard" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
 
 
 
@@ -111,15 +112,15 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 			// output = topost.pc[0] && topost.pc[0]->id()==26 && topost.shape->test(7,1,EQ) && topost.shape->test(7,5,MT) && topost.guard0state.at(7) && topost.guard0state.at(7)->is_special();
 			// output = topost.pc[0] && topost.pc[0]->id()>=29 && topost.pc[0]->id()<=35 && !topost.valid_ptr.at(7);
 			// output = SEQUENTIAL_STEPS > 10000;
-			// if (output) {
-			// 	std::cout << "===============================" << std::endl;
-			// 	std::cout << "Post for: " << topost << *topost.shape << std::endl << "-------------------------------" << std::endl;
-			// }
+			if (output) {
+				std::cout << "===============================" << std::endl;
+				std::cout << "Post for: " << topost << *topost.shape << std::endl << "-------------------------------" << std::endl;
+			}
 			work.add(tmr::mk_all_post(topost, prog));
 			// output = false;
 			
 			counter++;
-			if (counter%10000 == 0) std::cerr << "[" << counter/1000 << "k-" << enc->size()/1000 << "k]";
+			if (counter%1000 == 0) std::cerr << "[" << counter/1000 << "k-" << enc->size()/1000 << "k]";
 		}
 		std::cerr << " done! [enc.size()=" << enc->size() << ", iterations=" << counter << ", enc.bucket_count()=" << enc->bucket_count() << "]" << std::endl;
 		output = false;

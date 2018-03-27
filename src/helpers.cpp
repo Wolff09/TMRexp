@@ -181,7 +181,7 @@ bool is_concretisation(const Shape& con, const Shape& abs) {
 }
 
 
-bool mk_concretisation(Shape& shape) {
+bool tmr::make_concretisation(Shape& shape) {
 	bool changed;
 	do {
 		changed = false;
@@ -199,8 +199,6 @@ bool mk_concretisation(Shape& shape) {
 			}
 		}
 	} while (changed);
-	assert(consistent(shape));
-	assert(is_closed_under_reflexivity_and_transitivity(shape));
 	return true;
 }
 
@@ -215,7 +213,7 @@ Shape* tmr::isolate_partial_concretisation(const Shape& toSplit, const std::size
 
 	Shape* result = new Shape(toSplit);
 	result->set(row, col, new_cell);
-	bool success = mk_concretisation(*result);
+	bool success = make_concretisation(*result);
 	if (!success) {
 		delete result;
 		return NULL;
@@ -263,7 +261,7 @@ std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t ro
 		Shape* shape = work.top().second;
 		if (col >= shape->size()) {
 			// the shape is fully split up, so do one concretisation step
-			bool success = mk_concretisation(*shape);
+			bool success = make_concretisation(*shape);
 			if (success) {
 				assert(consistent(*shape));
 				assert(is_concretisation(*shape, toSplit));
@@ -333,7 +331,7 @@ std::vector<Shape*> tmr::disambiguate_cell(const Shape& shape, const std::size_t
 	for (RelSet rs : cellsplit) {
 		Shape* s = new Shape(shape);
 		s->set(row, col, rs);
-		bool success = mk_concretisation(*s);
+		bool success = make_concretisation(*s);
 		if (success) result.push_back(s);
 		else delete s;
 	}

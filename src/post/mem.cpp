@@ -144,6 +144,10 @@ static inline void fire_free_event(DynamicSMRState& state, std::size_t var, cons
 	}
 }
 
+static inline bool is_final(const DynamicSMRState& state, std::size_t var) {
+	return state.at(var) && state.at(var)->is_final();
+}
+
 std::vector<Cfg> tmr::post_free(const Cfg& cfg, unsigned short tid, const Program& prog) {
 	const Shape& input = *cfg.shape;
 	std::vector<Cfg> result;
@@ -152,6 +156,11 @@ std::vector<Cfg> tmr::post_free(const Cfg& cfg, unsigned short tid, const Progra
 		if (cfg.own.at(i)) continue;
 		if (is_free_forbidden(cfg.guard0state, i, prog)) continue;
 		if (is_free_forbidden(cfg.guard1state, i, prog)) continue;
+		/* Note:
+		 * This check above is a quick check for whether or not the free is allowed.
+		 * There might be an alias of the considered pointer which prohibits the free.
+		 * We optimistically assume that this is not the case, and check later whether the free was wrong.
+		 */
 		
 		auto tmp = extract_shared_unreachable(*cfg.shape, i);
 		if (!tmp) continue;
@@ -174,6 +183,13 @@ std::vector<Cfg> tmr::post_free(const Cfg& cfg, unsigned short tid, const Progra
 						cf.freed = true;
 						cf.retired = false;
 						// TODO: what if REUSE was not retired?
+					}
+					if (is_final(cf.guard0state, j) || is_final(cf.guard1state, j)) {
+						// Thorough check whether or not the free was allowed.
+						// If we end up here, it was not.
+						// In this case, we drop (ignore) the computed post image.
+						result.pop_back();
+						break;
 					}
 				}
 			}
