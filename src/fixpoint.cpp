@@ -41,7 +41,7 @@ const Cfg& RemainingWork::pop() {
 static bool output = false;
 
 void RemainingWork::add(Cfg&& cfg) {
-	if (output) std::cout << "Adding: " << cfg << *cfg.shape << std::endl;
+	// if (output) std::cout << "Adding: " << cfg << *cfg.shape << std::endl;
 	// if (cfg.shape->test(5,1,EQ)) { std::cout << std::endl << "5=1" << std::endl; exit(0); }
 	// if (cfg.shape->test(6,1,EQ) && cfg.freed) { std::cout << std::endl << "6=1 freed" << std::endl; exit(0); }
 	// if (cfg.shape->test(1,3,EQ)) { std::cout << std::endl << "1=3" << std::endl; exit(0); }
@@ -59,8 +59,8 @@ void RemainingWork::add(Cfg&& cfg) {
 	// if (cfg.pc[0] && cfg.pc[0]->id()==30 && cfg.shape->at(7,6) != MT_) { std::cout << "node not next of top despite guard" << std::endl; exit(0); }
 	// if (cfg.shape->test(7,1, EQ) && cfg.freed && cfg.valid_ptr.at(7)) { std::cout << "top valid despite being potentially freed" << std::endl; exit(0); }
 	// if (output && cfg.pc[0] && cfg.pc[0]->id()==26) { std::cout << "Adding after free: " << cfg << *cfg.shape << std::endl; exit(0); }
-	if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && !cfg.valid_ptr.at(7)) { std::cout << "top invalid despite guard" << std::endl; exit(0); }
-	if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && cfg.guard0state.at(7)->name() == "rg") { std::cout << "top has 'rg' smr state" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
+	// if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && !cfg.valid_ptr.at(7)) { std::cout << "top invalid despite guard" << std::endl; exit(0); }
+	// if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && cfg.guard0state.at(7)->name() == "rg") { std::cout << "top has 'rg' smr state" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
 
 
 
@@ -110,13 +110,13 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 
 			// output = topost.pc[0] && topost.pc[0]->id()==26 && topost.shape->test(7,1,EQ) && topost.shape->test(7,5,MT) && topost.guard0state.at(7) && topost.guard0state.at(7)->is_special();
 			// output = topost.pc[0] && topost.pc[0]->id()>=29 && topost.pc[0]->id()<=35 && !topost.valid_ptr.at(7);
-			output = SEQUENTIAL_STEPS > 10000;
-			if (output) {
-				std::cout << "===============================" << std::endl;
-				std::cout << "Post for: " << topost << *topost.shape << std::endl << "-------------------------------" << std::endl;
-			}
+			// output = SEQUENTIAL_STEPS > 10000;
+			// if (output) {
+			// 	std::cout << "===============================" << std::endl;
+			// 	std::cout << "Post for: " << topost << *topost.shape << std::endl << "-------------------------------" << std::endl;
+			// }
 			work.add(tmr::mk_all_post(topost, prog));
-			output = false;
+			// output = false;
 			
 			counter++;
 			if (counter%10000 == 0) std::cerr << "[" << counter/1000 << "k-" << enc->size()/1000 << "k]";

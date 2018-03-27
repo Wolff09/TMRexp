@@ -8,20 +8,12 @@ using namespace tmr;
 
 bool cfg_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	// compare trivial stuff
-	// if (lhs.state < rhs.state) return true;
-	// if (rhs.state < lhs.state) return false;
 	if (lhs.pc < rhs.pc) return true;
 	if (rhs.pc < lhs.pc) return false;
 	if (lhs.inout < rhs.inout) return true;
 	if (rhs.inout < lhs.inout) return false;
 	if (lhs.seen < rhs.seen) return true;
 	if (rhs.seen < lhs.seen) return false;
-	// if (lhs.own < rhs.own) return true;
-	// if (lhs.own > rhs.own) return false;
-	// if (lhs.sin < rhs.sin) return true;
-	// if (lhs.sin > rhs.sin) return false;
-	// if (lhs.invalid < rhs.invalid) return true;
-	// if (lhs.invalid > rhs.invalid) return false;
 	if (lhs.oracle < rhs.oracle) return true;
 	if (rhs.oracle < lhs.oracle) return false;
 	if (lhs.guard0state < rhs.guard0state) return true;
@@ -39,12 +31,14 @@ bool cfg_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 
 bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	// state
-	if (lhs.state < rhs.state) return true;
-	if (rhs.state < lhs.state) return false;
 	if (lhs.freed < rhs.freed) return true;
 	if (rhs.freed < lhs.freed) return false;
 	if (lhs.retired < rhs.retired) return true;
 	if (rhs.retired < lhs.retired) return false;
+	if (lhs.state < rhs.state) return true;
+	if (rhs.state < lhs.state) return false;
+	if (lhs.seen < rhs.seen) return true;
+	if (rhs.seen < lhs.seen) return false;
 
 	// for (std::size_t i = 0; i < lhs.shape->offset_locals(0); i++) {
 	// 	if (i == 2) continue;

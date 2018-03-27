@@ -129,7 +129,6 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Retire& stmt, unsigned short ti
 	if (cfg.own.at(var)) raise_epr(cfg, var, "Owned addresses must not be retired.");
 	if (var < cfg.shape->offset_locals(tid)) throw std::logic_error("Retire must not use non-local pointers.");
 	// TODO: no retire of shared reachable
-	// TODO: no double retire?
 
 	std::size_t begin = cfg.shape->offset_program_vars(); // cfg.shape->offset_locals(0);
 	std::size_t end = cfg.shape->offset_locals(tid)+cfg.shape->sizeLocals();
@@ -139,11 +138,14 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Retire& stmt, unsigned short ti
 	std::vector<Cfg> result;
 	for (Shape* shape : shapes) {
 		result.push_back(mk_next_config(cfg, shape, tid));
-		fire_event(result.back(), result.back().guard0state, &evt, nullptr, var, begin, end);
-		fire_event(result.back(), result.back().guard1state, &evt, nullptr, var, begin, end);
+		Cfg& cf = result.back();
+		fire_event(cf, cf.guard0state, &evt, nullptr, var, begin, end);
+		fire_event(cf, cf.guard1state, &evt, nullptr, var, begin, end);
 		if (shape->test(var, shape->index_REUSE(), EQ)) {
-			if (result.back().retired) raise_epr(cfg, var, "Double retire on REUSE address.");
-			result.back().retired = true;
+			bool is_retired = cf.retired;
+			bool is_observed = cf.shape->test(var, shape->index_ObserverVar(0), EQ) || cf.shape->test(var, shape->index_ObserverVar(1), EQ);
+			if (is_retired && is_observed) raise_epr(cfg, var, "Double retire on REUSE+observed address.");
+			cf.retired = true;
 		}
 	}
 	return result;

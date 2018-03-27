@@ -10,22 +10,6 @@ using namespace tmr;
 
 // /******************************** CHECK MATCH ********************************/
 
-// bool is_observed_owned(const Cfg& cfg, std::size_t obs) {
-// 	std::size_t begin = cfg.shape->offset_locals(0);
-// 	std::size_t end = begin + cfg.shape->sizeLocals();
-// 	for (std::size_t i = begin; i < end; i++)
-// 		if (cfg.own.at(i) && cfg.shape->test(obs, i, EQ))
-// 			return true;
-// 	return false;
-// }
-
-// bool is_observed_global(const Cfg& cfg, std::size_t obs) {
-// 	for (std::size_t j = 5; j < cfg.shape->offset_locals(0); j++)
-// 		if (intersection(cfg.shape->at(obs, j), MT_GT_BT).none())
-// 			return true;
-// 	return false;
-// }
-
 bool do_shapes_match(const Cfg& cfg, const Cfg& interferer) {
 	std::size_t end = cfg.shape->offset_locals(0);
 
@@ -41,23 +25,6 @@ bool do_shapes_match(const Cfg& cfg, const Cfg& interferer) {
 				return false;
 		}
 	}
-
-	// for (std::size_t i : {3, 4}) {
-	// 	if (cfg.shape->at(i, cfg.shape->index_UNDEF()) == MT_ ^ interferer.shape->at(i, interferer.shape->index_UNDEF()) == MT_) {
-	// 		return false;
-	// 	}
-
-	// 	bool is_global = is_observed_global(cfg, i) || is_observed_global(interferer, i);
-	// 	if (!is_global) continue;
-
-	// 	bool is_owned = is_observed_owned(cfg, i) || is_observed_owned(interferer, i);
-	// 	if (is_owned) continue;
-
-	// 	for (std::size_t j = 0; j < end; j++)
-	// 		if (intersection(cfg.shape->at(i, j), interferer.shape->at(i, j)).none())
-	// 			return false;
-	// }
-
 	return true;
 }
 
@@ -65,11 +32,9 @@ static bool is_noop(const Statement& pc) {
 	switch (pc.clazz()) {
 		case Statement::SQZ:       return true;
 		case Statement::WHILE:     return true;
-		// case Statement::OUTPUT: return true;
 		case Statement::BREAK:     return true;
 		case Statement::ORACLE:    return true;
 		case Statement::CHECKP:    return true;
-		// case Statement::HPSET:     return true;
 		case Statement::HPRELEASE: return true;
 		// #if KILL_IS_NOOP
 		// 	case Statement::KILL:  return true;
@@ -78,101 +43,12 @@ static bool is_noop(const Statement& pc) {
 	}
 }
 
-// static bool can_skip(const Cfg& cfg) {
-// 	#define SKIP {INTERFERENCE_SKIPPED++; return true;}
-// 	#define NO_SKIP {return false;}
-	
-// 	const Statement& pc = *cfg.pc[0];
-// 	std::size_t tmp;
-
-// 	auto set_tmp = [&] (const Expr& expr) {
-// 		tmp = mk_var_index(*cfg.shape, expr, 0);
-// 	};
-
-// 	switch (pc.clazz()) {
-// 		case Statement::ITE:
-// 			if (static_cast<const Ite&>(pc).cond().type() != Condition::CASC) SKIP;
-// 			NO_SKIP;
-// 		case Statement::MALLOC:
-// 			set_tmp(static_cast<const Malloc&>(pc).var());
-// 			// malloc means redirecting pointers
-// 			if (!cfg.freed && tmp >= cfg.shape->offset_locals(0)) SKIP; // we are not interested in local redirections
-// 			NO_SKIP; // ...but want to see redirecting globals...
-// 		case Statement::CAS:
-// 			set_tmp(static_cast<const CompareAndSwap&>(pc).dst());
-// 			break;
-// 		case Statement::ASSIGN:
-// 			set_tmp(static_cast<const Assignment&>(pc).lhs());
-// 			break;
-// 		case Statement::INPUT:
-// 			if (cfg.inout[0].type() != OValue::OBSERVABLE) {
-// 				set_tmp(static_cast<const ReadInputAssignment&>(pc).expr());
-// 				break;
-// 			}
-// 			NO_SKIP;
-// 		case Statement::SETNULL:
-// 			set_tmp(static_cast<const NullAssignment&>(pc).lhs());
-// 			break;
-// 		default:
-// 			NO_SKIP;
-// 	}
-
-// 	if (cfg.own.at(tmp)) SKIP;
-// 	NO_SKIP;
-// }
-
-// static bool can_skip_victim(const Cfg& cfg) {
-// 	#define SKIP {INTERFERENCE_SKIPPED++; return true;}
-// 	#define NO_SKIP {return false;}
-	
-// 	const Statement& pc = *cfg.pc[0];
-// 	std::size_t tmp;
-
-// 	auto set_tmp = [&] (const Expr& expr) {
-// 		tmp = mk_var_index(*cfg.shape, expr, 0);
-// 	};
-
-// 	switch (pc.clazz()) {
-// 		case Statement::ITE:
-// 			if (static_cast<const Ite&>(pc).cond().type() != Condition::CASC) SKIP;
-// 			// TODO: if (victim && cont lhs and rhs are local) SKIP ??????;
-// 			NO_SKIP;
-// 		// case Statement::ASSIGN:
-// 		//	if (!cfg.own.is_owned(mk_var_index(*cfg.shape, static_cast<const Assignment&>(pc).rhs(), 0))) NO_SKIP;
-// 		//	set_tmp(static_cast<const Assignment&>(pc).lhs());
-// 		//	break;
-// 		case Statement::INPUT:
-// 			set_tmp(static_cast<const ReadInputAssignment&>(pc).expr());
-// 			break;
-// 		case Statement::SETNULL:
-// 			set_tmp(static_cast<const NullAssignment&>(pc).lhs());
-// 			break;
-// 		// case Statement::MALLOC:
-// 		//	set_tmp(static_cast<const Malloc&>(pc).var());
-// 		//	if (tmp >= cfg.shape->offset_locals(0)) SKIP;
-// 		//	NO_SKIP;
-// 		// case Statement::FREE:
-// 		//	set_tmp(static_cast<const Free&>(pc).var());
-// 		//	break;
-// 		default:
-// 			NO_SKIP;
-// 	}
-
-// 	if (cfg.own.at(tmp)) SKIP;
-// 	NO_SKIP;
-// }
-
 bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
 	// 0. Optimizations
 	#if SKIP_NOOPS
 		if (is_noop(*cfg.pc[0])) return false;
 		if (is_noop(*interferer.pc[0])) return false;
 	#endif
-
-	// #if INTERFERENCE_OPTIMIZATION
-	// 	if (can_skip_victim(cfg)) return false;
-	// 	if (can_skip(interferer)) return false;
-	// #endif
 
 	// 1. REUSE must be in the same state
 	if (cfg.freed != interferer.freed || cfg.retired != interferer.retired)
@@ -182,27 +58,13 @@ bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
 	if (!(cfg.state == interferer.state))
 		return false;
 
-	// 3. prevent some data combinations which are excluded by the data independence argument
-	if (cfg.inout[0] == interferer.inout[0] && cfg.inout[0].type() != OValue::DUMMY) // TODO: == observable?
+	// 3. prevent data combinations excluded by data independence (no two threards can have the same observable input/output)
+	if (cfg.inout[0] == interferer.inout[0] && cfg.inout[0].type() == OValue::OBSERVABLE)
 		return false;
 
-	// 4. interfering thread should not be behind or ahead (too far) of seen
-	//    A thread can be ahead of the values which have been added and removed from the data structure
-	//    if they are about to add one.
-	//    So we just ensure that two "out"-threads have seen the same values.
-	//    For everything else, we rely on the later shape comparison (if a value was seen
-	//    it is not in relation with UNDEF, otherwise it is).
-	if (cfg.seen != interferer.seen && !cfg.pc[0]->function().has_input() && !interferer.pc[0]->function().has_input())
+	// 4. seen must be the same (cf. to initial configurations)
+	if (cfg.seen != interferer.seen)
 		return false;
-	// for (std::size_t i : {0, 1}) {
-	// 	if (cfg.seen[i] != interferer.seen[i]) {
-	// 		bool cfgin = cfg.pc[0]->function().has_input() && cfg.inout[0].type() == OValue::OBSERVABLE && cfg.inout[0].id() == i;
-	// 		bool intin = interferer.pc[0]->function().has_input() && interferer.inout[0].type() == OValue::OBSERVABLE && interferer.inout[0].id() == i;
-	// 		if (!cfgin && !intin) return false;
-	// 	}
-	// }
-	// if (cfg.seen != interferer.seen)
-	// 	return false;
 
 	// 5. cfg.shape must be a superset of interferer.shape on the non-local cell terms
 	if (!do_shapes_match(cfg, interferer))
@@ -214,18 +76,8 @@ bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
 
 // /******************************** EXTENSION ********************************/
 
-bool is_reachable(const Shape& shape, std::size_t cid) {
-	// this is only used for MM
-	for (std::size_t i = shape.offset_vars(); i < shape.offset_locals(1); i++)
-		if (haveCommon(shape.at(i, cid), EQ_MT_GT))
-			return false;
-	return true;
-}
-
-Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_tid) {
+Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer) {
 	// extend dst with interferer (create a copy of dst, then extend the copy)
-	unsigned short interferer_tid = 0;
-	#define ABORT { delete shape; return NULL; }
 
 	// 1.0 extend shape
 	Shape* shape = new Shape(*dst.shape);	
@@ -238,27 +90,6 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 			shape->set(i, j, intersection(dst.shape->at(i, j), interferer.shape->at(i, j)));
 		}
 	}
-	// std::size_t end = dst.shape->offset_locals(0);
-	// for (std::size_t i = 0; i < end; i++) {
-	// 	if (i == 3 || i == 4) continue;
-	// 	for (std::size_t j = i+1; j < end; j++) {
-	// 		if (j == 3 || j == 4) continue;
-	// 		shape->set(i, j, intersection(dst.shape->at(i, j), interferer.shape->at(i, j)));
-	// 	}
-	// }
-	// for (std::size_t i : {3, 4}) {
-	// 	bool is_global = is_observed_global(dst, i) || is_observed_global(interferer, i);
-	// 	if (is_global) {
-	// 		for (std::size_t j = 0; j < end; j++) {
-	// 			shape->set(i, j, intersection(dst.shape->at(i, j), interferer.shape->at(i, j)));
-	// 		}
-	// 	} else {
-	// 		// TODO: copy if owned, do setunion only if necessary?
-	// 		for (std::size_t j = 0; j < end; j++) {
-	// 			shape->set(i, j, setunion(dst.shape->at(i, j), interferer.shape->at(i, j)));
-	// 		}
-	// 	}
-	// }
 
 	// 1.1 extend shape: add locals of interfering thread
 	for (std::size_t i = 0; i < interferer.shape->sizeLocals(); i++) {
@@ -292,34 +123,17 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 			bool is_row_valid = dst.valid_ptr.at(src_row);
 			bool is_col_valid = interferer.valid_ptr.at(src_col);
 			
-			if (is_row_owned && is_col_owned)
+			if (is_row_owned && is_col_owned) {
 				shape->set(dst_row, dst_col, BT_);
-			else if ((is_row_owned && is_col_valid) || (is_col_owned && is_row_valid))
-				ABORT //shape->set(dst_row, dst_col, RelSet(0));
-			// else if (is_row_owned)
-			// 	shape->set(dst_row, dst_col, MT_GT_BT);
-			// else if (is_col_owned)
-			// 	shape->set(dst_row, dst_col, MF_GF_BT);
-			else
+			} else if ((is_row_owned && is_col_valid) || (is_col_owned && is_row_valid)) {
+				// ownership guarantees that other threads have only invalid pointers
+				delete shape;
+				return NULL;
+			} else {
 				shape->set(dst_row, dst_col, PRED);
+			}
 		}
 	}
-
-	// TODO: what??
-	// for (std::size_t i = 0; i < shape->sizeLocals(); i++)
-	// 	for (std::size_t j = 0; j < shape->sizeLocals(); j++) {
-	// 		std::size_t row = shape->offset_locals(interferer_tid) + i;
-	// 		std::size_t src_col = shape->offset_locals(interferer_tid) + j;
-	// 		std::size_t col = shape->offset_locals(extended_tid) + j;
-	// 		if (shape->test(row, shape->index_FREE(), MT))
-	// 			if (interferer.own.is_owned(src_col) && interferer.shape->at(src_col, shape->index_UNDEF()) != MT_) {
-	// 				for (std::size_t t = 0; t < shape->size(); t++)
-	// 					shape->set(row, t, setunion(shape->at(row, t), shape->at(col, t)));
-	// 				shape->set(row, row, EQ_);
-	// 				shape->set(row, shape->index_UNDEF(), BT_);
-	// 			}
-	// 	}
-	// }
 
 	// 1.2 extend shape: remove inconsistent predicates
 	bool needs_iterating;
@@ -344,10 +158,10 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 	Cfg& res = *result;
 
 	// 3. extend inout
-	res.inout[extended_tid] = interferer.inout[interferer_tid];
+	res.inout[1] = interferer.inout[0];
 
 	// 4. extend pc
-	res.pc[extended_tid] = interferer.pc[interferer_tid];
+	res.pc[1] = interferer.pc[0];
 
 	// 5. extend seen
 	for (std::size_t i = 0; i < res.seen.size(); i++)
@@ -367,7 +181,7 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer, unsigned short extended_t
 	}
 
 	// 8. extend oracle
-	res.oracle[extended_tid] = interferer.oracle[interferer_tid];
+	res.oracle[1] = interferer.oracle[0];
 
 	return result;
 }
@@ -387,14 +201,10 @@ static inline void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
 
 	// remove extended thread from cfg
 	cfg.shape->shrink();
-
 	cfg.pc[extended_thread_tid] = NULL;
 	cfg.inout[extended_thread_tid] = OValue();
 	cfg.oracle[extended_thread_tid] = false;
-
-	// seen does not need to be changed ~> if the extended thread add a value to seen, then
-	// only he can add this value to the datastructure (by data independence argument) and
-	// thus we do not want to remove anything from there
+	// seen does not need to be changed
 }
 
 
@@ -405,27 +215,27 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
 	// bool cond = c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c2.pc[0]->id()==30;
 	// bool cond = c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c1.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && !c1.freed && c2.pc[0]->id()==8;
 	// bool cond =  c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c1.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && c2.pc[0]->id()==9 && c2.shape->test(6,1,EQ) && c2.shape->test(7,5,EQ);
-	bool cond = c1.pc[0]->id()==35 && c2.pc[0]->id()==35 && c1.inout[0].type() == OValue::DUMMY && c2.inout[0].type() == OValue::DUMMY;
+	// bool cond = false; // c1.pc[0]->id()==35 && c2.pc[0]->id()==35 && c1.inout[0].type() == OValue::ANONYMOUS && c2.inout[0].type() == OValue::ANONYMOUS;
 
 	// this function assumes that c2 can interfere c1
 	// extend c1 with (parts of) c2, compute post on the extended cfg, project away the extended part
 	unsigned short extended_thread_tid = 1; // 0-indexed
 
 	// extend c1 with c2 (we need a temporary cfg since we cannot/shouldnot modify cfgs that stored in the encoding)
-	std::unique_ptr<Cfg> extended((extend_cfg(c1, c2, extended_thread_tid)));
+	std::unique_ptr<Cfg> extended((extend_cfg(c1, c2)));
 	if (!extended) return {};
 
 	const Cfg& tmp = *extended;
 	// bool cond =  tmp.pc[0]->id()==26 && !tmp.valid_ptr.at(7) && tmp.pc[1]->id()==9 && tmp.shape->test(7,8,EQ);
 	// bool cond =  tmp.pc[0]->id()==26 && tmp.shape->test(7,1,EQ) && tmp.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && c2.pc[0]->id()==9 && c2.shape->test(6,1,EQ) && c2.shape->test(7,5,EQ) ;
-	if (cond) {
-		std::cout << "===============================" << "\n";
-		std::cout << "Interference for: " << c1 << *c1.shape << "\n";
-		std::cout << "and: " << c2 << *c2.shape << "\n";
-		std::cout << "-------------------------------" << "\n";
-		std::cout << "Interference post for: " << tmp << *tmp.shape;
-		std::cout << "-------------------------------" << "\n";
-	}
+	// if (cond) {
+	// 	std::cout << "===============================" << "\n";
+	// 	std::cout << "Interference for: " << c1 << *c1.shape << "\n";
+	// 	std::cout << "and: " << c2 << *c2.shape << "\n";
+	// 	std::cout << "-------------------------------" << "\n";
+	// 	std::cout << "Interference post for: " << tmp << *tmp.shape;
+	// 	std::cout << "-------------------------------" << "\n";
+	// }
 
 	// do one post step for the extended thread
 	INTERFERENCE_STEPS++;
@@ -444,10 +254,10 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
 		// 	std::cout << "Produced (before projection): " << pcfg << *pcfg.shape << "\n";
 		// }
 
-		if (cond) std::cout << "Produced (before porjection): " << pcfg << *pcfg.shape << std::endl;
+		// if (cond) std::cout << "Produced (before porjection): " << pcfg << *pcfg.shape << std::endl;
 		project_away(pcfg, extended_thread_tid);
 	}
-	if (cond) exit(0);
+	// if (cond) exit(0);
 
 	return postcfgs;
 }
@@ -470,20 +280,22 @@ void mk_regional_interference(RemainingWork& work, Encoding::__sub__store__& reg
 				const Cfg& c2 = *it2;
 				if (c2.pc[0] == NULL) continue;
 
-				bool cond = false; // c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c1.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && !c1.freed;// && c2.shape->test(6,1,EQ) && c2.shape->test(7,5,EQ);
-				if (cond) {
-					std::cout << "===============================" << "\n";
-					std::cout << "Interference check for: " << c1 << *c1.shape << "\n";
-					std::cout << "and: " << c2 << *c2.shape << "\n";
-				}
+				// bool cond = false; // c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c1.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && !c1.freed;// && c2.shape->test(6,1,EQ) && c2.shape->test(7,5,EQ);
+				// bool cond = c1.pc[0]->id()==35 && c2.pc[0]->id()==35 && c1.inout[0].type() == OValue::ANONYMOUS && c2.inout[0].type() == OValue::ANONYMOUS;
+				// bool cond = false;
+				// if (cond) {
+				// 	std::cout << "===============================" << "\n";
+				// 	std::cout << "Interference check for: " << c1 << *c1.shape << "\n";
+				// 	std::cout << "and: " << c2 << *c2.shape << "\n";
+				// }
 				if (can_interfere(c1, c2)) {
-					if (cond) std::cout << "interference!" << std::endl;
+					// if (cond) std::cout << "interference!" << std::endl;
 					work.add(mk_one_interference(c1, c2));
 					work.add(mk_one_interference(c2, c1));
 					counter++;
 				} else {
-					if (cond) std::cout << "NO interference!" << std::endl;
-					if (cond) exit(0);
+					// if (cond) std::cout << "NO interference!" << std::endl;
+					// if (cond) exit(0);
 				}
 			}
 		}
