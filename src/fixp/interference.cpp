@@ -229,7 +229,55 @@ static inline void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
 
 /******************************** INTERFERENCE ********************************/
 
+template<typename T>
+static inline bool lhs_is_local(const T& stmt) {
+	return stmt.lhs().clazz() == Expr::VAR && static_cast<const VarExpr&>(stmt.lhs()).decl().local();
+}
+
+static inline bool can_skip_interference(const Cfg& victim, const Cfg& interferer) {
+	const auto& vpc = *victim.pc[0];
+	const auto& ipc = *interferer.pc[0];
+
+	// skip interferer if its action has a pure local effect
+	switch (ipc.clazz()) {
+		case Statement::ITE:
+			if (static_cast<const Ite&>(ipc).cond().type() != Condition::CASC) return true; // only local updates
+			break;
+		case Statement::INPUT:
+			// TODO: force input to be on local variable
+			if (interferer.inout[0].type() != OValue::OBSERVABLE) return true; // non-observable input
+			break;
+		case Statement::ASSIGN:
+			if (lhs_is_local(static_cast<const Assignment&>(ipc))) return true; // assignment to local variable
+			break;
+		case Statement::SETNULL:
+			if (lhs_is_local(static_cast<const NullAssignment&>(ipc))) return true; // assignment to local variable
+			break;
+		default:
+			break;
+	}
+
+	// skip victim if its actions cannot be influenced
+	switch (vpc.clazz()) {
+		case Statement::INPUT:
+			if (victim.inout[0].type() != OValue::OBSERVABLE) return true; // non-observable input
+			break;
+		case Statement::SETNULL:
+			if (lhs_is_local(static_cast<const NullAssignment&>(vpc))) return true; // set local variable to null
+			break;
+		default:
+			break;
+	}
+
+	return false;
+}
+
 std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
+	if (can_skip_interference(c1, c2)) {
+		// more thorough, non-symmetric check than before
+		return {};
+	}
+
 	// bool cond =  c1.pc[0]->id()==56 && c1.shape->test(7,9,MT) && c1.shape->test(9,5,MT) && c1.shape->test(7,5,GT) && c2.pc[0]->id()==57;
 	// bool cond = c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c2.pc[0]->id()==30;
 	// bool cond = c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c1.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && !c1.freed && c2.pc[0]->id()==8;
