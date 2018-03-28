@@ -49,13 +49,15 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
 		}
 	}
 
-	// TODO: prevent name clashes with __in__ and __out__
 	// namecheck, typecheck
 	std::map<std::string, Variable*> name2decl;
 	for (const auto& v : _globals) {
 		assert(name2decl.count(v->name()) == 0);
 		name2decl[v->name()] = v.get();
 	}
+
+	if (name2decl.count("__in__") > 0) throw std::logic_error("Variable name '__in__' is reserved.");
+	if (name2decl.count("__out__") > 0) throw std::logic_error("Variable name '__out__' is reserved.");
 
 	// init must only access global variables
 	_init_fun->namecheck(name2decl);
@@ -486,6 +488,12 @@ void InOutAssignment::namecheck(const std::map<std::string, Variable*>& name2dec
 	_ptr->namecheck(name2decl);
 	assert(_ptr->type() == DATA);
 	assert((clazz() == INPUT && function().has_input()) || (clazz() == OUTPUT && function().has_output()));
+
+	if (expr().clazz() == Expr::VAR) {
+		if (!static_cast<const VarExpr&>(expr()).decl().local()) {
+			throw std::logic_error("Input/Output statements must target local variables.");
+		}
+	}
 }
 
 void Malloc::namecheck(const std::map<std::string, Variable*>& name2decl) {

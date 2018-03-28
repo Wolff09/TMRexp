@@ -76,23 +76,12 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Killer& stmt, unsigned short ti
 	result.push_back(mk_next_config(cfg, shape, tid));
 	Cfg& back = result.back();
 
-	// TODO: correct?
 	back.own.set(var_index, true);
 	back.valid_ptr.set(var_index, false);
 	back.valid_next.set(var_index, false);
 	back.guard0state.set(var_index, nullptr);
 	back.guard1state.set(var_index, nullptr);
 
-	// for (std::size_t i = 0; i < back.shape->sizeLocals(); i++) {
-	// 	auto index = back.shape->offset_locals(tid) + i;
-	// 	back.own.set(index, true);
-		
-	// 	// TODO: correct?
-	// 	back.valid_ptr.set(index, false);
-	// 	back.valid_next.set(index, false);
-	// 	back.guard0state.set(index, nullptr);
-	// 	back.guard1state.set(index, nullptr);
-	// }
 
 	return result;
 }

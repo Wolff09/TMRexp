@@ -244,7 +244,6 @@ static inline bool can_skip_interference(const Cfg& victim, const Cfg& interfere
 			if (static_cast<const Ite&>(ipc).cond().type() != Condition::CASC) return true; // only local updates
 			break;
 		case Statement::INPUT:
-			// TODO: force input to be on local variable
 			if (interferer.inout[0].type() != OValue::OBSERVABLE) return true; // non-observable input
 			break;
 		case Statement::ASSIGN:

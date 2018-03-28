@@ -27,7 +27,7 @@ namespace tmr {
 		//	throw std::runtime_error("Strong Pointer Race detected while accessing cell term with id=" + std::to_string(var) + ".");
 		// }
 
-		// TODO: what to do here?
+		// TODO: delete this
 	}
 
 	/*static inline bool is_invalid(const Shape& shape, std::size_t var) {

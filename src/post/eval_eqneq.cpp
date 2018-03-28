@@ -24,7 +24,7 @@ void check_ownership_violation(const Cfg& cfg, std::size_t lhs, std::size_t rhs)
 	// 	std::cout << "in cfg: " << cfg << *cfg.shape << *cfg.ages;
 	// 	throw std::runtime_error("Malicious comparison: comparing owned with public cell");
 	// }
-	// TODO: what to do here?
+	// TODO: delete this
 }
 
 std::pair<Shape*, Shape*> tmr::eval_eqneq(const Cfg& cfg, const Shape& input, const Expr& le, const Expr& re, bool inverted, unsigned short tid, bool check_own, bool check_eprf) {

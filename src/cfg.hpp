@@ -52,9 +52,6 @@ namespace tmr {
 			void set(std::size_t index, T value) {
 				if (index >= _offset) {
 					_store.at(index-_offset) = value;
-				} else if (value != DEFAULT) {
-					// throw std::logic_error("Malicious update detected.");
-					// TODO: problematic to ignore updates?
 				}
 			}
 			bool operator<(const DynamicStore<T, DEFAULT>& other) const {

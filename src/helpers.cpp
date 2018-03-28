@@ -249,7 +249,7 @@ struct shape_ptr_comparator {
 	}
 };
 
-std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t row, bool /*foobar*/) {
+std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t row, bool /*foobar*/) { // TODO: remove foobar parameter
 	assert(consistent(toSplit));
 	
 	std::vector<Shape*> result;
@@ -287,9 +287,6 @@ std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t ro
 
 			if (shape->at(row, col).none()) {
 				// we ran into an dead end, the shape will never be a concretization
-				assert(!is_concretisation(*shape, toSplit));
-				shape->set(row, col, BT_); // TODO: can this become a consistent concretization ????
-				assert(!is_concretisation(*shape, toSplit) || !consistent(*shape, row, col, BT));
 				delete shape;
 				work.pop();
 				continue;

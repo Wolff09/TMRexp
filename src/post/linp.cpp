@@ -10,7 +10,7 @@
 using namespace tmr;
 
 static inline bool is_observed_behind_and_not_free(const Cfg& cfg, unsigned short tid) {
-	// TODO: do we need this?
+	// TODO: delete this?
 	// #if !REPLACE_INTERFERENCE_WITH_SUMMARY // we do not need hints when using summaries
 	// 	std::size_t fri = cfg.shape->index_FREE();
 	// 	for (std::size_t oct : {3,4}) {
