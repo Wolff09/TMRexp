@@ -145,8 +145,5 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const WriteOutputAssignment& stmt, un
 	CHECK_RPRF_ws(var_index, stmt);
 
 	// do nothing... we have no explicit notion of data variables and returning
-	std::vector<Cfg> result;
-	result.push_back(mk_next_config(cfg, new Shape(*cfg.shape), tid));
-	// if (is_invalid_ptr(cfg, var_index)) result.back().inout[tid] = OValue();
-	return result;
+	return mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
 }
