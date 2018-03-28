@@ -75,11 +75,13 @@ namespace tmr {
 			bool _is_final;
 			bool _is_special = false;
 			std::vector<std::unique_ptr<Transition>> _out;
+			std::size_t _id;
 
 		public:
 			State(std::string name, bool is_initial, bool is_final);
 			State(std::string name, bool is_initial, bool is_final, bool is_special);
 			std::string name() const { return _name; }
+			std::size_t id() const { return _id; }
 			bool is_initial() const { return _is_initial; }
 			bool is_final() const { return _is_final; }
 			bool is_special() const { return _is_special; }

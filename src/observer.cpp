@@ -175,4 +175,9 @@ Observer::Observer(std::vector<std::unique_ptr<State>> states, std::size_t numVa
 		if (s->is_initial())
 			init.push_back(s.get());
 	_init = MultiState(std::move(init));
+
+
+	for (std::size_t i = 0; i < _states.size(); i++)
+		_states.at(i)->_id = i;
 }
+

@@ -115,13 +115,28 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer) {
 
 			bool is_row_valid = dst.valid_ptr.at(src_row);
 			bool is_col_valid = interferer.valid_ptr.at(src_col);
-			
+
+			bool is_row_retired = (dst.guard0state.at(src_row) && dst.guard0state.at(src_row)->is_special())
+			                   || (dst.guard1state.at(src_row) && dst.guard1state.at(src_row)->is_special());
+			bool is_col_retired = (dst.guard0state.at(src_col) && dst.guard0state.at(src_col)->is_special())
+			                   || (dst.guard1state.at(src_col) && dst.guard1state.at(src_col)->is_special());
+
+			bool is_row_reuse = dst.shape->test(src_row, dst.shape->index_REUSE(), EQ);
+			bool is_col_reuse = interferer.shape->test(src_col, interferer.shape->index_REUSE(), EQ);
+
 			if (is_row_owned && is_col_owned) {
 				shape->set(dst_row, dst_col, BT_);
 			} else if ((is_row_owned && is_col_valid) || (is_col_owned && is_row_valid)) {
 				// ownership guarantees that other threads have only invalid pointers
 				delete shape;
 				return NULL;
+			} else if (is_row_retired ^ is_col_retired) {
+				// a cell cannot be both retired and not retired
+				shape->set(dst_row, dst_col, MT_GT_MF_GF_BT);
+			} else if ((is_row_valid ^ is_col_valid) && (!is_row_reuse || !is_col_reuse)) {
+				// pointers to a cell can only be invalidated by a free
+				// if a non-REUSE cell is free, then all pointers to it are invalid
+				shape->set(dst_row, dst_col, MT_GT_MF_GF_BT);
 			} else {
 				shape->set(dst_row, dst_col, PRED);
 			}
@@ -134,6 +149,29 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer) {
 		delete shape;
 		return NULL;
 	}
+
+	// // 1.4 extend shape: re-try removing relations as shape might be more precise now
+	// for (std::size_t row = shape->offset_locals(0); row < shape->offset_locals(1); row++) {
+	// 	for (std::size_t col = shape->offset_locals(1); col < shape->size(); col++) {
+	// 		bool is_row_valid = dst.valid_ptr.at(row);
+	// 		bool is_col_valid = interferer.valid_ptr.at(col - shape->sizeLocals());
+
+	// 		bool is_row_reuse = shape->test(row, shape->index_REUSE(), EQ);
+	// 		bool is_col_reuse = shape->test(col, shape->index_REUSE(), EQ);
+
+	// 		if ((is_row_valid ^ is_col_valid) && (!is_row_reuse || !is_col_reuse)) {
+	// 			// pointers to a cell can only be invalidated by a free
+	// 			// if a non-REUSE cell is free, then all pointers to it are invalid
+	// 			shape->remove_relation(row, col, EQ);
+	// 		}
+
+	// 	}
+	// }
+	// success = make_concretisation(*shape);
+	// if (!success) {
+	// 	delete shape;
+	// 	return NULL;
+	// }
 
 	// 2. create new cfg
 	Cfg* result = new Cfg(dst, shape);
