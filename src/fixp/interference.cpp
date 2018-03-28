@@ -38,11 +38,9 @@ static inline bool do_shapes_match(const Cfg& cfg, const Cfg& interferer) {
 }
 
 static inline bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
-	// 0. Optimizations
-	#if SKIP_NOOPS
-		if (is_noop(*cfg.pc[0])) return false;
-		if (is_noop(*interferer.pc[0])) return false;
-	#endif
+	// 0. skipping statements that have no effect
+	if (is_noop(*cfg.pc[0])) return false;
+	if (is_noop(*interferer.pc[0])) return false;
 
 	// 1. REUSE address must be in the same state
 	if (cfg.freed != interferer.freed || cfg.retired != interferer.retired)
