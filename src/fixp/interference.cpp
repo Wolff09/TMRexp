@@ -273,58 +273,23 @@ static inline bool can_skip_interference(const Cfg& victim, const Cfg& interfere
 }
 
 std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
-	if (can_skip_interference(c1, c2)) {
-		// more thorough, non-symmetric check than before
-		return {};
-	}
+	// more thorough, non-symmetric check than before
+	if (can_skip_interference(c1, c2)) return {};
 
-	// bool cond =  c1.pc[0]->id()==56 && c1.shape->test(7,9,MT) && c1.shape->test(9,5,MT) && c1.shape->test(7,5,GT) && c2.pc[0]->id()==57;
-	// bool cond = c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c2.pc[0]->id()==30;
-	// bool cond = c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c1.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && !c1.freed && c2.pc[0]->id()==8;
-	// bool cond =  c1.pc[0]->id()==26 && c1.shape->test(7,1,EQ) && c1.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && c2.pc[0]->id()==9 && c2.shape->test(6,1,EQ) && c2.shape->test(7,5,EQ);
-	// bool cond = false; // c1.pc[0]->id()==35 && c2.pc[0]->id()==35 && c1.inout[0].type() == OValue::ANONYMOUS && c2.inout[0].type() == OValue::ANONYMOUS;
-
-	// this function assumes that c2 can interfere c1
-	// extend c1 with (parts of) c2, compute post on the extended cfg, project away the extended part
-	unsigned short extended_thread_tid = 1; // 0-indexed
-
-	// extend c1 with c2 (we need a temporary cfg since we cannot/shouldnot modify cfgs that stored in the encoding)
+	// make combined cfg for c1 and c2
 	std::unique_ptr<Cfg> extended((extend_cfg(c1, c2)));
 	if (!extended) return {};
 
 	const Cfg& tmp = *extended;
-	// bool cond =  tmp.pc[0]->id()==26 && !tmp.valid_ptr.at(7) && tmp.pc[1]->id()==9 && tmp.shape->test(7,8,EQ);
-	// bool cond =  tmp.pc[0]->id()==26 && tmp.shape->test(7,1,EQ) && tmp.shape->test(7,5,MT) && c1.shape->test(1,5,MT) && !c1.valid_ptr.at(7) && c2.pc[0]->id()==9 && c2.shape->test(6,1,EQ) && c2.shape->test(7,5,EQ) ;
-	// if (cond) {
-	// 	std::cout << "===============================" << "\n";
-	// 	std::cout << "Interference for: " << c1 << *c1.shape << "\n";
-	// 	std::cout << "and: " << c2 << *c2.shape << "\n";
-	// 	std::cout << "-------------------------------" << "\n";
-	// 	std::cout << "Interference post for: " << tmp << *tmp.shape;
-	// 	std::cout << "-------------------------------" << "\n";
-	// }
-
-	// do one post step for the extended thread
 	INTERFERENCE_STEPS++;
-	std::vector<Cfg> postcfgs = tmr::post(tmp, extended_thread_tid);
 
+	// do a post step for the extended thread
+	std::vector<Cfg> postcfgs = tmr::post(tmp, 1);
 	
 	// the resulting cfgs need to be projected to 1 threads, then push them to result vector
 	for (Cfg& pcfg : postcfgs) {
-		// bool cond1 = c1.pc[0]->id()>=56 && c2.pc[0]->id()<=57;
-		// if (cond1) {
-		// 	std::cout << "===============================" << "\n";
-		// 	std::cout << "Interference for: " << c1 << *c1.shape << "\n";
-		// 	std::cout << "and: " << c2 << *c2.shape << "\n";
-		// 	std::cout << "-------------------------------" << "\n";
-		// 	std::cout << "Interference post for: " << tmp << *tmp.shape << "\n";
-		// 	std::cout << "Produced (before projection): " << pcfg << *pcfg.shape << "\n";
-		// }
-
-		// if (cond) std::cout << "Produced (before porjection): " << pcfg << *pcfg.shape << std::endl;
-		project_away(pcfg, extended_thread_tid);
+		project_away(pcfg, 1);
 	}
-	// if (cond) exit(0);
 
 	return postcfgs;
 }
