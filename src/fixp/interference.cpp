@@ -18,9 +18,9 @@ static inline bool is_noop(const Statement& pc) {
 		case Statement::ORACLE:    return true;
 		case Statement::CHECKP:    return true;
 		case Statement::HPRELEASE: return true;
-		// #if KILL_IS_NOOP
-		// 	case Statement::KILL:  return true;
-		// #endif
+		#if KILL_IS_NOOP
+			case Statement::KILL:  return true;
+		#endif
 		default: return false;
 	}
 }
