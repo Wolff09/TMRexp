@@ -8,8 +8,8 @@
 
 namespace tmr {
 
-	static std::unique_ptr<State> mk_state(std::string name, bool is_initial, bool is_final, bool is_special=false) {
-		return std::make_unique<State>(name, is_initial, is_final, is_special);
+	static std::unique_ptr<State> mk_state(std::string name, bool is_initial, bool is_final, bool is_special=false, bool is_marked=false) {
+		return std::make_unique<State>(name, is_initial, is_final, is_special, is_marked);
 	}
 
 	static void add_trans(State& src, const State& dst, const Function& evt, OValue ov = OValue::Empty()) {
@@ -218,8 +218,8 @@ namespace tmr {
 		states.push_back(mk_state("rg", false, false, true));
 		states.push_back(mk_state("f", false, true));
 		#if MERGE_VALID_PTR
-			states.push_back(mk_state("d", false, false));
-			states.push_back(mk_state("dg", false, false));
+			states.push_back(mk_state("d", false, false, false, true));
+			states.push_back(mk_state("dg", false, false, false, true));
 		#endif
 
 		State& s0 = *states[0];

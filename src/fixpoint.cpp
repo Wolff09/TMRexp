@@ -65,8 +65,8 @@ void RemainingWork::add(Cfg&& cfg) {
 	// if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && cfg.guard0state.at(7)->name() == "rg") { std::cout << "top has 'rg' smr state" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
 	// if (cfg.pc[0] && cfg.pc[0]->id()>=41 && cfg.pc[0]->id()<=43 && !cfg.valid_ptr.at(7)) { std::cout << "top h invalid despite guard" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
 	// if (cfg.pc[0] && cfg.pc[0]->id()>=4 && cfg.pc[0]->id()<=10 && (cfg.shape->test(7,6,EQ) || cfg.shape->test(7,6,MT) || cfg.shape->test(7,6,GT))) { std::cout << "top goes to node" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
-	if (cfg.pc[0] && cfg.pc[0]->id()>=4 && cfg.pc[0]->id()<=10 && (cfg.shape->test(7,6,EQ) || cfg.shape->test(7,6,MT) || cfg.shape->test(7,6,GT))) { std::cout << "top reaches node" << std::endl; exit(0); }
-	if (cfg.pc[0] && cfg.pc[0]->id()>=4 && cfg.pc[0]->id()<=10 && (cfg.shape->test(5,6,EQ) || cfg.shape->test(5,6,MT) || cfg.shape->test(5,6,GT))) { std::cout << "ToS reaches node" << std::endl; exit(0); }
+	// if (cfg.pc[0] && cfg.pc[0]->id()>=4 && cfg.pc[0]->id()<=10 && (cfg.shape->test(7,6,EQ) || cfg.shape->test(7,6,MT) || cfg.shape->test(7,6,GT))) { std::cout << "top reaches node" << std::endl; exit(0); }
+	// if (cfg.pc[0] && cfg.pc[0]->id()>=4 && cfg.pc[0]->id()<=10 && (cfg.shape->test(5,6,EQ) || cfg.shape->test(5,6,MT) || cfg.shape->test(5,6,GT))) { std::cout << "ToS reaches node" << std::endl; exit(0); }
 	
 
 

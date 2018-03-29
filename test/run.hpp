@@ -35,7 +35,7 @@ namespace tmr {
 		auto t_start = std::chrono::high_resolution_clock::now();
 		CCResult result = check_conformance(program, linobserver);
 		auto t_end = std::chrono::high_resolution_clock::now();
-		std::string answer = result.conformance ?  "  CORRECT" : "INCORRECT";
+		std::string answer = result.conformance ?  "CORRECT" : "INCORRECT";
 
 		// print results
 		std::cout << std::endl;
@@ -62,6 +62,12 @@ namespace tmr {
 			std::cout << "Interference via Worklist" << std::endl;
 		#else
 			std::cout << "Independent Interference" << std::endl;
+		#endif
+		std::cout << "Valid:    ";
+		#if MERGE_VALID_PTR
+			std::cout << "merged" << std::endl;
+		#else
+			std::cout << "not merged" << std::endl;
 		#endif
 		if (result.encoding) {
 			std::cout << "Encoding.size():    " << result.encoding->size() << "   (" << (result.encoding->size()/1000) << "k)" << std::endl;

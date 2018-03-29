@@ -73,18 +73,21 @@ namespace tmr {
 			std::string _name;
 			bool _is_initial;
 			bool _is_final;
-			bool _is_special = false;
+			bool _is_special = false; // retired
+			bool _is_marked = false; // freed
 			std::vector<std::unique_ptr<Transition>> _out;
 			std::size_t _id;
 
 		public:
 			State(std::string name, bool is_initial, bool is_final);
 			State(std::string name, bool is_initial, bool is_final, bool is_special);
+			State(std::string name, bool is_initial, bool is_final, bool is_special, bool is_marked);
 			std::string name() const { return _name; }
 			std::size_t id() const { return _id; }
 			bool is_initial() const { return _is_initial; }
 			bool is_final() const { return _is_final; }
 			bool is_special() const { return _is_special; }
+			bool is_marked() const { return _is_marked; }
 			const Observer& observer() const { assert(_obs != NULL); return *_obs; }
 			void add_transition(std::unique_ptr<Transition> trans) { _out.push_back(std::move(trans)); }
 			/**

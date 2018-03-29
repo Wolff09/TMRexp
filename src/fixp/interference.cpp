@@ -8,6 +8,8 @@
 using namespace tmr;
 
 
+static const constexpr std::size_t MAX_PRUNE_ITERATIONS = 2;
+
 /******************************** CHECK MATCH ********************************/
 
 static inline bool is_noop(const Statement& pc) {
@@ -72,7 +74,7 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 	const Cfg& cfg = *input;
 	Shape& shape = *(input->shape);
 
-	for (std::size_t iteration = 0; iteration < 2; iteration++) {
+	for (std::size_t iteration = 0; iteration < MAX_PRUNE_ITERATIONS; iteration++) {
 		for (std::size_t row = shape.offset_locals(0); row < shape.offset_locals(1); row++) {
 			for (std::size_t col = shape.offset_locals(1); col < shape.size(); col++) {
 				bool is_row_owned = cfg.own.at(row);
@@ -119,6 +121,52 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 				if (!is_col_valid && (!is_col_reuse || cfg.freed)) {
 					prune |= MF_GF;
 				}
+
+
+				// TODO: check those... they are too good --> some (combination) are definitely wrong
+
+				bool is_row_valid_next = cfg.valid_next.at(row);
+				bool is_col_valid_next = cfg.valid_next.at(col);
+
+				bool is_row_freed = (cfg.guard0state.at(row) && cfg.guard0state.at(row)->is_marked())
+				                 || (cfg.guard1state.at(row) && cfg.guard1state.at(row)->is_marked());
+				bool is_col_freed = (cfg.guard0state.at(col) && cfg.guard0state.at(col)->is_marked())
+				                 || (cfg.guard1state.at(col) && cfg.guard1state.at(col)->is_marked());
+
+				if (is_row_owned && is_col_freed && (!is_row_reuse || !is_col_reuse)) {
+					prune.set(EQ);
+				}
+				if (is_row_freed && is_col_owned && (!is_row_reuse || !is_col_reuse)) {
+					prune.set(EQ);
+				}
+				if (is_row_valid && is_col_freed && (!is_row_reuse || !is_col_reuse)) {
+					prune.set(EQ);
+				}
+				if (is_row_freed && is_col_valid && (!is_row_reuse || !is_col_reuse)) {
+					prune.set(EQ);
+				}
+				// if (is_row_freed ^ is_col_freed) {
+				// 	prune.set(EQ);
+				// }
+				if (is_row_valid_next && is_col_freed && !is_col_reuse) {
+					prune.set(MT);
+				}
+				if (is_row_freed && is_col_valid_next && !is_row_reuse) {
+					prune.set(MF);
+				}
+				if (!is_row_valid && (!is_row_reuse || cfg.freed || is_row_freed)) {
+					prune |= MT_GT;
+				}
+				if (!is_col_valid && (!is_col_reuse || cfg.freed || is_col_freed)) {
+					prune |= MF_GF;
+				}
+				if (is_row_freed && !is_row_reuse) {
+					prune |= MT_GT;
+				}
+				if (is_col_freed && !is_col_reuse) {
+					prune |= MF_GF;
+				}
+
 
 				shape.set(row, col, shape.at(row, col) & prune.flip());
 			}
