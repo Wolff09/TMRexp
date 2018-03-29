@@ -118,7 +118,7 @@ static inline std::deque<std::pair<Shape*, bool>> split_on_global_reach(const Sh
 
 std::vector<Cfg> tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	if (NON_LOCAL(lhs) && is_invalid_ptr(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoiling non-local variable (ptr).");
-	if (NON_LOCAL(lhs) && is_invalid_next(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoiling non-local variable (next).");
+	if (NON_LOCAL(lhs) && is_invalid_next(cfg, rhs)) raise_epr(cfg, rhs, "Bad assignment: spoiling non-local variable (next-field).");
 	if (SHARED_VAR(lhs) && !cfg.own.at(rhs) && !is_globally_reachable(*cfg.shape, rhs)) raise_epr(cfg, rhs, "Invariant violation: pushing potentially retired address to shared heap.");
 
 	Shape* shape = post_assignment_pointer_shape_var_var(*cfg.shape, lhs, rhs, stmt);

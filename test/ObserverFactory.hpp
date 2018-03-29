@@ -226,6 +226,7 @@ namespace tmr {
 
 		add_trans(s0, sG, guard, OValue::Anonymous());
 		add_trans(sG, sGR, retire, OValue::Anonymous());
+		add_trans(sG, sF, free, OValue::Anonymous());
 		add_trans(sGR, sF, free, OValue::Anonymous());
 		add_trans(sG, s0, unguard, OValue::Anonymous());
 		add_trans(sGR, s0, unguard, OValue::Anonymous());

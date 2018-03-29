@@ -613,6 +613,7 @@ namespace tmr {
 		public:
 			Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::vector<std::unique_ptr<Function>> funs);
 			Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::unique_ptr<Sequence> init, std::vector<std::unique_ptr<Function>> funs);
+			std::string name() const { return _name; }
 			std::size_t size() const { return _funs.size(); }
 			std::size_t idSize() const { return _idSize; }
 			std::size_t numGlobals() const { return _globals.size(); }

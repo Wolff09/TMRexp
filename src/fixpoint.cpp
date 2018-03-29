@@ -41,7 +41,9 @@ const Cfg& RemainingWork::pop() {
 static bool output = false;
 
 void RemainingWork::add(Cfg&& cfg) {
+	// std::cout << "Adding: " << cfg << *cfg.shape << std::endl;
 	// if (output) std::cout << "Adding: " << cfg << *cfg.shape << std::endl;
+
 	// if (cfg.shape->test(5,1,EQ)) { std::cout << std::endl << "5=1" << std::endl; exit(0); }
 	// if (cfg.shape->test(6,1,EQ) && cfg.freed) { std::cout << std::endl << "6=1 freed" << std::endl; exit(0); }
 	// if (cfg.shape->test(1,3,EQ)) { std::cout << std::endl << "1=3" << std::endl; exit(0); }
@@ -62,7 +64,10 @@ void RemainingWork::add(Cfg&& cfg) {
 	// if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && !cfg.valid_ptr.at(7)) { std::cout << "top invalid despite guard" << std::endl; exit(0); }
 	// if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && cfg.guard0state.at(7)->name() == "rg") { std::cout << "top has 'rg' smr state" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
 	// if (cfg.pc[0] && cfg.pc[0]->id()>=41 && cfg.pc[0]->id()<=43 && !cfg.valid_ptr.at(7)) { std::cout << "top h invalid despite guard" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
-
+	// if (cfg.pc[0] && cfg.pc[0]->id()>=4 && cfg.pc[0]->id()<=10 && (cfg.shape->test(7,6,EQ) || cfg.shape->test(7,6,MT) || cfg.shape->test(7,6,GT))) { std::cout << "top goes to node" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
+	if (cfg.pc[0] && cfg.pc[0]->id()>=4 && cfg.pc[0]->id()<=10 && (cfg.shape->test(7,6,EQ) || cfg.shape->test(7,6,MT) || cfg.shape->test(7,6,GT))) { std::cout << "top reaches node" << std::endl; exit(0); }
+	if (cfg.pc[0] && cfg.pc[0]->id()>=4 && cfg.pc[0]->id()<=10 && (cfg.shape->test(5,6,EQ) || cfg.shape->test(5,6,MT) || cfg.shape->test(5,6,GT))) { std::cout << "ToS reaches node" << std::endl; exit(0); }
+	
 
 
 	auto res = _enc.take(std::move(cfg));
@@ -71,8 +76,6 @@ void RemainingWork::add(Cfg&& cfg) {
 
 
 /******************************** FIXED POINT ********************************/
-
-#define WORKLIST_INTERFERENCE false
 
 std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& linobs) {
 	std::unique_ptr<Encoding> enc = std::make_unique<Encoding>();
@@ -125,7 +128,10 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 			// sequential steps
 			while (!work.done()) {
 				const Cfg& topost = work.pop();
+				// std::cout << "===============================================" << std::endl << "Post for: " << std::endl << topost << *topost.shape << std::endl;
+				// output = true;
 				work.add(tmr::mk_all_post(topost, prog));
+				output = false;
 
 				SEQUENTIAL_STEPS++;
 				counter++;

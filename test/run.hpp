@@ -50,6 +50,30 @@ namespace tmr {
 
 		auto time_taken = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
 		std::cout << "Time taken: " << time_taken/1000.0 << "s" << std::endl << std::endl;
+
+		// gist
+		std::cout << std::endl << std:: endl << std::endl << std::endl;
+		std::cout << "====================== GIST ======================" << std::endl;
+		std::cout << "Program:  " << program.name() << std::endl;
+		std::cout << "Verdict:  " << answer << std::endl;
+		std::cout << "Time:     " << time_taken/1000.0 << "s" << std::endl;
+		std::cout << "Fixpoint: ";
+		#if WORKLIST_INTERFERENCE
+			std::cout << "Interference via Worklist" << std::endl;
+		#else
+			std::cout << "Independent Interference" << std::endl;
+		#endif
+		if (result.encoding) {
+			std::cout << "Encoding.size():    " << result.encoding->size() << "   (" << (result.encoding->size()/1000) << "k)" << std::endl;
+			std::cout << "Encoding.buckets(): " << result.encoding->bucket_count() << "   (" << (result.encoding->bucket_count()/1000) << "k)" << std::endl;
+		} else {
+			std::cout << "Encoding.size():    ?" << std::endl;
+			std::cout << "Encoding.buckets(): ?" << std::endl;
+		}
+		std::cout << "Sequential Steps:   " << SEQUENTIAL_STEPS << " (" << (SEQUENTIAL_STEPS/1000) << "k)" << std::endl;
+		std::cout << "Interfernece Steps: " << INTERFERENCE_STEPS << " (" << (INTERFERENCE_STEPS/1000) << "k)" << std::endl;
+		std::cout << "==================================================" << std::endl;
+		std::cout << std::endl << std:: endl << std::endl << std::endl;
 		
 		// std::cout << std::endl << "CONDENSED OUTPUT:\tTreibersStack";
 		// std::cout << answer;

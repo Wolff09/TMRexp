@@ -17,10 +17,16 @@ static std::unique_ptr<Program> mk_program() {
 		Read("node"),
 		Loop(Sqz(
 			Assign(Var("top"), Var("TopOfStack")),
-			Assign(Next("node"), Var("top")),
+			Gard("top", 0),
 			IfThen(
-				CasCond(CAS(Var("TopOfStack"), Var("top"), Var("node"), LinP(), use_age_fields)),
-				Sqz(Brk())
+				EqCond(Var("top"), Var("TopOfStack")),
+				Sqz(
+					Assign(Next("node"), Var("top")),
+					IfThen(
+						CasCond(CAS(Var("TopOfStack"), Var("top"), Var("node"), LinP(), use_age_fields)),
+						Sqz(Brk())
+					)
+				)
 			),
 			Kill("top")
 		))
