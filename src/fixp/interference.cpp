@@ -68,7 +68,73 @@ static inline bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
 
 /******************************** EXTENSION ********************************/
 
-Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer) {
+static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> input) {
+	const Cfg& cfg = *input;
+	Shape& shape = *(input->shape);
+
+	for (std::size_t iteration = 0; iteration < 2; iteration++) {
+		for (std::size_t row = shape.offset_locals(0); row < shape.offset_locals(1); row++) {
+			for (std::size_t col = shape.offset_locals(1); col < shape.size(); col++) {
+				bool is_row_owned = cfg.own.at(row);
+				bool is_col_owned = cfg.own.at(col);
+
+				bool is_row_valid = cfg.valid_ptr.at(row);
+				bool is_col_valid = cfg.valid_ptr.at(col);
+
+				bool is_row_retired = (cfg.guard0state.at(row) && cfg.guard0state.at(row)->is_special())
+				                   || (cfg.guard1state.at(row) && cfg.guard1state.at(row)->is_special());
+				bool is_col_retired = (cfg.guard0state.at(col) && cfg.guard0state.at(col)->is_special())
+				                   || (cfg.guard1state.at(col) && cfg.guard1state.at(col)->is_special());
+
+				bool is_row_reuse = shape.test(row, shape.index_REUSE(), EQ);
+				bool is_col_reuse = shape.test(col, shape.index_REUSE(), EQ);
+
+				RelSet prune;
+
+				if (is_row_owned && is_col_valid) {
+					prune |= EQ_MF_GF;
+				}
+				if (is_row_valid && is_col_owned) {
+					prune |= EQ_MT_GT;
+				}
+				if (is_row_owned && is_col_owned) {
+					prune |= EQ_MT_MF_GT_GF; // consequence of previous?
+				}
+				if (is_row_retired ^ is_col_retired) {
+					prune.set(EQ);
+				}
+				if ((is_row_valid ^ is_col_valid) && (!is_row_reuse || !is_col_reuse)) {
+					prune.set(EQ);
+				}
+				if ((is_row_owned ^ !is_col_valid) && (!is_row_reuse || !is_col_reuse)) {
+					prune.set(EQ); // consequence of previous?
+				}
+				if ((!is_row_valid ^ is_col_owned) && (!is_row_reuse || !is_col_reuse)) {
+					prune.set(EQ); // consequence of previous?
+				}
+
+				// if (!is_row_valid && (!is_row_reuse || cfg.freed)) {
+				// 	prune |= MT_GT;
+				// }
+				// if (!is_col_valid && (!is_col_reuse || cfg.freed)) {
+				// 	prune |= MF_GF;
+				// }
+
+				shape.set(row, col, shape.at(row, col) & prune.flip());
+			}
+		}
+
+		bool success = make_concretisation(shape);
+		if (!success) {
+			input.reset();
+			break;
+		}
+	}
+
+	return input;
+}
+
+std::unique_ptr<Cfg> extend_cfg(const Cfg& dst, const Cfg& interferer) {
 	// extend dst with interferer (create a copy of dst, then extend the copy)
 
 	// 1.0 extend shape
@@ -104,188 +170,16 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer) {
 
 		// add interferer-tid.locals ~ extended-tid.locals
 		for (std::size_t j = dst.shape->offset_locals(0); j < dst.shape->size(); j++) {
-			std::size_t src_row = j;
 			std::size_t dst_row = j;
-			// shape->set(dst_row, dst_col, PRED);
-
-			// restrict the possible relations between local variables of different threads
-			bool is_row_owned = dst.own.at(src_row);
-			bool is_col_owned = interferer.own.at(src_col);
-
-			bool is_row_valid = dst.valid_ptr.at(src_row);
-			bool is_col_valid = interferer.valid_ptr.at(src_col);
-
-			bool is_row_retired = (dst.guard0state.at(src_row) && dst.guard0state.at(src_row)->is_special())
-			                   || (dst.guard1state.at(src_row) && dst.guard1state.at(src_row)->is_special());
-			bool is_col_retired = (dst.guard0state.at(src_col) && dst.guard0state.at(src_col)->is_special())
-			                   || (dst.guard1state.at(src_col) && dst.guard1state.at(src_col)->is_special());
-
-			bool is_row_reuse = dst.shape->test(src_row, dst.shape->index_REUSE(), EQ);
-			bool is_col_reuse = interferer.shape->test(src_col, interferer.shape->index_REUSE(), EQ);
-
-			// if (is_row_owned && !is_col_valid) {
-			// 	if (is_row_reuse && dst.shape->at(src_row, dst.shape->index_REUSE()) != EQ_) {
-			// 		std::cout << dst.shape->at(src_row, dst.shape->index_REUSE()) << "  \t" << interferer.shape->at(src_row, interferer.shape->index_REUSE()) << std::endl;
-
-			// 		cond:
-
-			// 		((is_row_owned && !is_col_valid) || (is_col_owned && !is_row_valid)) && (!is_row_reuse || !is_col_reuse)   ==>   shape->set(dst_row, dst_col, MT_GT_MF_GF_BT); // owned cannot be reached
-
-			// 	}
-			// }
-
-			// if (is_row_owned && is_col_owned) {
-			// 	shape->set(dst_row, dst_col, BT_);
-			// } else if ((is_row_owned && is_col_valid) || (is_col_owned && is_row_valid)) {
-			// 	// ownership guarantees that other threads have only invalid pointers
-			// 	// delete shape;
-			// 	// return NULL;
-			// 	shape->set(dst_row, dst_col, BT_);
-			// 	// TODO: this is wrong! results in BT_ cell
-			// // } else if (is_row_owned && !is_col_valid) {
-			// // 	if (is_row_reuse) {
-			// //		// not correct
-			// // 		shape->set(dst_row, dst_col, EQ_);
-			// // 		shape->set(dst_row, shape->index_REUSE(), EQ_);
-			// // 	} else {
-			// // 		shape->set(dst_row, dst_col, BT_);
-			// // 	}
-			// // } else if (is_col_owned && !is_row_valid) {
-			// // 	if (is_col_reuse) {
-			// //		// not correct
-			// // 		shape->set(dst_row, dst_col, EQ_);
-			// // 		shape->set(dst_col, shape->index_REUSE(), EQ_);
-			// // 	} else {
-			// // 		shape->set(dst_row, dst_col, BT_);
-			// // 	}
-			// } else if (is_row_retired ^ is_col_retired) {
-			// 	// a cell cannot be both retired and not retired
-			// 	shape->set(dst_row, dst_col, MT_GT_MF_GF_BT);
-			// } else if ((is_row_valid ^ is_col_valid) && (!is_row_reuse || !is_col_reuse)) {
-			// 	// pointers to a cell can only be invalidated by a free
-			// 	// if a non-REUSE cell is free, then all pointers to it are invalid
-			// 	shape->set(dst_row, dst_col, MT_GT_MF_GF_BT);
-			// } else {
-			// 	shape->set(dst_row, dst_col, PRED);
-			// }
-
-			RelSet cell;
-
-			if (is_row_owned && is_col_valid) {
-				cell |= EQ_MF_GF;
-			}
-			if (is_row_valid && is_col_owned) {
-				cell |= EQ_MT_GT;
-			}
-			if (is_row_owned && is_col_owned) {
-				cell |= EQ_MT_MF_GT_GF; // consequence of previous?
-			}
-			if (is_row_retired ^ is_col_retired) {
-				cell.set(EQ);
-			}
-			if ((is_row_valid ^ is_col_valid) && (!is_row_reuse || !is_col_reuse)) {
-				cell.set(EQ);
-			}
-			if ((is_row_owned ^ !is_col_valid) && (!is_row_reuse || !is_col_reuse)) {
-				cell.set(EQ); // consequence of previous?
-			}
-			if ((!is_row_valid ^ is_col_owned) && (!is_row_reuse || !is_col_reuse)) {
-				cell.set(EQ); // consequence of previous?
-			}
-
-			if (!is_row_valid && (!is_row_reuse || dst.freed)) {
-				cell |= MT_GT;
-			}
-			if (!is_col_valid && (!is_col_reuse || dst.freed)) {
-				cell |= MF_GF;
-			}
-
-			shape->set(dst_row, dst_col, cell.flip());
+			shape->set(dst_row, dst_col, PRED);
 		}
 	}
 
-	// 1.3 extend shape: remove inconsistent predicates
-	bool success = make_concretisation(*shape);
-	if (!success) {
-		delete shape;
-		return NULL;
-	}
-
-	// 1.4 extend shape: re-try removing relations as shape might be more precise now
-	for (std::size_t row = shape->offset_locals(0); row < shape->offset_locals(1); row++) {
-		for (std::size_t col = shape->offset_locals(1); col < shape->size(); col++) {
-			// bool is_row_valid = dst.valid_ptr.at(row);
-			// bool is_col_valid = interferer.valid_ptr.at(col - shape->sizeLocals());
-
-			// bool is_row_reuse = shape->test(row, shape->index_REUSE(), EQ);
-			// bool is_col_reuse = shape->test(col, shape->index_REUSE(), EQ);
-
-			// if ((is_row_valid ^ is_col_valid) && (!is_row_reuse || !is_col_reuse)) {
-			// 	// pointers to a cell can only be invalidated by a free
-			// 	// if a non-REUSE cell is free, then all pointers to it are invalid
-			// 	shape->remove_relation(row, col, EQ);
-			// }
-
-			std::size_t src_row = row;
-			std::size_t src_col = col - interferer.shape->offset_locals(0);
-
-			bool is_row_owned = dst.own.at(src_row);
-			bool is_col_owned = interferer.own.at(src_col);
-
-			bool is_row_valid = dst.valid_ptr.at(src_row);
-			bool is_col_valid = interferer.valid_ptr.at(src_col);
-
-			bool is_row_retired = (dst.guard0state.at(src_row) && dst.guard0state.at(src_row)->is_special())
-			                   || (dst.guard1state.at(src_row) && dst.guard1state.at(src_row)->is_special());
-			bool is_col_retired = (dst.guard0state.at(src_col) && dst.guard0state.at(src_col)->is_special())
-			                   || (dst.guard1state.at(src_col) && dst.guard1state.at(src_col)->is_special());
-
-			bool is_row_reuse = shape->test(row, shape->index_REUSE(), EQ);
-			bool is_col_reuse = shape->test(col, shape->index_REUSE(), EQ);
-
-			RelSet cell;
-
-			if (is_row_owned && is_col_valid) {
-				cell |= EQ_MF_GF;
-			}
-			if (is_row_valid && is_col_owned) {
-				cell |= EQ_MT_GT;
-			}
-			if (is_row_owned && is_col_owned) {
-				cell |= EQ_MT_MF_GT_GF; // consequence of previous?
-			}
-			if (is_row_retired ^ is_col_retired) {
-				cell.set(EQ);
-			}
-			if ((is_row_valid ^ is_col_valid) && (!is_row_reuse || !is_col_reuse)) {
-				cell.set(EQ);
-			}
-			if ((is_row_owned ^ !is_col_valid) && (!is_row_reuse || !is_col_reuse)) {
-				cell.set(EQ); // consequence of previous?
-			}
-			if ((!is_row_valid ^ is_col_owned) && (!is_row_reuse || !is_col_reuse)) {
-				cell.set(EQ); // consequence of previous?
-			}
-
-			if (!is_row_valid && (!is_row_reuse || dst.freed)) {
-				cell |= MT_GT;
-			}
-			if (!is_col_valid && (!is_col_reuse || dst.freed)) {
-				cell |= MF_GF;
-			}
-
-			shape->set(row, col, shape->at(row, col) & cell.flip());
-
-		}
-	}
-	success = make_concretisation(*shape);
-	if (!success) {
-		delete shape;
-		return NULL;
-	}
+	// 1.3 extend shape (later): prune relation among thread local variables
+	// 1.4 extend shape (later): remove inconsistent predicates
 
 	// 2. create new cfg
-	Cfg* result = new Cfg(dst, shape);
+	std::unique_ptr<Cfg> result(new Cfg(dst, shape));
 	Cfg& res = *result;
 
 	// 3. extend inout
@@ -314,7 +208,8 @@ Cfg* extend_cfg(const Cfg& dst, const Cfg& interferer) {
 	// 8. extend oracle
 	res.oracle[1] = interferer.oracle[0];
 
-	return result;
+	// 9. prune shape
+	return prune_local_relations(std::move(result));
 }
 
 
@@ -388,7 +283,7 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
 	if (can_skip_interference(c1, c2)) return {};
 
 	// make combined cfg for c1 and c2
-	std::unique_ptr<Cfg> extended((extend_cfg(c1, c2)));
+	auto extended = extend_cfg(c1, c2);
 	if (!extended) return {};
 
 	const Cfg& tmp = *extended;
