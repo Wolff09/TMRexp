@@ -7,6 +7,7 @@
 #include "prog.hpp"
 #include "shape.hpp"
 #include "observer.hpp"
+#include "config.hpp"
 
 #include <set>
 

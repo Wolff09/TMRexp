@@ -113,12 +113,12 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 					prune.set(EQ); // consequence of previous?
 				}
 
-				// if (!is_row_valid && (!is_row_reuse || cfg.freed)) {
-				// 	prune |= MT_GT;
-				// }
-				// if (!is_col_valid && (!is_col_reuse || cfg.freed)) {
-				// 	prune |= MF_GF;
-				// }
+				if (!is_row_valid && (!is_row_reuse || cfg.freed)) {
+					prune |= MT_GT;
+				}
+				if (!is_col_valid && (!is_col_reuse || cfg.freed)) {
+					prune |= MF_GF;
+				}
 
 				shape.set(row, col, shape.at(row, col) & prune.flip());
 			}

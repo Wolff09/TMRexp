@@ -4,6 +4,7 @@
 #include <assert.h>
 #include "prog.hpp"
 #include "observer.hpp"
+#include "config.hpp"
 
 namespace tmr {
 
@@ -216,6 +217,10 @@ namespace tmr {
 		states.push_back(mk_state("r", false, false, true));
 		states.push_back(mk_state("rg", false, false, true));
 		states.push_back(mk_state("f", false, true));
+		#if MERGE_VALID_PTR
+			states.push_back(mk_state("d", false, false));
+			states.push_back(mk_state("dg", false, false));
+		#endif
 
 		State& s0 = *states[0];
 		State& sG = *states[1];
@@ -223,6 +228,10 @@ namespace tmr {
 		State& sR = *states[3];
 		State& sRG = *states[4];
 		State& sF = *states[5];
+		#if MERGE_VALID_PTR
+			State& sD = *states[6];
+			State& sDG = *states[7];
+		#endif
 
 		add_trans(s0, sG, guard, OValue::Anonymous());
 		add_trans(sG, sGR, retire, OValue::Anonymous());
@@ -233,10 +242,22 @@ namespace tmr {
 
 		add_trans(s0, sF, free, OValue::Anonymous());
 		add_trans(s0, sR, retire, OValue::Anonymous());
-		add_trans(sR, s0, free, OValue::Anonymous());
 		add_trans(sR, sRG, guard, OValue::Anonymous());
 		add_trans(sRG, sR, unguard, OValue::Anonymous());
-		add_trans(sRG, sG, free, OValue::Anonymous());
+
+		#if MERGE_VALID_PTR
+			add_trans(sR, sD, free, OValue::Anonymous());
+			add_trans(sD, sR, retire, OValue::Anonymous());
+			add_trans(sD, sDG, guard, OValue::Anonymous());
+			add_trans(sD, sF, free, OValue::Anonymous());
+			add_trans(sRG, sDG, free, OValue::Anonymous());
+			add_trans(sDG, sGR, retire, OValue::Anonymous());
+			add_trans(sDG, sD, unguard, OValue::Anonymous());
+			add_trans(sDG, sF, free, OValue::Anonymous());
+		#else
+			add_trans(sR, s0, free, OValue::Anonymous());
+			add_trans(sRG, sG, free, OValue::Anonymous());
+		#endif
 
 		auto result = std::unique_ptr<Observer>(new Observer(std::move(states), 0));
 		return result;

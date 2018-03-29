@@ -1,10 +1,9 @@
 #include "encoding.hpp"
 
+#include "config.hpp"
 
 using namespace tmr;
 
-
-#define MERGE_VALID_PTR false
 
 /******************************** SORTING ********************************/
 
