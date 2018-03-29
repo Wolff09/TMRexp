@@ -70,8 +70,8 @@ namespace tmr {
 			std::cout << "not merged" << std::endl;
 		#endif
 		if (result.encoding) {
-			std::cout << "Encoding.size():    " << result.encoding->size() << "   (" << (result.encoding->size()/1000) << "k)" << std::endl;
-			std::cout << "Encoding.buckets(): " << result.encoding->bucket_count() << "   (" << (result.encoding->bucket_count()/1000) << "k)" << std::endl;
+			std::cout << "Encoding.size():    " << result.encoding->size() << " (" << (result.encoding->size()/1000) << "k)" << std::endl;
+			std::cout << "Encoding.buckets(): " << result.encoding->bucket_count() << " (" << (result.encoding->bucket_count()/1000) << "k)" << std::endl;
 		} else {
 			std::cout << "Encoding.size():    ?" << std::endl;
 			std::cout << "Encoding.buckets(): ?" << std::endl;

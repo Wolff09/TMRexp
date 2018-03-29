@@ -4,7 +4,7 @@
 // fixed point configuration
 #define WORKLIST_INTERFERENCE false
 #define REPLACE_INTERFERENCE_WITH_SUMMARY false
-#define MERGE_VALID_PTR true
+#define MERGE_VALID_PTR false
 
 // summary configurations
 #define USE_MODIFIED_FIXEDPOINT true
