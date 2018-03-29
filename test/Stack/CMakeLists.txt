@@ -6,3 +6,7 @@
 add_executable(TreibersStack TreibersStack.cpp)
 target_link_libraries(TreibersStack TMRexpLib)
 add_test(TreibersStack TreibersStack)
+
+add_executable(TreibersRace TreibersRace.cpp)
+target_link_libraries(TreibersRace TMRexpLib)
+add_test(TreibersRace TreibersRace)
