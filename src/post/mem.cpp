@@ -23,6 +23,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 	
 	const Shape& input = *cfg.shape;
 	const auto var_index = mk_var_index(input, stmt.decl(), tid);
+	auto smr_init = stmt.function().prog().smr_observer().initial_state().states().at(0);
 
 	if (NON_LOCAL(var_index) && &stmt.function().prog().init_fun() != &stmt.function()) {
 			throw std::runtime_error("Allocations may not target global variables.");
@@ -45,8 +46,8 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 		fresh.own.set(var_index, true);
 		fresh.valid_ptr.set(var_index, true);
 		fresh.valid_next.set(var_index, true);
-		fresh.guard0state.set(var_index, NULL);
-		fresh.guard1state.set(var_index, NULL);
+		fresh.guard0state.set(var_index, smr_init);
+		fresh.guard1state.set(var_index, smr_init);
 	}
 
 
@@ -71,8 +72,8 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 			reuse.own.set(var_index, true);
 			reuse.valid_ptr.set(var_index, true);
 			reuse.valid_next.set(var_index, true);
-			reuse.guard0state.set(var_index, NULL);
-			reuse.guard1state.set(var_index, NULL);
+			reuse.guard0state.set(var_index, smr_init);
+			reuse.guard1state.set(var_index, smr_init);
 
 			reuse.freed = false;
 			reuse.retired = false;
