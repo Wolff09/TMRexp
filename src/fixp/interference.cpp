@@ -90,6 +90,7 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 
 				bool is_row_reuse = shape.test(row, shape.index_REUSE(), EQ);
 				bool is_col_reuse = shape.test(col, shape.index_REUSE(), EQ);
+				bool is_no_reuse = !is_row_reuse || !is_col_reuse;
 
 				RelSet prune;
 
@@ -105,13 +106,13 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 				if (is_row_retired ^ is_col_retired) {
 					prune.set(EQ);
 				}
-				if ((is_row_valid ^ is_col_valid) && (!is_row_reuse || !is_col_reuse)) {
+				if ((is_row_valid ^ is_col_valid) && is_no_reuse) {
 					prune.set(EQ);
 				}
-				if ((is_row_owned ^ !is_col_valid) && (!is_row_reuse || !is_col_reuse)) {
+				if ((is_row_owned ^ !is_col_valid) && is_no_reuse) {
 					prune.set(EQ); // consequence of previous?
 				}
-				if ((!is_row_valid ^ is_col_owned) && (!is_row_reuse || !is_col_reuse)) {
+				if ((!is_row_valid ^ is_col_owned) && is_no_reuse) {
 					prune.set(EQ); // consequence of previous?
 				}
 
@@ -123,48 +124,45 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 				}
 
 
-				// TODO: check those... they are too good --> some (combination) are definitely wrong
-
-				bool is_row_valid_next = cfg.valid_next.at(row);
-				bool is_col_valid_next = cfg.valid_next.at(col);
-
 				bool is_row_freed = (cfg.guard0state.at(row) && cfg.guard0state.at(row)->is_marked())
 				                 || (cfg.guard1state.at(row) && cfg.guard1state.at(row)->is_marked());
 				bool is_col_freed = (cfg.guard0state.at(col) && cfg.guard0state.at(col)->is_marked())
 				                 || (cfg.guard1state.at(col) && cfg.guard1state.at(col)->is_marked());
 
-				if (is_row_owned && is_col_freed && (!is_row_reuse || !is_col_reuse)) {
-					prune.set(EQ);
-				}
-				if (is_row_freed && is_col_owned && (!is_row_reuse || !is_col_reuse)) {
-					prune.set(EQ);
-				}
-				if (is_row_valid && is_col_freed && (!is_row_reuse || !is_col_reuse)) {
-					prune.set(EQ);
-				}
-				if (is_row_freed && is_col_valid && (!is_row_reuse || !is_col_reuse)) {
-					prune.set(EQ);
-				}
-				// if (is_row_freed ^ is_col_freed) {
-				// 	prune.set(EQ);
-				// }
-				if (is_row_valid_next && is_col_freed && !is_col_reuse) {
-					prune.set(MT);
-				}
-				if (is_row_freed && is_col_valid_next && !is_row_reuse) {
-					prune.set(MF);
-				}
-				if (!is_row_valid && (!is_row_reuse || cfg.freed || is_row_freed)) {
-					prune |= MT_GT;
-				}
-				if (!is_col_valid && (!is_col_reuse || cfg.freed || is_col_freed)) {
-					prune |= MF_GF;
-				}
-				if (is_row_freed && !is_row_reuse) {
-					prune |= MT_GT;
-				}
-				if (is_col_freed && !is_col_reuse) {
-					prune |= MF_GF;
+				if (is_row_freed || is_col_freed) {
+					// more aggressive pruning if explicit knowledge of freeness is available
+					// TODO: check again
+
+					bool is_row_valid_next = cfg.valid_next.at(row);
+					bool is_col_valid_next = cfg.valid_next.at(col);
+
+					if (is_row_valid && is_col_freed && is_no_reuse) {
+						prune.set(EQ);
+					}
+					if (is_row_freed && is_col_valid && is_no_reuse) {
+						prune.set(EQ);
+					}
+					if (is_row_owned && is_col_freed && is_no_reuse) {
+						prune.set(EQ); // consequence of previous?
+					}
+					if (is_row_freed && is_col_owned && is_no_reuse) {
+						prune.set(EQ); // consequence of previous?
+					}
+					if (is_row_valid_next && is_col_freed /*&& !is_col_reuse*/) {
+						prune.set(MT);
+					}
+					if (is_row_freed && is_col_valid_next /*&& !is_row_reuse*/) {
+						prune.set(MF);
+					}
+					if (is_row_freed ^ is_col_freed) {
+						prune.set(EQ);
+					}
+					// if (is_row_freed) {
+					// 	prune |= MT_GT;
+					// }
+					// if (is_col_freed) {
+					// 	prune |= MF_GF;
+					// }
 				}
 
 
