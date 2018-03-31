@@ -89,14 +89,6 @@ namespace tmr {
 		std::cout << "ABA Checks: " << ABA_AWARENESS_CHECKS << std::endl;
 		std::cout << "==================================================" << std::endl;
 		std::cout << std::endl << std:: endl << std::endl << std::endl;
-		
-		// std::cout << std::endl << "CONDENSED OUTPUT:\tTreibersStack";
-		// std::cout << answer;
-		// std::cout << "\t";
-		// if (result.conformance) std::cout << "enc.size()" << (result.conformance ? "=" : ">") << result.encoding->size();
-		// std::cout << "\tSC=" << SEQUENTIAL_STEPS << "\tIC=" << INTERFERENCE_STEPS << "\tIS=" << INTERFERENCE_SKIPPED;
-		// if (!result.conformance) std::cout << "error: " << result.reason;
-		// std::cout << std::endl << std::endl;
 
 		return result.conformance == expect_success ? 0 : 1;
 	}

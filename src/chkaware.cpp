@@ -72,6 +72,38 @@ static inline std::deque<Cfg> post_branch(const Cfg& cfg, const Statement* branc
 	return result;
 }
 
+static inline bool has_non_local_effects(const Statement& stmt) {
+	switch (stmt.clazz()) {
+		case Statement::SQZ:
+		case Statement::HPSET:
+		case Statement::HPRELEASE:
+		case Statement::ITE:
+		case Statement::WHILE:
+		case Statement::BREAK:
+		case Statement::ORACLE:
+		case Statement::CHECKP:
+		case Statement::KILL:
+		case Statement::REACH:
+			return false;
+		default:
+			break;
+	}
+
+	if (stmt.clazz() == Statement::ASSIGN) {
+		auto& assign = static_cast<const Assignment&>(stmt);
+		if (assign.lhs().clazz() == Expr::VAR) {
+			auto& exp = static_cast<const VarExpr&>(assign.lhs());
+			if (exp.decl().local()) return false;
+		}
+	}
+	
+	// the following default to be problematic:
+	// MALLOC, RETIRE, LINP, INPUT, OUTPUT, CAS, SETNULL, ATOMIC
+	// ASSIGN with non-variable or non-local-variable lhs_local
+
+	return true;
+}
+
 static inline std::pair<std::deque<Cfg>, std::deque<Cfg>> mk_continuations(const Ite& abaprone, const Cfg& src) {
 	// gives two lists:
 	//     - result.first are cfgs that retry (come back to abaprone)
@@ -96,6 +128,10 @@ static inline std::pair<std::deque<Cfg>, std::deque<Cfg>> mk_continuations(const
 		if (cfg.pc[0] == &abaprone) {
 			retry.push_back(std::move(cfg));
 			continue;
+		}
+
+		if (has_non_local_effects(*cfg.pc[0])) {
+			throw std::logic_error("Unsupported ABA prone assertion: retrying leads to non-local action.");
 		}
 
 		// continue search for abaprone
