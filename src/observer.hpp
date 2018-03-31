@@ -16,6 +16,7 @@ namespace tmr {
 			Type type() const { return _type; }
 			std::size_t id() const { assert(_type == OBSERVABLE); return _id; }
 			bool operator==(const OValue& other) const;
+			bool operator!=(const OValue& other) const { return !(*this == other); }
 			bool operator<(const OValue& other) const;
 			static inline OValue Empty() { return OValue(EMPTY, 0); }
 			static inline OValue Anonymous() { return OValue(ANONYMOUS, 0); }
@@ -131,6 +132,7 @@ namespace tmr {
 			const Observer& observer() const { assert(_states.size() > 0); return _states[0]->observer(); }
 
 			bool operator==(const MultiState& other) const;
+			bool operator!=(const MultiState& other) const { return !(*this == other); }
 			bool operator<(const MultiState& other) const;
 	};
 

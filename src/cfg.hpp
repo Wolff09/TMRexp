@@ -61,6 +61,14 @@ namespace tmr {
 					else if (other._store[i] < _store[i]) return false;
 				return false;
 			}
+			bool operator==(const DynamicStore<T, DEFAULT>& other) const {
+				for (std::size_t i = 0; i < _store.size(); i++)
+					if (_store[i] != other._store[i]) return false;
+				return true;
+			}
+			bool operator!=(const DynamicStore<T, DEFAULT>& other) const {
+				return !(*this == other);
+			}
 			void print(std::ostream& os) const;
 	};
 

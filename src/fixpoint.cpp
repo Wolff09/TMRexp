@@ -5,7 +5,7 @@
 #include "fixp/interference.hpp"
 #include "counter.hpp"
 #include "config.hpp"
-#include "chkmimic.hpp"
+#include "chkaware.hpp"
 
 using namespace tmr;
 
@@ -67,7 +67,7 @@ void RemainingWork::add(Cfg&& cfg) {
 	// if (cfg.pc[0] && cfg.pc[0]->id()>=4 && cfg.pc[0]->id()<=10 && (cfg.shape->test(7,6,EQ) || cfg.shape->test(7,6,MT) || cfg.shape->test(7,6,GT))) { std::cout << "top goes to node" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
 	// if (cfg.pc[0] && cfg.pc[0]->id()>=4 && cfg.pc[0]->id()<=10 && (cfg.shape->test(7,6,EQ) || cfg.shape->test(7,6,MT) || cfg.shape->test(7,6,GT))) { std::cout << "top reaches node" << std::endl; exit(0); }
 	// if (cfg.pc[0] && cfg.pc[0]->id()>=4 && cfg.pc[0]->id()<=10 && (cfg.shape->test(5,6,EQ) || cfg.shape->test(5,6,MT) || cfg.shape->test(5,6,GT))) { std::cout << "ToS reaches node" << std::endl; exit(0); }
-	
+
 
 
 	auto res = _enc.take(std::move(cfg));
@@ -149,6 +149,10 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 
 	#endif
 
-	std::cout << std::endl << "Fixed point computed " << enc->size() << " distinct configurations." << std::endl;
+	// std::cout << std::endl << "Fixed point computed " << enc->size() << " distinct configurations." << std::endl;
+
+	bool is_fp_sound = chk_aba_awareness(*enc);
+	if (!is_fp_sound) std::cerr << "FIXPOINT SOLUTION UNSOUND!" << std::endl;
+
 	return enc;
 }

@@ -157,12 +157,6 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 					if (is_row_freed ^ is_col_freed) {
 						prune.set(EQ);
 					}
-					// if (is_row_freed) {
-					// 	prune |= MT_GT;
-					// }
-					// if (is_col_freed) {
-					// 	prune |= MF_GF;
-					// }
 				}
 
 
@@ -172,7 +166,7 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 
 		bool success = make_concretisation(shape);
 		if (!success) {
-			input.reset();
+			input.reset(); // TODO: reset to null?
 			break;
 		}
 	}
