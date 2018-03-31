@@ -166,7 +166,7 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 
 		bool success = make_concretisation(shape);
 		if (!success) {
-			input.reset(); // TODO: reset to null?
+			input.reset(nullptr);
 			break;
 		}
 	}
@@ -328,15 +328,12 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2) {
 
 	const Cfg& tmp = *extended;
 	INTERFERENCE_STEPS++;
-	// std::cout << "===============================================" << std::endl << "Interference for: " << std::endl << c1 << *c1.shape << std::endl << "and:" << std::endl << c2 << *c2.shape << std::endl << "Post for combined:" << std::endl << tmp << *tmp.shape << std::endl;
 
 	// do a post step for the extended thread
 	std::vector<Cfg> postcfgs = tmr::post(tmp, 1);
 	
 	// the resulting cfgs need to be projected to 1 threads, then push them to result vector
 	for (Cfg& pcfg : postcfgs) {
-		// std::cout << "Post (before projection)" << std::endl << pcfg << *pcfg.shape << std::endl;
-
 		project_away(pcfg, 1);
 	}
 

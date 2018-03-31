@@ -41,35 +41,6 @@ const Cfg& RemainingWork::pop() {
 static bool output = false;
 
 void RemainingWork::add(Cfg&& cfg) {
-	// std::cout << "Adding: " << cfg << *cfg.shape << std::endl;
-	// if (output) std::cout << "Adding: " << cfg << *cfg.shape << std::endl;
-
-	// if (cfg.shape->test(5,1,EQ)) { std::cout << std::endl << "5=1" << std::endl; exit(0); }
-	// if (cfg.shape->test(6,1,EQ) && cfg.freed) { std::cout << std::endl << "6=1 freed" << std::endl; exit(0); }
-	// if (cfg.shape->test(1,3,EQ)) { std::cout << std::endl << "1=3" << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.guard0state.at(7) && !cfg.guard0state.at(7)->is_initial() && !cfg.valid_ptr.at(7)) { std::cout << std::endl << "invalid guard" << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.pc[0]->id()==30 && !cfg.valid_ptr.at(6) && cfg.shape->test(5, 7, EQ)) { std::cout << "node invalid with option to CAS" << std::endl; exit(0); }
-	// if (cfg.own.at(6) && haveCommon(cfg.shape->at(5,6), EQ_MT_GT)) { std::cout << "owned node shared reachable" << std::endl; exit(0); }
-	// if (cfg.state.states().at(4)->name() == "u5" && cfg.shape->test(5,0,EQ)) { std::cout << "foobar: u5 with option of empty stack" << std::endl; /*exit(0);*/ }
-	// if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && !cfg.guard0state.at(7)) { std::cout << "top has no smr state" << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.pc[0]->id()>20 && cfg.pc[0]->id()<=27 && cfg.guard0state.at(7)->name() == "r") { std::cout << "top has 'r' smr state" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.pc[0]->id()>=22 && cfg.pc[0]->id()<=27 && cfg.guard0state.at(7)->name() == "r" && cfg.shape->test(5,7,EQ)) { std::cout << "top has 'r' smr state despite being shared reachable" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.pc[0]->id()==27 && cfg.guard0state.at(7)->name() == "rg" && cfg.shape->test(5,7,EQ)) { std::cout << "top has 'rg' smr state despite being shared reachable" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && cfg.guard0state.at(7)->name() == "rg") { std::cout << "top has 'rg' smr state" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.pc[0]->id()==27 && cfg.guard0state.at(7)->name() == "rg" && cfg.shape->test(5,7,EQ)) { std::cout << "top has 'rg' smr state despite being shared reachable" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=30 && cfg.guard0state.at(6) && cfg.guard0state.at(6)->is_special() && cfg.shape->test(5,7, EQ)) { std::cout << "node retired despite top being guarded and shared reachable" << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.pc[0]->id()==30 && cfg.shape->at(7,6) != MT_) { std::cout << "node not next of top despite guard" << std::endl; exit(0); }
-	// if (cfg.shape->test(7,1, EQ) && cfg.freed && cfg.valid_ptr.at(7)) { std::cout << "top valid despite being potentially freed" << std::endl; exit(0); }
-	// if (output && cfg.pc[0] && cfg.pc[0]->id()==26) { std::cout << "Adding after free: " << cfg << *cfg.shape << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && !cfg.valid_ptr.at(7)) { std::cout << "top invalid despite guard" << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.pc[0]->id()>=29 && cfg.pc[0]->id()<=35 && cfg.guard0state.at(7)->name() == "rg") { std::cout << "top has 'rg' smr state" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.pc[0]->id()>=41 && cfg.pc[0]->id()<=43 && !cfg.valid_ptr.at(7)) { std::cout << "top h invalid despite guard" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.pc[0]->id()>=4 && cfg.pc[0]->id()<=10 && (cfg.shape->test(7,6,EQ) || cfg.shape->test(7,6,MT) || cfg.shape->test(7,6,GT))) { std::cout << "top goes to node" << std::endl << cfg << *cfg.shape << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.pc[0]->id()>=4 && cfg.pc[0]->id()<=10 && (cfg.shape->test(7,6,EQ) || cfg.shape->test(7,6,MT) || cfg.shape->test(7,6,GT))) { std::cout << "top reaches node" << std::endl; exit(0); }
-	// if (cfg.pc[0] && cfg.pc[0]->id()>=4 && cfg.pc[0]->id()<=10 && (cfg.shape->test(5,6,EQ) || cfg.shape->test(5,6,MT) || cfg.shape->test(5,6,GT))) { std::cout << "ToS reaches node" << std::endl; exit(0); }
-
-
-
 	auto res = _enc.take(std::move(cfg));
 	if (res.first) _work.insert(&res.second);
 }
@@ -128,8 +99,6 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 			// sequential steps
 			while (!work.done()) {
 				const Cfg& topost = work.pop();
-				// std::cout << "===============================================" << std::endl << "Post for: " << std::endl << topost << *topost.shape << std::endl;
-				// output = true;
 				work.add(tmr::mk_all_post(topost, prog));
 				output = false;
 
@@ -148,8 +117,6 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 		}
 
 	#endif
-
-	// std::cout << std::endl << "Fixed point computed " << enc->size() << " distinct configurations." << std::endl;
 
 	bool is_fp_sound = chk_aba_awareness(*enc);
 	if (!is_fp_sound) std::cerr << "FIXPOINT SOLUTION UNSOUND!" << std::endl;

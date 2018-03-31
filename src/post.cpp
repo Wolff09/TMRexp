@@ -40,24 +40,7 @@ static std::vector<Cfg> get_post_cfgs(const Cfg& cfg, unsigned short tid) {
 
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, unsigned short tid) {
-	auto post = get_post_cfgs(cfg, tid);
-
-	#if HINTING
-		const Program* prog = NULL;
-		if (cfg.pc[0]) prog = &cfg.pc[0]->function().prog();
-		if (cfg.pc[1]) prog = &cfg.pc[1]->function().prog();
-		if (prog && prog->has_hint()) {
-			std::vector<Cfg> cppost;
-			cppost.reserve(post.size());
-			for (auto& c : post) {
-				bool rm = prog->apply_hint(c.shape.get());
-				if (!rm) {
-					cppost.push_back(std::move(c));
-				}
-			}
-			post = std::move(cppost);
-		}
-	#endif
-
-	return post;
+	return get_post_cfgs(cfg, tid);
+	// auto post = get_post_cfgs(cfg, tid);
+	// return post;
 }

@@ -27,12 +27,10 @@ Shape::Shape(std::size_t numObsVars, std::size_t numGlobVars, std::size_t numLoc
 
 void Shape::extend() {
 	_bounds += _numLocVars;
-	// _numThreads++;
 }
 
 void Shape::shrink() {
 	_bounds -= _numLocVars;
-	// _numThreads--;
 }
 
 
@@ -54,8 +52,6 @@ bool Shape::test(std::size_t i, std::size_t j, Rel r) const {
 void Shape::set(std::size_t i, std::size_t j, RelSet rs) {
 	assert(i < _bounds && j < _bounds);
 	_cells[i][j] = rs;
-	// if (i == j) _cells[i][i] |= symmetric(rs);
-	// else _cells[j][i] = symmetric(_cells[i][j]);
 	_cells[j][i] = symmetric(rs);
 	assert(_cells[i][j].any());
 	assert(_cells[j][i].any());
@@ -64,17 +60,12 @@ void Shape::set(std::size_t i, std::size_t j, RelSet rs) {
 void Shape::remove_relation(std::size_t i, std::size_t j, Rel r) {
 	assert(i < _bounds && j < _bounds);
 	_cells[i][j].set(r, false);
-	// if (i == j) _cells[i][i].set(symmetric(r), false);
-	// else _cells[j][i] = symmetric(_cells[i][j]);
 	_cells[j][i].set(symmetric(r), false);
 }
 
 void Shape::add_relation(std::size_t i, std::size_t j, Rel r) {
 	assert(i < _bounds && j < _bounds);
-	// if ((i == 8 && j == 0) || (i == 0 && j == 8)) if (r == BT) std::cout << "LLLaddBT" << std::endl;
 	_cells[i][j].set(r, true);
-	// if (i == j) _cells[i][i].set(symmetric(r), true);
-	// else _cells[j][i] = symmetric(_cells[i][j]);
 	_cells[j][i].set(symmetric(r), true);
 }
 

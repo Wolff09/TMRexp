@@ -159,15 +159,6 @@ std::vector<Cfg> tmr::post_free(const Cfg& cfg, unsigned short tid, const Progra
 
 		auto eqsplit = split_shape_for_eq(*tmp, 0, tmp->size());
 		for (Shape* shape : eqsplit){
-			// if (split_shape->at(i, split_shape->index_UNDEF()) == MT_) {
-			// 	delete split_shape;
-			// 	continue;
-			// }
-
-			// // set next field of freed address to undef
-			// Shape* shape = post_assignment_pointer_shape_next_var(*split_shape, i, split_shape->index_NULL(), cfg.pc[tid]);
-			// delete split_shape;
-
 			result.push_back(Cfg(cfg, shape));
 			auto& cf = result.back();
 
@@ -178,7 +169,6 @@ std::vector<Cfg> tmr::post_free(const Cfg& cfg, unsigned short tid, const Progra
 					cf.valid_next.set(j, false);
 					fire_free_event(cf.guard0state, j, prog);
 					fire_free_event(cf.guard1state, j, prog);
-					// TODO: set next ptr to UDEF
 					if (j == shape->index_REUSE()) {
 						cf.freed = true;
 						cf.retired = false;

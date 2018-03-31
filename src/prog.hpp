@@ -375,20 +375,6 @@ namespace tmr {
 			const Variable& decl() const { return _var->decl(); }
 	};
 
-	// class Free : public Statement {
-	// 	private:
-	// 		std::unique_ptr<VarExpr> _var;
-
-	// 	public:
-	// 		Statement::Class clazz() const { return Statement::Class::FREE; }
-	// 		void namecheck(const std::map<std::string, Variable*>& name2decl);
-	// 		void print(std::ostream& os, std::size_t indent) const;
-
-	// 		Free(std::unique_ptr<VarExpr> var) : _var(std::move(var)) {}
-	// 		const VarExpr& var() const { return *_var; }
-	// 		const Variable& decl() const { return _var->decl(); }
-	// };
-
 	class Retire : public Statement {
 		private:
 			std::unique_ptr<VarExpr> _var;

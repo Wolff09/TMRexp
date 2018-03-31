@@ -15,13 +15,10 @@ using namespace tmr;
 void remove_observer_binding(Shape& shape, std::size_t obsct) {
 	//convert observer variable id to cell term id
 	obsct = shape.index_ObserverVar(obsct);
-	// std::cout << "  - removing bindings for observer cell term " << obsct << std::endl;
 	for (std::size_t i = 0; i < shape.size(); i++)
 		shape.set(i, obsct, BT_);
 	shape.set(obsct, obsct, EQ_);
-	shape.set(obsct, shape.index_UNDEF(), MT_); // don't do this to distinguish between never seen and poped via the shape during interference
-	assert(consistent(shape));
-	assert(is_closed_under_reflexivity_and_transitivity(shape));
+	shape.set(obsct, shape.index_UNDEF(), MT_);
 }
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsigned short tid) {
@@ -33,7 +30,6 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsi
 
 	const Shape& input = *cfg.shape;
 	std::size_t lhs = mk_var_index(input, stmt.expr(), tid);
-	// std::cout << " -- " << lhs << ".data = __in__; " << std::endl;
 
 	if (is_invalid_ptr(cfg, lhs)) raise_rpr(cfg, lhs, "Bad write to data field: dereference of invalid pointer.");
 	CHECK_RPRF_ws(lhs, stmt);
@@ -87,7 +83,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsi
 			// do not assert anything.
 			// /* removed on purpose (see comment above) */
 
-			// TODO: the following should be "more correct" than the current setup, but it gives way more cfgs to explore
+			// TODO: the following should be more precise than the current setup, but it gives way more cfgs to explore
 			// Cfg tmp(cfg, shape);
 			// result.push_back(tmr::post_assignment_pointer_var_var(cfg, obs, lhs, tid, &stmt));
 
@@ -110,30 +106,6 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsi
 
 
 /******************************** OUTPUT: __out__ = RHS.DATA ********************************/
-
-// bool is_inout_correct(const Shape& shape, const WriteOutputAssignment& stmt, OValue inout, unsigned short tid) {
-// 	// std::cout << "Checking inout["<<tid<<"]=" << inout << " for shape" << std::endl << shape << std::endl;
-// 	auto var_index = mk_var_index(shape, stmt.expr(), tid);
-// 	if (inout.type() == OValue::ANONYMOUS) {
-// 		for (std::size_t i = 0; i < shape.sizeObservers(); i++)
-// 			if (shape.test(var_index, shape.index_ObserverVar(i), EQ)) {
-// 				// std::cout << "Should output: Anonymous; could output: Observed("<<i<<") (since: "<< shape.index_ObserverVar(i) << " = " << var_index << ")" << std::endl;
-// 				return false;
-// 			}
-// 	} else if (inout.type() == OValue::OBSERVABLE) {
-// 		if (shape.at(var_index, shape.index_ObserverVar(inout.id())) != EQ_) {
-// 			// std::cout << "Should output: Observed("<<inout.id()<<"); but no equality" << std::endl;
-// 			return false;
-// 		}
-// 		for (std::size_t i = 0; i < shape.sizeObservers(); i++)
-// 			if (i == inout.id()) continue;
-// 			else if (shape.test(var_index, shape.index_ObserverVar(i), EQ)) {
-// 				// std::cout << "Should output: Observed("<<inout.id()<<"); could output: Observed("<<i<<")" << std::endl;
-// 				return false;
-// 			}
-// 	}
-// 	return true;
-// }
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, const WriteOutputAssignment& stmt, unsigned short tid) {
 	CHECK_STMT;

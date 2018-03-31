@@ -89,7 +89,6 @@ namespace tmr {
 		mutable DynamicValidity valid_next;
 		mutable DynamicSMRState guard0state;
 		mutable DynamicSMRState guard1state;
-		// TODO: realloc address smr state
 		bool freed;
 		bool retired;
 

@@ -57,7 +57,7 @@ static inline std::unique_ptr<Cfg> prune_reuse(const Cfg& cfg, std::vector<std::
 	auto re = shape.index_REUSE();
 	for (auto v : vars) shape.remove_relation(v, re, EQ);
 	bool success = make_concretisation(shape);
-	if (!success) result.reset();
+	if (!success) result.reset(nullptr);
 	return result;
 }
 
@@ -288,8 +288,6 @@ bool tmr::chk_aba_awareness(const Encoding& enc) {
 
 			const Cfg& aba = *noreuse;
 			auto continuations = mk_continuations(*info.ite, aba);
-
-			// TODO: ensure that the shared state was not changed when computing the continuations cfgs.
 
 			chk_retry(continuations.first, aba, info.var, enc);
 			chk_noretry(continuations.second, aba, enc);

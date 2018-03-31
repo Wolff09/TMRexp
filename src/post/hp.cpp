@@ -9,8 +9,6 @@
 #include "post/setout.hpp"
 #include "config.hpp"
 
-#include "counter.hpp" // TODO: delete (included for debugging)
-
 using namespace tmr;
 
 
@@ -39,41 +37,6 @@ static inline std::deque<Shape*> split_shape(const Cfg& cfg, std::size_t begin, 
     return result;
 }
 
-// static inline std::vector<Shape*> split_shape(const Cfg& cfg, std::size_t begin, std::size_t end) {
-// 	// split shape such that no relation contains = and !=
-
-// 	std::vector<Shape*> result;
-// 	std::vector<Shape*> worklist;
-// 	worklist.reserve((end - begin)*2);
-// 	worklist.push_back(new Shape(*cfg.shape));
-
-// 	while (!worklist.empty()) {
-// 		Shape* s = worklist.back();
-// 		worklist.pop_back();
-// 		if (s == NULL) continue;
-// 		bool is_split = true;
-
-// 		for (std::size_t i = begin; i < end; i++) {
-// 			for (std::size_t j = i+1; j < end; j++) {
-// 				if (s->test(i, j, EQ) && intersection(s->at(i, j), MT_GT_MF_GF_BT).any()) {
-// 					worklist.push_back(isolate_partial_concretisation(*s, i, j, EQ_));
-// 					worklist.push_back(isolate_partial_concretisation(*s, i, j, MT_GT_MF_GF_BT));
-// 					is_split = false;
-// 					break;
-// 				}
-// 			}
-// 		}
-
-// 		if (is_split) {
-// 			result.push_back(s);
-// 		} else {
-// 			delete s;
-// 		}
-// 	}
-
-// 	return result;
-// }
-
 static inline void fire_event(const Cfg& cfg, DynamicSMRState& state, const Function* eqevt, const Function* neqevt, std::size_t var, std::size_t begin, std::size_t end) {
 	const Shape& shape = *cfg.shape;
 	for (std::size_t i = begin; i < end; i++) {
@@ -86,8 +49,6 @@ static inline void fire_event(const Cfg& cfg, DynamicSMRState& state, const Func
 			throw std::logic_error("Owned cells must not be guarded/retired.");
 		} else if (evt->name() == "retire" && i < cfg.shape->offset_locals(0)) {
 			throw std::logic_error("Invariant violation: shared cells must not be retired.");
-			// if (i == 5) throw std::logic_error("TopOfStack must not be retired.");
-			// if (i >=  && shape.test(i, 5, EQ)) throw std::logic_error("TopOfStack alias must not be retired.");
 		}
 	}
 }
@@ -99,13 +60,6 @@ static inline std::vector<Cfg> smrpost(const Cfg& cfg, const Function* eqevt, co
 		result.push_back(mk_next_config(cfg, shape, tid));
 		if (fire0) fire_event(result.back(), result.back().guard0state, eqevt, neqevt, var, begin, end);
 		if (fire1) fire_event(result.back(), result.back().guard1state, eqevt, neqevt, var, begin, end);
-		// if (SEQUENTIAL_STEPS > 90000 && cfg.pc[0]->id()==22) {
-		// 	std::cout << "restulting cfg: " << result.back() << *result.back().shape << std::endl;
-		// 	if (result.back().guard0state.at(7)->name() == "r" && result.back().shape->test(5,7,EQ)) {
-		// 		std::cout << "bug!" << std::endl;
-		// 		exit(0);
-		// 	}
-		// }
 	}
 
 	return result;

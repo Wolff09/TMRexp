@@ -27,12 +27,6 @@ static bool has_init_name_clash(const std::vector<std::unique_ptr<Function>>& fu
 	return false;
 }
 
-// struct VariableComparator {
-// 	bool operator()(const Variable& lhs, const Variable& rhs) const {
-// 		return &lhs < &rhs;
-// 	}
-// };
-
 Program::Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::vector<std::unique_ptr<Function>> funs)
     : Program(name, std::move(globals), std::move(locals), std::make_unique<Sequence>(std::vector<std::unique_ptr<Statement>>()), std::move(funs)) {}
 
@@ -284,12 +278,6 @@ std::unique_ptr<While> tmr::Loop(std::unique_ptr<Sequence> body) {
 	return res;
 }
 
-
-// std::unique_ptr<Free> tmr::Fr(std::string var) {
-// 	std::unique_ptr<Free> res(new Free(Var(var)));
-// 	return res;
-// }
-
 std::unique_ptr<Retire> tmr::Rtire(std::string var) {
 	std::unique_ptr<Retire> res(new Retire(Var(var)));
 	return res;
@@ -499,10 +487,6 @@ void InOutAssignment::namecheck(const std::map<std::string, Variable*>& name2dec
 void Malloc::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	_var->namecheck(name2decl);
 }
-
-// void Free::namecheck(const std::map<std::string, Variable*>& name2decl) {
-// 	_var->namecheck(name2decl);
-// }
 
 void Retire::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	_var->namecheck(name2decl);
@@ -957,13 +941,13 @@ void Program::print(std::ostream& os) const {
 		_init()->print(os, 1);
 	}
 	for (const auto& f : _funs) f->print(os, 1);
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY
-		for (const auto& f : _funs) {
-			os << std::endl << std::endl;
-			INDENT(1);
-			os << "summary(" << f->name() << "): ";
-			f->_summary->print(os, 1);
-		}
-	#endif
+	// #if REPLACE_INTERFERENCE_WITH_SUMMARY
+	// 	for (const auto& f : _funs) {
+	// 		os << std::endl << std::endl;
+	// 		INDENT(1);
+	// 		os << "summary(" << f->name() << "): ";
+	// 		f->_summary->print(os, 1);
+	// 	}
+	// #endif
 	os << std::endl << "END" << std::endl;
 }

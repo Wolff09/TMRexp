@@ -18,8 +18,6 @@ namespace tmr {
 	}
 	
 	std::vector<Cfg> eval_cond_eqneq(const Cfg& cfg, const EqNeqCondition& cond, const Statement* nY, const Statement* nN, unsigned short tid);
-
-	// std::vector<Cfg> eval_cond_wage(const Cfg& cfg, const EqPtrAgeCondition& cond, const Statement* nY, const Statement* nN, unsigned short tid);
 	
 	std::vector<Cfg> eval_cond_cas(const Cfg& cfg, const CompareAndSwap& stmt, const Statement* nY, const Statement* nN, unsigned short tid);
 

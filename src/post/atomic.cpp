@@ -13,7 +13,6 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Atomic& stmt, unsigned short ti
 
 	work.push_back(cfg.copy());
 	work.back().pc[tid] = stmt.sqz().next();
-	assert(work.back().pc[tid] == &stmt.sqz().at(0));
 
 	while (!work.empty()) {
 		if (work.back().pc[tid] == NULL) {

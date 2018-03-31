@@ -111,8 +111,8 @@ namespace tmr {
 	}
 
 	// TODO: check for udef/seg access
-	#define CHECK_RPRF(x) if ensure_prf(input, x);
-	#define CHECK_RPRF_ws(x, stmt) ensure_prf(input, x, stmt);
+	#define CHECK_RPRF(x) if ensure_prf(input, x); // TODO: delete those
+	#define CHECK_RPRF_ws(x, stmt) ensure_prf(input, x, stmt); // TODO: delete those
 	// TODO: check for null access
 	#define CHECK_ACCESS(x) check_ptr_access(input, x);
 	#define CHECK_ACCESS_ws(x, stmt) check_ptr_access(input, x, stmt);

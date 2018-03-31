@@ -101,7 +101,6 @@ bool consistentRel(const Rel xz, const RelSet xy, const RelSet yz) {
 bool tmr::consistent(const Shape& shape, std::size_t x, std::size_t z, Rel rel) {
 	for (std::size_t y = 0; y < shape.size(); y++)
 		if (!consistentRel(rel, shape.at(x,y), shape.at(y,z))) {
-			// std::cout<<"InconsistentRel(x="<<x<<",y="<<y<<",z="<<z<<"): "<<x<<rel<<z<<" via "<<x<<shape.at(x,y)<<y<<" and "<<y<<shape.at(y,z)<<z<<std::endl;//<<" in shape "<<std::endl<<shape<<std::endl;
 			return false;
 		}
 	return true;
@@ -159,7 +158,6 @@ bool tmr::is_closed_under_reflexivity_and_transitivity(const Shape& input, bool 
 	for (std:: size_t i = 0; i < shape.size(); i++)
 		for (std:: size_t j = i+1; j < shape.size(); j++)
 			if (shape.at(i, j) != input.at(i, j)) {
-				// std::cout<<"No Closure@("<<i<<","<<j<<"). "<<input.at(i,j)<<" versus "<<shape.at(i,j)<<" for input "<<std::endl<<input<<"versus"<<std::endl<<shape<<std::endl;
 				if (weak)
 					if (shape.test(i, i, GT) || shape.test(j, j, GT))
 						// selfloop => transitivity got confused (non-trivial constraints not present in shape)
@@ -249,7 +247,7 @@ struct shape_ptr_comparator {
 	}
 };
 
-std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t row, bool /*foobar*/) { // TODO: remove foobar parameter
+std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t row) {
 	assert(consistent(toSplit));
 	
 	std::vector<Shape*> result;
@@ -272,7 +270,7 @@ std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t ro
 				delete shape;
 			}
 			work.pop();
-		} else if (col == row /*|| (foobar && (col >= toSplit.offset_locals(0) || col == 0 || col == 1 || col == 2 || col == 3 || col == 4))*/) {
+		} else if (col == row) {
 			// disambiguate reflexivity
 			assert(shape->at(col, row) == EQ_);
 			work.top().first++;

@@ -89,7 +89,7 @@ namespace tmr {
 	 *          is split such that it contains either {=} or {↦,⇢} or {↤,⇠} or {⋈}
 	 *          (or subsets of those).
 	 */
-	std::vector<Shape*> disambiguate(const Shape& shape, const std::size_t index, bool foobar=false);
+	std::vector<Shape*> disambiguate(const Shape& shape, const std::size_t index);
 
 	/**
 	 * @brief Disambiguates the reachability information about the passed cell.

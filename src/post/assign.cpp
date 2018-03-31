@@ -43,7 +43,6 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Assignment& stmt, unsigned shor
 /******************************** DATA: LHS.DATA = RHS.DATA ********************************/
 
 std::vector<Cfg> tmr::post_assignment_data(const Cfg& cfg, const Expr& lhs, const Expr& rhs, unsigned short tid, const Statement* stmt) {
-	assert(false);
 	throw std::logic_error("Malicious call to tmr::post_assignment_data()");
 }
 
@@ -218,10 +217,8 @@ Shape* tmr::post_assignment_pointer_shape_var_next(const Shape& input, const std
 	CHECK_ACCESS_ws(rhs, stmt);
 
 	Shape* result = new Shape(input);
-	assert(consistent(*result));
 
 	result->set(lhs, result->index_NULL(), EQ_MT_GT_BT);
-	// result->set(lhs, result->index_FREE(), /*EQ_*/MT_GT_BT);
 	result->set(lhs, result->index_UNDEF(), MT_GT_BT);
 
 	for (std::size_t i = result->offset_vars(); i < result->size(); i++)
@@ -238,14 +235,10 @@ Shape* tmr::post_assignment_pointer_shape_var_next(const Shape& input, const std
 				if (!consistent(*result, lhs, i, r)) {
 					result->remove_relation(lhs, i, r);
 					needs_iterating = true;
-					assert(result->at(lhs, i).any());
 				}
 			}
 	} while (needs_iterating);
 
-	assert(result->at(rhs, lhs) == MT_);
-	assert(consistent(*result));
-	assert(is_closed_under_reflexivity_and_transitivity(*result));
 	return result;
 }
 
@@ -261,11 +254,9 @@ Shape* tmr::post_assignment_pointer_shape_next_var(const Shape& input, const std
 	/*  1  */	std::vector<Shape*> shapes = disambiguate(input, lhs);
 	for (Shape* shape : shapes) {
 		         	check_no_reachability(*shape, rhs, lhs, &input, stmt);
-		         	// bool is_free = msetup == MM && shape->test(lhs, shape->index_FREE(), MT);
 		/* 2+3 */	remove_successors(*shape, lhs); // TODO: why not before split?
 		/*  4  */	// lhs↦rhs done by u=lhs and v=rhs in step 5
-		/*  5  */	assert(shape->at(lhs, rhs) == BT_);
-		         	for (std::size_t u = 0; u < shape->size(); u++) {
+		/*  5  */	for (std::size_t u = 0; u < shape->size(); u++) {
 		         		if (!haveCommon(shape->at(u, lhs), EQ_MT_GT)) continue;
 		         		for (std::size_t v = 0; v < shape->size(); v++) {
 		         			if (!haveCommon(shape->at(rhs, v), EQ_MT_GT)) continue;
@@ -274,12 +265,6 @@ Shape* tmr::post_assignment_pointer_shape_next_var(const Shape& input, const std
 		         			RelSet ul = shape->at(u, lhs);
 		         			RelSet rv = shape->at(rhs, v);
 
-							assert(u != v);
-							assert(ul.any());
-							assert(rv.any());
-							assert(!ul.test(BT) || ul.count() >= 2);
-							assert(!rv.test(BT) || rv.count() >= 2);
-							
 							// u↦v if u=lhs and rhs=v
 							if (ul.test(EQ) && rv.test(EQ)) result.set(MT);
 							
@@ -291,19 +276,9 @@ Shape* tmr::post_assignment_pointer_shape_next_var(const Shape& input, const std
 							if (haveCommon(ul, MF_GF_BT)) result.set(BT);
 							else if (haveCommon(rv, MF_GF_BT)) result.set(BT);
 
-		         					shape->set(u, v, result);
-		         				}
+		         			shape->set(u, v, result);
+		         		}
 		         	}
-		         	assert(shape->at(lhs, rhs) == MT_);
-		         	// if (is_free) {
-		         	//	const std::vector<std::size_t> free_index_vec = { shape->index_FREE() };
-		         	//	auto eqVar = get_related(*shape, lhs, EQ_);
-		         	//	auto preVar = get_related(*shape, lhs, MF_GF);
-		         	//	extend_all(*shape, eqVar, free_index_vec, MT);
-		         	//	extend_all(*shape, preVar, free_index_vec, GT);
-		         	// }
-		/* fin */	assert(is_closed_under_reflexivity_and_transitivity(*shape));
-		         	assert(consistent(*shape));
 	}
 	/* fin */	return merge(shapes);
 }
