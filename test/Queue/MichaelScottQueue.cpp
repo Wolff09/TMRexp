@@ -38,12 +38,12 @@ static std::unique_ptr<Program> mk_program() {
 							)),
 							Sqz(CAS(Var("Tail"), Var("t"), Var("n"), use_age_fields))
 						))
-					)
+					),
+					Kill("n")
 				)
 			),
-			Kill("t"),
-			Kill("n"),
-			SetNull(Next("h"))
+			Kill("t")//,
+			// SetNull(Next("h"))
 		)),
 		CAS(Var("Tail"), Var("t"), Var("h"), use_age_fields)
 	);
