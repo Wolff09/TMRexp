@@ -240,8 +240,6 @@ static inline void chk_noretry(const std::deque<Cfg>& noretry, const Cfg& aba, c
 }
 
 bool tmr::chk_aba_awareness(const Encoding& enc) {
-	std::size_t aba_count = 0;
-
 	for (auto& kvp : enc) {
 		for (auto it = kvp.second.begin(); it != kvp.second.end(); it++) {
 			const Cfg& cfg = *it;
@@ -260,11 +258,9 @@ bool tmr::chk_aba_awareness(const Encoding& enc) {
 			chk_retry(continuations.first, aba, info.var, enc);
 			chk_noretry(continuations.second, aba, enc);
 
-			aba_count++;
+			ABA_AWARENESS_CHECKS++;
 		}
 	}
-
-	std::cerr << "#ABA = " << aba_count << std::endl;
 
 	return true;
 }
