@@ -34,15 +34,19 @@ static inline ABAinfo is_aba_prone(const Cfg& cfg) {
 	auto rhs_var = mk_var_index(*cfg.shape, rhs, 0);
 	bool lhs_valid = cfg.valid_ptr.at(lhs_var);
 	bool rhs_valid = cfg.valid_ptr.at(rhs_var);
-	bool lhs_local = lhs.decl().local();
-	bool rhs_local = rhs.decl().local();
+	bool lhs_local = lhs_var >= cfg.shape->offset_locals(0); // lhs.decl().local();
+	bool rhs_local = rhs_var >= cfg.shape->offset_locals(0); // rhs.decl().local();
 	if (lhs_valid && rhs_valid) return ABAinfo();
 	if (lhs_valid ^ rhs_valid) {
 		if (cond.is_inverted()) {
 			throw std::logic_error("Unsupported ABA prone assertion: condition over '!=', must be '=='.");
 		}
 		if (!(lhs_local ^ rhs_local)) {
-			throw std::logic_error("Unsupported ABA prone assertion: condition must contain exactly one shared pointer.");
+			std::cout << "ABA prone assertion: " << cfg << *cfg.shape << std::endl;
+			std::cout << "Condition does not contain shared pointer." << std::endl;
+			std::cout << "Contains: " << lhs.decl() << " (" << lhs_var << ")" << std::endl;
+			std::cout << "Contains: " << rhs.decl() << " (" << rhs_var << ")" << std::endl;
+			throw std::logic_error("Unsupported ABA prone assertion: condition must contain a shared pointer.");
 		}
 		auto var = lhs_local ? lhs_var : rhs_var;
 		auto cmp = lhs_local ? rhs_var : lhs_var;
