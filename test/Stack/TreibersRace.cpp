@@ -78,5 +78,5 @@ int main(int argc, char *argv[]) {
 	std::unique_ptr<Program> program = mk_program();
 	std::unique_ptr<Observer> linobserver = stack_observer(find(*program, "push"), find(*program, "pop"), program->freefun());
 
-	return run(*program, *linobserver);
+	return run(*program, *linobserver, false); // this program is expected to fail
 }
