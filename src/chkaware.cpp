@@ -13,9 +13,10 @@ struct ABAinfo {
 	bool aba_prone;
 	std::size_t var;
 	std::size_t valid_cmp;
+	bool shared_cmp;
 	const Ite* ite;
-	ABAinfo() : aba_prone(false), var(0), valid_cmp(0), ite(nullptr) {}
-	ABAinfo(bool p, std::size_t v, std::size_t c, const Ite* i) : aba_prone(p), var(v), valid_cmp(c), ite(i) {
+	ABAinfo() : aba_prone(false), var(0), valid_cmp(0), shared_cmp(true), ite(nullptr) {}
+	ABAinfo(bool p, std::size_t v, std::size_t c, bool s, const Ite* i) : aba_prone(p), var(v), valid_cmp(c), shared_cmp(s), ite(i) {
 		if (!ite) throw std::logic_error("ABAinfo initialized with nullptr.");
 	}
 };
@@ -26,6 +27,8 @@ static inline ABAinfo is_aba_prone(const Cfg& cfg) {
 	auto& stmt = static_cast<const Ite&>(*cfg.pc[0]);
 	if (stmt.cond().type() != Condition::EQNEQ) return ABAinfo();
 	auto& cond = static_cast<const EqNeqCondition&>(stmt.cond());
+	if (cond.lhs().clazz() == Expr::SEL || cond.rhs().clazz() == Expr::SEL)
+		throw std::logic_error("Unsupported ABA check: comparison in 'Ite' must not contain selectors.");
 	if (cond.lhs().clazz() != Expr::VAR) return ABAinfo();
 	if (cond.rhs().clazz() != Expr::VAR) return ABAinfo();
 	auto& lhs = static_cast<const VarExpr&>(cond.lhs());
@@ -41,17 +44,20 @@ static inline ABAinfo is_aba_prone(const Cfg& cfg) {
 		if (cond.is_inverted()) {
 			throw std::logic_error("Unsupported ABA prone assertion: condition over '!=', must be '=='.");
 		}
-		if (!(lhs_local ^ rhs_local)) {
-			std::cout << "ABA prone assertion: " << cfg << *cfg.shape << std::endl;
-			std::cout << "Condition does not contain shared pointer." << std::endl;
-			std::cout << "Contains: " << lhs.decl() << " (" << lhs_var << ")" << std::endl;
-			std::cout << "Contains: " << rhs.decl() << " (" << rhs_var << ")" << std::endl;
-			throw std::logic_error("Unsupported ABA prone assertion: condition must contain a shared pointer.");
-		}
-		auto var = lhs_local ? lhs_var : rhs_var;
-		auto cmp = lhs_local ? rhs_var : lhs_var;
-		return { true, var, cmp, &stmt };
+		// if (!(lhs_local ^ rhs_local)) {
+		// 	std::cout << "ABA prone assertion: " << cfg << *cfg.shape << std::endl;
+		// 	std::cout << "Condition does not contain shared pointer." << std::endl;
+		// 	std::cout << "Contains: " << lhs.decl() << " (" << lhs_var << ")" << std::endl;
+		// 	std::cout << "Contains: " << rhs.decl() << " (" << rhs_var << ")" << std::endl;
+		// 	throw std::logic_error("Unsupported ABA prone assertion: condition must contain a shared pointer.");
+		// }
+		auto var = lhs_valid ? rhs_var : lhs_var;
+		auto cmp = lhs_valid ? lhs_var : rhs_var;
+		bool shr = !lhs_local || !rhs_local;
+		return { true, var, cmp, shr, &stmt };
 	}
+	std::cout << "Unsupported ABA prone assertion: comparing two invalid pointers." << std::endl;
+	std::cout << "ABA Cfg: " << cfg << *cfg.shape << std::endl;
 	throw std::logic_error("Unsupported ABA prone assertion: comparing two invalid pointers.");
 }
 
@@ -81,7 +87,6 @@ static inline bool has_non_local_effects(const Statement& stmt) {
 		case Statement::SQZ:
 		case Statement::HPSET:
 		case Statement::HPRELEASE:
-		case Statement::ITE:
 		case Statement::WHILE:
 		case Statement::BREAK:
 		case Statement::ORACLE:
@@ -100,10 +105,21 @@ static inline bool has_non_local_effects(const Statement& stmt) {
 			if (exp.decl().local()) return false;
 		}
 	}
+
+	if (stmt.clazz() == Statement::ITE) {
+		auto& ite = static_cast<const Ite&>(stmt);
+		if (ite.cond().type() == Condition::EQNEQ) {
+			auto& cond = static_cast<const EqNeqCondition&>(ite.cond());
+			if (cond.lhs().clazz() == Expr::VAR && cond.rhs().clazz() == Expr::VAR) {
+				return false;
+			}
+		}
+	}
 	
 	// the following default to be problematic:
-	// MALLOC, RETIRE, LINP, INPUT, OUTPUT, CAS, SETNULL, ATOMIC
+	// MALLOC, RETIRE, LINP, INPUT, OUTPUT, SETNULL, ATOMIC, CAS
 	// ASSIGN with non-variable or non-local-variable lhs_local
+	// ITE comparing other than pointers
 
 	return true;
 }
@@ -111,7 +127,7 @@ static inline bool has_non_local_effects(const Statement& stmt) {
 static inline std::pair<std::deque<Cfg>, std::deque<Cfg>> mk_continuations(const Ite& abaprone, const Cfg& src) {
 	// gives two lists:
 	//     - result.first are cfgs that retry (come back to abaprone)
-	//     - result.second are cfgs that do not retry (do not come back to abaprone)
+	//     - result.second are cfgs that do not retry (do not come back to abaprone), or perform shared update
 
 	std::deque<Cfg> worklist;
 	auto nextfalse = post_branch(src, abaprone.next_false_branch());
@@ -123,7 +139,7 @@ static inline std::pair<std::deque<Cfg>, std::deque<Cfg>> mk_continuations(const
 		worklist.pop_back();
 
 		// function returned ==> no retry
-		if (!cfg.pc[0]) {
+		if (!cfg.pc[0] || has_non_local_effects(*cfg.pc[0])) {
 			noretry.push_back(std::move(cfg));
 			continue;
 		}
@@ -132,10 +148,6 @@ static inline std::pair<std::deque<Cfg>, std::deque<Cfg>> mk_continuations(const
 		if (cfg.pc[0] == &abaprone) {
 			retry.push_back(std::move(cfg));
 			continue;
-		}
-
-		if (has_non_local_effects(*cfg.pc[0])) {
-			throw std::logic_error("Unsupported ABA prone assertion: retrying leads to non-local action.");
 		}
 
 		// continue search for abaprone
@@ -162,8 +174,8 @@ static inline bool allowed_retry_state(const State* state, const State* other) {
 	// returns true iff retrying from state and reaching other is okay
 	if (state == other) return true;
 	if (state != NULL && other != NULL) {
-		if (state->name() == "d" && other->name() == "s0") return true;
-		if (state->name() == "dg" && other->name() == "g") return true;
+		if (state->name() == "d" && other->name() == "s0") return true; // TODO: correct?
+		if (state->name() == "dg" && other->name() == "g") return true; // TODO: correct?
 	}
 	return false;
 }
@@ -266,6 +278,8 @@ static inline void chk_noretry(const std::deque<Cfg>& noretry, const Cfg& aba, c
 	Shape* shape = tmr::merge(shapes_to_merge);
 	if (!shape) return;
 
+	// Note: the shapes in noretry configs stem from aba.shape by making certain relations
+	// precise, _without_ changing the shape! Use those more precise shapes for the check.
 	for (const Cfg& cf : noretry) {
 		// only configurations that cannot take the true branch at aba are allowed to "escape" (be non-retryers)
 		if (shared_shape_inlusion(*cf.shape, *shape)) {
@@ -274,6 +288,7 @@ static inline void chk_noretry(const std::deque<Cfg>& noretry, const Cfg& aba, c
 			std::cout << "Starting from ABA cfg:   " << aba << * aba.shape << std::endl;
 			std::cout << "Ending in non-retry cfg: " << cf << *cf.shape << std::endl;
 			std::cout << "Failed to mismatch merged shape: " << std::endl << *shape << std::endl;
+			std::cout << "(The ABA prone configuration does not invariantly take the false branch.)" << std::endl;
 			throw std::logic_error("Malicious ABA: non-retrying configuration failed.");
 		}
 	}
@@ -293,6 +308,20 @@ bool tmr::chk_aba_awareness(const Encoding& enc) {
 			const Cfg& aba = *noreuse;
 			auto continuations = mk_continuations(*info.ite, aba);
 
+			/* Note:
+			 * We have two lists here: retrying and non-retrying configurations.
+			 * The retrying ones are those that come back to the ABA prone configuration,
+			 * and on their way validated their variable; that is, they detected the ABA,
+			 * and successfully performed counter messures.
+			 * The non-retrying ones do not retry. There may be various reasons for this:
+			 * the new contents of the strucutre dictate other behavior (e.g. the stack
+			 * could have been emptied, and now the retry returns and does not come back,
+			 * see Treiber's Stack), or the invariants of the structure allows to conclude
+			 * information about the structures state from the invalidity.
+			 * In those cases, we show that the false branch is taken invariantly, i.e.,
+			 * the comparision actually is no ABA but always takes the false branch even
+			 * when allowing for arbitrary reuses.
+			*/
 			chk_retry(continuations.first, aba, info.var, enc);
 			chk_noretry(continuations.second, aba, enc);
 
