@@ -88,9 +88,9 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 
 static Shape* extract_shared_unreachable(const Shape& shape, std::size_t var) {
 	// extracts a subshape of the given one where var is not globally reachable, not null, and not udef; or null if no such shape exists
-	Shape* old = tmr::isolate_partial_concretisation(shape, var, shape.index_NULL(), MT_GT_BT); // TODO: correct?
+	Shape* old = tmr::isolate_partial_concretisation(shape, var, shape.index_NULL(), MT_GT_BT);
 	if (!old) return NULL;
-	Shape* result = tmr::isolate_partial_concretisation(*old, var, shape.index_UNDEF(), MT_GT_BT); // TODO: correct?
+	Shape* result = tmr::isolate_partial_concretisation(*old, var, shape.index_UNDEF(), MT_GT_BT);
 	delete old;
 	for (std::size_t i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
 		if (!result) break; // happens if var is definitely reachable from some shared variable, definitely null, or definitely udef
@@ -162,7 +162,7 @@ std::vector<Cfg> tmr::post_free(const Cfg& cfg, unsigned short tid, const Progra
 			result.push_back(Cfg(cfg, shape));
 			auto& cf = result.back();
 
-			// TODO: one could think about precisely querying what becomes invalid
+			// TODO: one could think about more precisely querying what becomes invalid
 			for (std::size_t j = 0; j < cf.shape->size(); j++) {
 				if (cf.shape->test(i, j, EQ)) {
 					cf.valid_ptr.set(j, false);
@@ -170,9 +170,13 @@ std::vector<Cfg> tmr::post_free(const Cfg& cfg, unsigned short tid, const Progra
 					fire_free_event(cf.guard0state, j, prog);
 					fire_free_event(cf.guard1state, j, prog);
 					if (j == shape->index_REUSE()) {
+						if (!cf.retired) {
+							// TODO: correct?
+							result.pop_back();
+							break;
+						}
 						cf.freed = true;
 						cf.retired = false;
-						// TODO: what if REUSE was not retired?
 					}
 					if (is_final(cf.guard0state, j) || is_final(cf.guard1state, j)) {
 						// Thorough check whether or not the free was allowed.

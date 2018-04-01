@@ -71,7 +71,7 @@ std::pair<Shape*, Shape*> get_emitter_and_silent_shape(const Cfg& cfg, const Con
 
 std::pair<Shape*, Shape*> get_emitter_and_silent_shape(const Cfg& cfg, const EqNeqCondition& cond, Shape* emitter, Shape* silent, unsigned short tid) {
 	if (emitter == NULL) return { NULL, silent };
-	auto result = eval_eqneq(cfg, *emitter, cond.lhs(), cond.rhs(), cond.is_inverted(), tid, false, false);
+	auto result = eval_eqneq(cfg, *emitter, cond.lhs(), cond.rhs(), cond.is_inverted(), tid);
 	delete emitter;
 	result.second = merge_shapes(result.second, silent);
 	return result;

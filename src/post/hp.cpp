@@ -74,6 +74,14 @@ static inline std::vector<Cfg> smrpost(const Cfg& cfg, const Function* eqevt, co
 
 /******************************** RETIRE ********************************/
 
+static bool is_shared_reachable(const Shape& shape, std::size_t var) {
+	for (std::size_t i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
+		if (intersection(shape.at(i, var), EQ_MT_GT).any())
+			return true;
+	}
+	return false;
+}
+
 std::vector<Cfg> tmr::post(const Cfg& cfg, const Retire& stmt, unsigned short tid) {
 	CHECK_STMT;
 	auto& evt = stmt.function().prog().retirefun(); // fire no event if guard is for another address
@@ -82,7 +90,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Retire& stmt, unsigned short ti
 	if (!cfg.valid_ptr.at(var)) raise_rpr(cfg, var, "Call to retire with invalid pointer.");
 	if (cfg.own.at(var)) raise_epr(cfg, var, "Owned addresses must not be retired.");
 	if (var < cfg.shape->offset_locals(tid)) throw std::logic_error("Retire must not use non-local pointers.");
-	// TODO: no retire of shared reachable
+	// check for retire of shared done below (more precise)
 
 	std::size_t begin = cfg.shape->offset_program_vars(); // cfg.shape->offset_locals(0);
 	std::size_t end = cfg.shape->offset_locals(tid)+cfg.shape->sizeLocals();
@@ -101,6 +109,12 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Retire& stmt, unsigned short ti
 			bool is_observed_committed = cf.inout[tid].type() == OValue::OBSERVABLE;
 			if (is_retired && is_observed && is_observed_committed) raise_epr(cfg, var, "Double retire on REUSE+observed address.");
 			cf.retired = true;
+		}
+		if (is_shared_reachable(*shape, var)) {
+			std::cout << "Retire of shared reachable address." << std::endl;
+			std::cout << cfg << *cfg.shape << std::endl;
+			std::cout << "In split shape: " << std::endl << *shape << std::endl;
+			throw std::runtime_error("Retire of shared reachable address.");
 		}
 	}
 	return result;

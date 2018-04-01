@@ -28,7 +28,7 @@ static inline ABAinfo is_aba_prone(const Cfg& cfg) {
 	if (stmt.cond().type() != Condition::EQNEQ) return ABAinfo();
 	auto& cond = static_cast<const EqNeqCondition&>(stmt.cond());
 	if (cond.lhs().clazz() == Expr::SEL || cond.rhs().clazz() == Expr::SEL)
-		throw std::logic_error("Unsupported ABA check: comparison in 'Ite' must not contain selectors.");
+		throw std::runtime_error("Unsupported ABA check: comparison in 'Ite' must not contain selectors.");
 	if (cond.lhs().clazz() != Expr::VAR) return ABAinfo();
 	if (cond.rhs().clazz() != Expr::VAR) return ABAinfo();
 	auto& lhs = static_cast<const VarExpr&>(cond.lhs());
@@ -42,14 +42,14 @@ static inline ABAinfo is_aba_prone(const Cfg& cfg) {
 	if (lhs_valid && rhs_valid) return ABAinfo();
 	if (lhs_valid ^ rhs_valid) {
 		if (cond.is_inverted()) {
-			throw std::logic_error("Unsupported ABA prone assertion: condition over '!=', must be '=='.");
+			throw std::runtime_error("Unsupported ABA prone assertion: condition over '!=', must be '=='.");
 		}
 		// if (!(lhs_local ^ rhs_local)) {
 		// 	std::cout << "ABA prone assertion: " << cfg << *cfg.shape << std::endl;
 		// 	std::cout << "Condition does not contain shared pointer." << std::endl;
 		// 	std::cout << "Contains: " << lhs.decl() << " (" << lhs_var << ")" << std::endl;
 		// 	std::cout << "Contains: " << rhs.decl() << " (" << rhs_var << ")" << std::endl;
-		// 	throw std::logic_error("Unsupported ABA prone assertion: condition must contain a shared pointer.");
+		// 	throw std::runtime_error("Unsupported ABA prone assertion: condition must contain a shared pointer.");
 		// }
 		auto var = lhs_valid ? rhs_var : lhs_var;
 		auto cmp = lhs_valid ? lhs_var : rhs_var;
@@ -58,7 +58,7 @@ static inline ABAinfo is_aba_prone(const Cfg& cfg) {
 	}
 	std::cout << "Unsupported ABA prone assertion: comparing two invalid pointers." << std::endl;
 	std::cout << "ABA Cfg: " << cfg << *cfg.shape << std::endl;
-	throw std::logic_error("Unsupported ABA prone assertion: comparing two invalid pointers.");
+	throw std::runtime_error("Unsupported ABA prone assertion: comparing two invalid pointers.");
 }
 
 static inline std::unique_ptr<Cfg> prune_reuse(const Cfg& cfg, std::vector<std::size_t> vars) {
@@ -250,7 +250,7 @@ static inline void chk_retry(const std::deque<Cfg>& retry, const Cfg& aba, std::
 			std::cout << "Starting from ABA cfg:   " << aba << * aba.shape << std::endl;
 			std::cout << "Ending in retry cfg: " << cfg << *cfg.shape << std::endl;
 			std::cout << reason << std::endl;
-			throw std::logic_error("Malicious ABA: retrying configuration failed.");
+			throw std::runtime_error("Malicious ABA: retrying configuration failed.");
 		}
 	}
 }
@@ -289,7 +289,7 @@ static inline void chk_noretry(const std::deque<Cfg>& noretry, const Cfg& aba, c
 			std::cout << "Ending in non-retry cfg: " << cf << *cf.shape << std::endl;
 			std::cout << "Failed to mismatch merged shape: " << std::endl << *shape << std::endl;
 			std::cout << "(The ABA prone configuration does not invariantly take the false branch.)" << std::endl;
-			throw std::logic_error("Malicious ABA: non-retrying configuration failed.");
+			throw std::runtime_error("Malicious ABA: non-retrying configuration failed.");
 		}
 	}
 }

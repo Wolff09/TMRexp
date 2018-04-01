@@ -32,7 +32,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsi
 	std::size_t lhs = mk_var_index(input, stmt.expr(), tid);
 
 	if (is_invalid_ptr(cfg, lhs)) raise_rpr(cfg, lhs, "Bad write to data field: dereference of invalid pointer.");
-	CHECK_RPRF_ws(lhs, stmt);
+	check_ptr_access(input, lhs, &stmt);
 
 	std::vector<Cfg> result;
 
@@ -114,7 +114,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const WriteOutputAssignment& stmt, un
 	auto var_index = mk_var_index(input, stmt.expr(), tid);
 
 	if (is_invalid_ptr(cfg, var_index)) raise_rpr(cfg, var_index, "Bad read of data field: dereference of invalid pointer.");
-	CHECK_RPRF_ws(var_index, stmt);
+	check_ptr_access(input, var_index, &stmt);
 
 	// do nothing... we have no explicit notion of data variables and returning
 	return mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);

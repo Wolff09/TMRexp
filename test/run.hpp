@@ -53,10 +53,13 @@ namespace tmr {
 		std::cout << "Time taken: " << time_taken/1000.0 << "s" << std::endl << std::endl;
 
 		t_start = std::chrono::high_resolution_clock::now();
-		chk_aba_awareness(*result.encoding);
+		if (result.conformance) chk_aba_awareness(*result.encoding);
 		t_end = std::chrono::high_resolution_clock::now();
 		auto time_taken_aba = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
-		std::cout << "ABA awareness check took: " << time_taken/1000.0 << "s" << std::endl << std::endl;
+		if (result.conformance)
+			std::cout << "ABA awareness check took: " << time_taken/1000.0 << "s" << std::endl << std::endl;
+		else
+			time_taken_aba = 0;
 
 		// gist
 		std::cout << std::endl << std:: endl << std::endl << std::endl;

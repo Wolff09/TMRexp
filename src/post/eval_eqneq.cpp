@@ -17,15 +17,34 @@ static inline bool is_retired_var(const Cfg& cfg, std::size_t var) {
 	return g0retire || g1retire;
 }
 
-std::pair<Shape*, Shape*> tmr::eval_eqneq(const Cfg& cfg, const Shape& input, const Expr& le, const Expr& re, bool inverted, unsigned short tid, bool check_own, bool check_eprf) {
+static inline void check_deref(const Cfg& cfg, const Shape& shape, const Expr& expr, std::size_t var, unsigned short tid) {
+	if (expr.clazz() == Expr::SEL) {
+		if (is_invalid_ptr(cfg, var)) {
+			raise_rpr(cfg, var, "Dereferencing invalid pointer.");
+		}
+		check_ptr_access(shape, var);
+	}
+}
+
+std::pair<Shape*, Shape*> tmr::eval_eqneq(const Cfg& cfg, const Shape& input, const Expr& le, const Expr& re, bool inverted, unsigned short tid, bool allow_invalid) {
 	assert(le.type() == POINTER);
 	assert(re.type() == POINTER);
 
 	// get cell term indexes for le and re
 	std::size_t lhs = mk_var_index(input, le, tid);
 	std::size_t rhs = mk_var_index(input, re, tid);
-
 	if (lhs == rhs) return { new Shape(input), NULL };
+
+	check_deref(cfg, input, le, lhs, tid);
+	check_deref(cfg, input, re, rhs, tid);
+
+	if (!allow_invalid) {
+		if (is_invalid(cfg, le, tid) || is_invalid(cfg, re, tid)) {
+			std::cout << "Comparison with invalid pointer/expression" << std::endl;
+			std::cout << cfg << *cfg.shape << std::endl;
+			throw std::runtime_error("Comparison with invalid pointer.");
+		}
+	}
 
 	RelSet sing = RELSET_LOOKUP[le.clazz()][re.clazz()];
 	// split heap and decide which shape enters which branch

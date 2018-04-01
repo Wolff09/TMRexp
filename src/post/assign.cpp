@@ -124,7 +124,7 @@ std::vector<Cfg> tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std:
 	auto result = mk_next_config_vec(cfg, shape, tid);
 	Cfg& res = result.back();
 	res.own.set(lhs, res.own.at(rhs));
-	res.own.set(rhs, res.own.at(lhs)); // TODO: correct?
+	res.own.set(rhs, res.own.at(lhs)); // TODO: correct? Could this publish lhs?
 	res.valid_ptr.set(lhs, is_valid_ptr(cfg, rhs));
 	res.valid_next.set(lhs, is_valid_next(cfg, rhs));
 	update_guard(res.guard0state, lhs, rhs, true, cfg, tid);
@@ -213,8 +213,7 @@ Shape* tmr::post_assignment_pointer_shape_var_var(const Shape& input, const std:
 /******************************** LHS = RHS.next ********************************/
 
 Shape* tmr::post_assignment_pointer_shape_var_next(const Shape& input, const std::size_t lhs, const std::size_t rhs, const Statement* stmt) {
-	CHECK_RPRF_ws(rhs, stmt);
-	CHECK_ACCESS_ws(rhs, stmt);
+	check_ptr_access(input, rhs, stmt);
 
 	Shape* result = new Shape(input);
 
@@ -246,8 +245,7 @@ Shape* tmr::post_assignment_pointer_shape_var_next(const Shape& input, const std
 /******************************** LHS.next = RHS ********************************/
 
 Shape* tmr::post_assignment_pointer_shape_next_var(const Shape& input, const std::size_t lhs, const std::size_t rhs, const Statement* stmt) {
-	CHECK_RPRF_ws(lhs, stmt);
-	CHECK_ACCESS_ws(lhs, stmt);
+	check_ptr_access(input, lhs, stmt);
 
 	// TODO: if lhs↦rhs is definite knowledge, then nothing to do, i.e. noop?
 
@@ -307,10 +305,9 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const NullAssignment& stmt, unsigned 
 	result.push_back(mk_next_config(cfg, shape, tid));
 	if (le.clazz() == Expr::VAR) {
 		result.back().valid_ptr.set(lhs, true);
-		result.back().valid_next.set(lhs, true); // TODO: correct?
+		result.back().valid_next.set(lhs, true);
 	} else {
 		result.back().valid_next.set(lhs, true);
 	}
-	// TODO: what about next fields?
 	return result;
 }

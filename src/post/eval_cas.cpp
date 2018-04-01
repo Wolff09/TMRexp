@@ -14,7 +14,7 @@ std::vector<Cfg> tmr::eval_cond_cas(const Cfg& cfg, const CompareAndSwap& stmt, 
 	std::vector<Cfg> result;
 
 	// check the shape for condition
-	std::pair<Shape*, Shape*> sp = eval_eqneq(cfg, stmt.dst(), stmt.cmp(), false, tid);
+	std::pair<Shape*, Shape*> sp = eval_eqneq(cfg, stmt.dst(), stmt.cmp(), false, tid, false); // prevent invalid comparisons
 
 	if (sp.first != NULL) {
 		// compare evaluates to true

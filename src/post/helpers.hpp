@@ -9,27 +9,6 @@
 
 namespace tmr {
 
-	static inline void ensure_prf(const Shape& shape, std::size_t var, const Statement* stmt=NULL) {
-		// // var is an index which is accessed by an selector or by free
-		// // check whether var points (can point) to free
-		// if (shape.test(var, shape.index_FREE(), MT)) {
-		//	std::cout << std::endl << "*****************************" << std::endl;
-		//	std::cout << "Strong Pointer Race detected!" << std::endl << std::endl;
-		//	std::cout << "while accessing cell term " << var << std::endl;
-		//	if (stmt != NULL) std::cout << "in statement " << *stmt << std::endl;
-		//	std::cout << "Shape:" << std::endl << shape << std::endl;
-		  	
-		//	Shape* iso = isolate_partial_concretisation(shape, var, shape.index_FREE(), MT_);
-		//	std::cout << "Partial concretisation for shape[" << var << "][FREE]=MT is:" << std::endl;
-		//	if (iso == NULL) std::cout << "not valid => false-positive pointer race" << std::endl;
-		//	else std::cout << *iso << std::endl;
-
-		//	throw std::runtime_error("Strong Pointer Race detected while accessing cell term with id=" + std::to_string(var) + ".");
-		// }
-
-		// TODO: delete this
-	}
-
 	/*static inline bool is_invalid(const Shape& shape, std::size_t var) {
 		return shape.test(var, shape.index_FREE(), MT);
 	}*/
@@ -50,6 +29,17 @@ namespace tmr {
 		return !is_valid_next(cfg, var);
 	}
 
+	static inline bool is_invalid(const Cfg& cfg, const Expr& expr, unsigned short tid) {
+		switch(expr.clazz()) {
+			case Expr::NIL:
+				return true;
+			case Expr::VAR:
+				return is_invalid_ptr(cfg, mk_var_index(*cfg.shape, expr, tid));
+			case Expr::SEL:
+				return is_invalid_next(cfg, mk_var_index(*cfg.shape, expr, tid));
+		}
+	}
+
 	static inline void raise_epr(const Cfg& cfg, std::size_t var, std::string msg) {
 		std::cout << std::endl;
 		std::cout << "**************************************" << std::endl;
@@ -68,10 +58,6 @@ namespace tmr {
 		std::cout << "for cell-id: " << var << std::endl;
 		std::cout << "in: " << cfg << *cfg.shape << std::endl;
 		throw std::runtime_error("Relaxed Pointer Race detected.");
-	}
-
-	static inline void ensure_prf(const Shape& shape, std::size_t var, const Statement& stmt) {
-		ensure_prf(shape, var, &stmt);
 	}
 
 	static inline void check_ptr_access(const Shape& shape, std::size_t var, const Statement* stmt=NULL) {
@@ -109,14 +95,6 @@ namespace tmr {
 			throw std::runtime_error("Closed cycle detected between cell terms " + std::to_string(x) + " and " + std::to_string(y) + ".");
 		}
 	}
-
-	// TODO: check for udef/seg access
-	#define CHECK_RPRF(x) if ensure_prf(input, x); // TODO: delete those
-	#define CHECK_RPRF_ws(x, stmt) ensure_prf(input, x, stmt); // TODO: delete those
-	// TODO: check for null access
-	#define CHECK_ACCESS(x) check_ptr_access(input, x);
-	#define CHECK_ACCESS_ws(x, stmt) check_ptr_access(input, x, stmt);
-	#define CHECK_NO_REACH(x, y) check_no_reachability(input, x, y);
 
 	#define CHECK_STMT assert(cfg.pc[tid] == &stmt);
 
