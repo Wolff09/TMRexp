@@ -202,12 +202,8 @@ bool tmr::make_concretisation(Shape& shape) {
 
 
 Shape* tmr::isolate_partial_concretisation(const Shape& toSplit, const std::size_t row, const std::size_t col, const RelSet match) {
-	assert(row < toSplit.size());
-	assert(col < toSplit.size());
 	RelSet new_cell = intersection(toSplit.at(row, col), match);
-	
 	if (new_cell.none()) return NULL;
-	assert(new_cell.any());
 
 	Shape* result = new Shape(toSplit);
 	result->set(row, col, new_cell);
@@ -216,8 +212,7 @@ Shape* tmr::isolate_partial_concretisation(const Shape& toSplit, const std::size
 		delete result;
 		return NULL;
 	}
-	assert(result->at(row, col).any());
-	assert((result->at(row, col) & new_cell).any());
+
 	return result;
 }
 

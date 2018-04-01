@@ -88,23 +88,21 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 
 static Shape* extract_shared_unreachable(const Shape& shape, std::size_t var) {
 	// extracts a subshape of the given one where var is not globally reachable, not null, and not udef; or null if no such shape exists
-	Shape* old = tmr::isolate_partial_concretisation(shape, var, shape.index_NULL(), MT_GT_BT);
-	if (!old) return NULL;
-	Shape* result = tmr::isolate_partial_concretisation(*old, var, shape.index_UNDEF(), MT_GT_BT);
-	delete old;
+	std::unique_ptr<Shape> result;
+	result.reset(tmr::isolate_partial_concretisation(shape, var, shape.index_NULL(), MT_GT_BT));
+	if (!result) return NULL;
+	result.reset(tmr::isolate_partial_concretisation(*result, var, shape.index_UNDEF(), MT_GT_BT));
 	for (std::size_t i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
 		if (!result) break; // happens if var is definitely reachable from some shared variable, definitely null, or definitely udef
-		old = result;
-		result = tmr::isolate_partial_concretisation(*old, i, var, MF_GF_BT); // shared i does not reach var
-		delete old;
+		result.reset(tmr::isolate_partial_concretisation(*result, i, var, MF_GF_BT)); // shared i does not reach var
 	}
-	return result;
+	return result.release();
 }
 
-static inline std::deque<Shape*> split_shape_for_eq(const Shape& input, std::size_t begin, std::size_t end) {
+static inline std::deque<Shape*> split_shape_for_eq(Shape* input, std::size_t begin, std::size_t end) {
 	// same as in hp.cpp
 	std::deque<Shape*> result;
-	result.push_back(new Shape(input));
+	result.push_back(input);
 	for (std::size_t i = begin; i < end; i++) {
 		for (std::size_t j = i+1; j < end; j++) {
 			std::size_t size = result.size();
@@ -157,7 +155,7 @@ std::vector<Cfg> tmr::post_free(const Cfg& cfg, unsigned short tid, const Progra
 		auto tmp = extract_shared_unreachable(*cfg.shape, i);
 		if (!tmp) continue;
 
-		auto eqsplit = split_shape_for_eq(*tmp, 0, tmp->size());
+		auto eqsplit = split_shape_for_eq(tmp, 0, tmp->size()); // consumes tmp
 		for (Shape* shape : eqsplit){
 			result.push_back(Cfg(cfg, shape));
 			auto& cf = result.back();
