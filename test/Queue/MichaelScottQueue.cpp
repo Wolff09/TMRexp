@@ -87,11 +87,11 @@ static std::unique_ptr<Program> mk_program() {
 						)
 					),
 					Sqz(ChkP(false))
-				)
+				),
+				Kill("h"),
+				Kill("t")
 			)
 		),
-		Kill("h"),
-		Kill("t"),
 		Kill("n"),
 		Kill()
 	)));
