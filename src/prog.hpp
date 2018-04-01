@@ -270,7 +270,7 @@ namespace tmr {
 			std::size_t propagateId(std::size_t id);
 
 			Atomic(std::unique_ptr<Sequence> sqz) : _sqz(std::move(sqz)) {
-				assert(_sqz->size() > 0);
+				// assert(_sqz->size() > 0);
 			}
 			const Sequence& sqz() const { return *_sqz; }
 	};

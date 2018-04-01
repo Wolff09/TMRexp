@@ -34,51 +34,26 @@ static std::unique_ptr<Program> mk_program() {
 					LinP("top"),
 					Write("top"),
 					Assign(Var("TopOfStack"), Next("top")),
-					Fr("top")
+					Rtire("top")
 				)
 			)
 		)
 	);
 
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY
-		// push summary
-		auto pushsum = AtomicSqz(
-				Mllc("node"),
-				Read("node"),
-				Assign(Next("node"), Var("TopOfStack")),
-				Assign(Var("top"), Var("TopOfStack")),
-				CAS(Var("TopOfStack"), Var("TopOfStack"), Var("node"), LinP(), false),
-				ChkReach("top")
-		);
-
-		// pop summary
-		auto popsum = AtomicSqz(IfThenElse(
-			EqCond(Var("TopOfStack"), Null()),
-			Sqz(LinP()),
-			Sqz(
-				Assign(Var("top"), Var("TopOfStack")),
-				Assign(Var("node"), Next("TopOfStack")),
-				CAS(Var("TopOfStack"), Var("TopOfStack"), Var("node"), LinP("top"), false),
-				Fr("top")
-			)
-		));
-	#endif
-
 	std::string name = "CoarseStack";
 
-	return Prog(
+	auto prog = Prog(
 		name,
 		{"TopOfStack"},
 		{"node", "top"},
 		std::move(init),
-		#if REPLACE_INTERFERENCE_WITH_SUMMARY
-			Fun("push", true, std::move(pushbody), std::move(pushsum)),
-			Fun("pop", false, std::move(popbody), std::move(popsum))
-		#else
-			Fun("push", true, std::move(pushbody)),
-			Fun("pop", false, std::move(popbody))
-		#endif
+		Fun("push", true, std::move(pushbody)),
+		Fun("pop", false, std::move(popbody))
 	);
+
+	prog->smr_observer(smr_observer(prog->guardfun(), prog->unguardfun(), prog->retirefun(), prog->freefun()));
+
+	return prog;
 }
 
 

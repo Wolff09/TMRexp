@@ -1,7 +1,7 @@
 
-# add_executable(CoarseQueue CoarseQueue.cpp)
-# target_link_libraries(CoarseQueue TMRexpLib)
-# add_test(CoarseQueue CoarseQueue)
+add_executable(CoarseQueue CoarseQueue.cpp)
+target_link_libraries(CoarseQueue TMRexpLib)
+add_test(CoarseQueue CoarseQueue)
 
 add_executable(MichaelScottQueue MichaelScottQueue.cpp)
 target_link_libraries(MichaelScottQueue TMRexpLib)

@@ -39,7 +39,7 @@ std::ostream& tmr::operator<<(std::ostream& os, const OValue& ov) {
 /************************ EQUALITY  ************************/
 
 Equality::Equality(OValue rhs, bool negated) : rhs(rhs), negated(negated) {
-	assert(rhs.type() == OValue::EMPTY || rhs.type() == OValue::OBSERVABLE);
+	// assert(rhs.type() == OValue::EMPTY || rhs.type() == OValue::OBSERVABLE);
 }
 
 Equality::Equality(OValue rhs) : Equality(rhs, false) {}

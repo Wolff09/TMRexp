@@ -21,9 +21,6 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Assignment& stmt, unsigned shor
 	                                        : post_assignment_pointer(cfg, lhs, rhs, tid, &stmt);
 
 	if (stmt.fires_lp()) {
-		// pc in res was already advanced, it is the linearization point
-		assert(res.pc[tid] == &stmt.lp());
-
 		std::vector<Cfg> tmp;
 		tmp.swap(result);
 		result.reserve(tmp.size()*2);
