@@ -77,7 +77,7 @@ bool consistentBT(RelSet xy, RelSet yz) {
 
 typedef bool(*FunctionPointer)(RelSet, RelSet);
 typedef std::array<std::array<bool, 64>, 64> lookup_table;
-static const lookup_table mk_lookup(FunctionPointer fun) {
+static lookup_table mk_lookup(FunctionPointer fun) {
 	lookup_table result;
 	for (std::size_t i = 0; i < 64; i++)
 		for (std::size_t j = 0; j < 64; j++)
@@ -94,7 +94,7 @@ static const std::array<lookup_table, 6> CONSISTENT_REL_LOOKUP {{
 	mk_lookup(&consistentBT)
 }};
 
-bool consistentRel(const Rel xz, const RelSet xy, const RelSet yz) {
+static bool consistentRel(const Rel xz, const RelSet xy, const RelSet yz) {
 	return CONSISTENT_REL_LOOKUP[xz][xy.to_ulong()][yz.to_ulong()];
 }
 
@@ -178,27 +178,110 @@ bool is_concretisation(const Shape& con, const Shape& abs) {
 	return true;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////
+
+struct ConcretisationInfo {
+	RelSet ij;
+	RelSet ik;
+	RelSet jk;
+	bool changed;
+	bool changed_ij;
+	bool changed_ik;
+	bool changed_jk;
+	bool inconsistent;
+	ConcretisationInfo() {}
+	ConcretisationInfo(RelSet a, RelSet b, RelSet c) : ij(a), ik(b), jk(c) {}
+};
+
+static const ConcretisationInfo mk_cinfo(RelSet ij, RelSet ik, RelSet jk) {
+	ConcretisationInfo result(ij, ik, jk);
+	bool iterate;
+	do {
+		iterate = false;
+		RelSet ij = result.ij;
+		RelSet ik = result.ik;
+		RelSet jk = result.jk;
+		RelSet ji = symmetric(ij);
+		RelSet kj = symmetric(jk);
+		// Signature: consistentRel(const Rel xz, const RelSet xy, const RelSet yz)
+		for (Rel rel : ij) { if (!consistentRel(rel, ik, kj)) { result.ij.reset(rel); iterate = true; goto ctn; }}
+		for (Rel rel : ik) { if (!consistentRel(rel, ij, jk)) { result.ik.reset(rel); iterate = true; goto ctn; }}
+		for (Rel rel : jk) { if (!consistentRel(rel, ji, ik)) { result.jk.reset(rel); iterate = true; goto ctn; }}
+		ctn:;
+	} while (iterate);
+	result.changed_ij = ij != result.ij;
+	result.changed_ik = ik != result.ik;
+	result.changed_jk = jk != result.jk;
+	result.changed = ij != result.ij || ik != result.ik || jk != result.jk;
+	result.changed = result.changed_ij || result.changed_ik || result.changed_jk;
+	result.inconsistent = result.ij.none() || result.ik.none() || result.jk.none();
+	return result;
+}
+
+typedef std::array<std::array<std::array<ConcretisationInfo, 64>, 64>, 64> CONCRETISATION_LOOKUP_T;
+
+static CONCRETISATION_LOOKUP_T mk_clookup() {
+	CONCRETISATION_LOOKUP_T result;
+	for (std::size_t i = 0; i < 64; i++)
+		for (std::size_t j = 0; j < 64; j++)
+			for (std::size_t k = 0; k < 64; k++)
+				result[i][j][k] = mk_cinfo(RelSet(i), RelSet(j), RelSet(k));
+	return result;
+}
+
+static const CONCRETISATION_LOOKUP_T CONCRETISATION_LOOKUP = mk_clookup(); // likely ~10MB in size
 
 bool tmr::make_concretisation(Shape& shape) {
+	auto size = shape.size();
 	bool changed;
 	do {
 		changed = false;
-		for (std::size_t i = 0; i < shape.size(); i++) {
-			for (std::size_t j = i; j < shape.size(); j++) {
-				for (Rel rel : shape.at(i, j)) {
-					if (!consistent(shape, i, j, rel)) {
-						shape.remove_relation(i, j, rel);
-						changed = true;
-					}
+		for (std::size_t i = 0; i < size; i++) {
+			for (std::size_t j = i; j < size; j++) {
+				for (std::size_t k=j; k < size; k++) {
+					auto cell_ij = shape.at(i, j).to_ulong();
+					auto cell_ik = shape.at(i, k).to_ulong();
+					auto cell_jk = shape.at(j, k).to_ulong();
+					auto update = CONCRETISATION_LOOKUP[cell_ij][cell_ik][cell_jk];
+					// TODO: could reading inconsistency from another table speed up things?
+					if (update.inconsistent) return false;
+					#if REPEAT_PRUNING
+						changed |= update.changed;
+					#endif
+					// conditional update: update rarely necessary and "expensive" due to heavy load
+					// also: branch prediction is our friend
+					if (update.changed_ij) shape.set(i, j, update.ij);
+					if (update.changed_ik) shape.set(i, k, update.ik);
+					if (update.changed_jk) shape.set(j, k, update.jk);
 				}
-				// if we removed all relations from one cell, then the shape
-				// is no (partial) concretisation of the abstract input shape
-				if (shape.at(i, j).none()) return false;
 			}
 		}
 	} while (changed);
 	return true;
 }
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+// bool tmr::make_concretisation(Shape& shape) {
+// 	bool changed;
+// 	do {
+// 		changed = false;
+// 		for (std::size_t i = 0; i < shape.size(); i++) {
+// 			for (std::size_t j = i; j < shape.size(); j++) {
+// 				for (Rel rel : shape.at(i, j)) {
+// 					if (!consistent(shape, i, j, rel)) {
+// 						shape.remove_relation(i, j, rel);
+// 						changed = true;
+// 					}
+// 				}
+// 				// if we removed all relations from one cell, then the shape
+// 				// is no (partial) concretisation of the abstract input shape
+// 				if (shape.at(i, j).none()) return false;
+// 			}
+// 		}
+// 	} while (changed);
+// 	return true;
+// }
 
 
 Shape* tmr::isolate_partial_concretisation(const Shape& toSplit, const std::size_t row, const std::size_t col, const RelSet match) {

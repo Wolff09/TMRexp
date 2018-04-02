@@ -11,5 +11,8 @@
 #define SKIP_NOOPS true // ad hoc
 #define KILL_IS_NOOP true
 
+// concretisation configuration
+#define REPEAT_PRUNING false
+
 // AST configuration
 #define PRINT_ID true // prints statement ids (obfuscates code)
