@@ -46,9 +46,9 @@ static inline void fire_event(const Cfg& cfg, DynamicSMRState& state, const Func
 			state.set(i, &state.at(i)->next(*evt, OValue::Anonymous()));
 		}
 		if (cfg.own.at(i) && shape.test(var, i, EQ)) {
-			throw std::logic_error("Owned cells must not be guarded/retired.");
+			throw std::runtime_error("Owned cells must not be guarded/retired.");
 		} else if (evt->name() == "retire" && i < cfg.shape->offset_locals(0)) {
-			throw std::logic_error("Invariant violation: shared cells must not be retired.");
+			throw std::runtime_error("Invariant violation: shared cells must not be retired.");
 		}
 	}
 }
