@@ -38,6 +38,11 @@ bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	if (lhs.seen < rhs.seen) return true;
 	if (rhs.seen < lhs.seen) return false;
 
+	// if (lhs.shape->at(5,6).to_ulong() < rhs.shape->at(5,6).to_ulong()) return true;
+	// if (rhs.shape->at(5,6).to_ulong() < lhs.shape->at(5,6).to_ulong()) return false;
+	if (lhs.shape->at(5,6) == MF_ && rhs.shape->at(5,6) != MF_) return true;
+	if (rhs.shape->at(5,6) == MF_ && lhs.shape->at(5,6) != MF_) return false;
+
 	return false;
 }
 
@@ -45,6 +50,18 @@ bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 /******************************** ENCODING TAKE ********************************/
 
 std::pair<bool, const Cfg&> Encoding::take(Cfg&& new_cfg) {
+	// auto cell = new_cfg.shape->at(5,6);
+	// if (cell != EQ_ && cell != MT_GT && cell != MF_GF && cell != BT_) {
+	// 	new_cfg.shape->remove_relation(6,5,GT);
+	// 	auto shapes = disambiguate_cell(*new_cfg.shape, 5, 6);
+	// 	std::vector<Cfg> split;
+	// 	split.reserve(shapes.size());
+	// 	for (Shape* s : shapes) {
+	// 		take(Cfg(new_cfg, s));
+	// 	}
+	// 	return;
+	// }
+
 	__store__::iterator pos = _map.find(new_cfg);
 
 	if (pos == _map.end()) {

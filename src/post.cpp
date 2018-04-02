@@ -40,7 +40,8 @@ static std::vector<Cfg> get_post_cfgs(const Cfg& cfg, unsigned short tid) {
 
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, unsigned short tid) {
-	return get_post_cfgs(cfg, tid);
-	// auto post = get_post_cfgs(cfg, tid);
-	// return post;
+	// return get_post_cfgs(cfg, tid);
+	auto post = get_post_cfgs(cfg, tid);
+	for (Cfg& cf : post) cf.shape->remove_relation(6,5,GT);
+	return post;
 }

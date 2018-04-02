@@ -39,6 +39,25 @@ const Cfg& RemainingWork::pop() {
 }
 
 void RemainingWork::add(Cfg&& cfg) {
+	// auto cell = cfg.shape->at(5,6);
+	// if (cell != EQ_ && cell != MT_GT && cell != MF_GF && cell != BT_) {
+	// 	std::cout << "A" << std::endl;
+	// 	cfg.shape->remove_relation(6,5,GT);
+	// 	auto shapes = disambiguate_cell(*cfg.shape, 5, 6);
+	// 	std::cout << "b" << std::endl;
+	// 	for (Shape* s : shapes)
+	// 		add(Cfg(cfg, s));
+	// 	return;
+	// }
+	if (cfg.shape->test(5,6, MF) && cfg.shape->at(5,6) != MF_) {
+		Shape* s1 = isolate_partial_concretisation(*cfg.shape, 5, 6, MF_);
+		Shape* s2 = isolate_partial_concretisation(*cfg.shape, 5, 6, EQ_MT_GT_BT);
+		if (s1) add(Cfg(cfg, s1));
+		if (s2) add(Cfg(cfg, s2));
+		return;
+	}
+
+
 	auto res = _enc.take(std::move(cfg));
 	if (res.first) _work.insert(&res.second);
 }
