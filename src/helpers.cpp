@@ -33,11 +33,11 @@ bool check_special_relations_constraints(const Shape& shape) {
 
 /******************************** CONSISTENCY ********************************/
 
-bool consistentEQ(RelSet xy, RelSet yz) {
+static inline bool consistentEQ(RelSet xy, RelSet yz) {
 	return (xy & symmetric(yz)).any();
 }
 
-bool consistentMT(RelSet xy, RelSet yz) {
+static inline bool consistentMT(RelSet xy, RelSet yz) {
 	if (xy.test(MT) && yz.test(EQ)) return true;
 	if (xy.test(MF) && yz.test(GT)) return true;
 	if (xy.test(GT) && (yz & MF_GF).any()) return true;
@@ -47,11 +47,11 @@ bool consistentMT(RelSet xy, RelSet yz) {
 	return false;
 }
 
-bool consistentMF(RelSet xy, RelSet yz) {
+static inline bool consistentMF(RelSet xy, RelSet yz) {
 	return consistentMT(symmetric(yz), symmetric(xy));
 }
 
-bool consistentGT(RelSet xy, RelSet yz) {
+static inline bool consistentGT(RelSet xy, RelSet yz) {
 	if (xy.test(MT) && (yz & MT_GT).any()) return true;
 	if (xy.test(MF) && yz.test(GT)) return true;
 	if (xy.test(GT) && (yz & EQ_MT_MF_GT_GF).any()) return true;
@@ -61,11 +61,11 @@ bool consistentGT(RelSet xy, RelSet yz) {
 	return false;
 }
 
-bool consistentGF(RelSet xy, RelSet yz) {
+static inline bool consistentGF(RelSet xy, RelSet yz) {
 	return consistentGT(symmetric(yz), symmetric(xy));
 }
 
-bool consistentBT(RelSet xy, RelSet yz) {
+static inline bool consistentBT(RelSet xy, RelSet yz) {
 	if (xy.test(MT) && (yz & MF_GF_BT).any()) return true;
 	if (xy.test(MF) && yz.test(BT)) return true;
 	if (xy.test(GT) && (yz & MF_GF_BT).any()) return true;
@@ -77,7 +77,7 @@ bool consistentBT(RelSet xy, RelSet yz) {
 
 typedef bool(*FunctionPointer)(RelSet, RelSet);
 typedef std::array<std::array<bool, 64>, 64> lookup_table;
-static lookup_table mk_lookup(FunctionPointer fun) {
+static inline lookup_table mk_lookup(FunctionPointer fun) {
 	lookup_table result;
 	for (std::size_t i = 0; i < 64; i++)
 		for (std::size_t j = 0; j < 64; j++)
@@ -229,9 +229,8 @@ static CONCRETISATION_LOOKUP_T mk_clookup() {
 	return result;
 }
 
-static const CONCRETISATION_LOOKUP_T CONCRETISATION_LOOKUP = mk_clookup(); // likely ~10MB in size
-
 bool tmr::make_concretisation(Shape& shape) {
+	static const CONCRETISATION_LOOKUP_T CONCRETISATION_LOOKUP = mk_clookup(); // likely ~10MB in size
 	auto size = shape.size();
 	bool changed;
 	do {

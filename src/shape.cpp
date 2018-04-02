@@ -37,22 +37,30 @@ void Shape::shrink() {
 /******************************** ACCESS ********************************/
 
 RelSet Shape::at(std::size_t i, std::size_t j) const {
-	assert(i < _bounds && j < _bounds);
+	// assert(i < _bounds && j < _bounds);
 	return _cells[i][j];
 }
 
 bool Shape::test(std::size_t i, std::size_t j, Rel r) const {
-	assert(i < _bounds && j < _bounds);
+	// assert(i < _bounds && j < _bounds);
 	return _cells[i][j].test(r);
 }
 
 
 /******************************** MODIFICATION ********************************/
 
+static inline std::array<RelSet, 64> mk_lookup() {
+	std::array<RelSet, 64> result;
+	for (std::size_t k = 0; k < 64; k++)
+		result[k] = symmetric(RelSet(k));
+	return result;
+}
+
 void Shape::set(std::size_t i, std::size_t j, RelSet rs) {
+	static const std::array<RelSet, 64> SYMMETRIC_LOOKUP = mk_lookup();
 	assert(i < _bounds && j < _bounds);
 	_cells[i][j] = rs;
-	_cells[j][i] = symmetric(rs);
+	_cells[j][i] = SYMMETRIC_LOOKUP[rs.to_ulong()]; // symmetric(rs);
 	assert(_cells[i][j].any());
 	assert(_cells[j][i].any());
 }
