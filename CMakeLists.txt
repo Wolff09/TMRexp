@@ -38,8 +38,8 @@ endif()
 
 
 # Boost
-# FIND_PACKAGE( Boost 1.55 COMPONENTS regex REQUIRED )
-# INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
+FIND_PACKAGE( Boost )
+INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
 
 
 # adds test target

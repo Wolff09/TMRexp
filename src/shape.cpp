@@ -8,15 +8,19 @@ using namespace tmr;
 Shape::Shape(std::size_t numObsVars, std::size_t numGlobVars, std::size_t numLocVars, unsigned short numThreads) :
              _numGlobVars(numGlobVars),
              _numLocVars(numLocVars),
-             _bounds(3 + 2 + numGlobVars + numThreads*numLocVars) {
+             _bounds(3 + 2 + numGlobVars + numThreads*numLocVars),
+             _size(3 + 2 + numGlobVars + numThreads*numLocVars + numLocVars),
+             _cells(boost::extents[_size][_size]) {
 
 	// init shape
-	RelSet dummy_cell = singleton(BT);
-	std::vector<RelSet> dummy_row(_bounds + _numLocVars, dummy_cell);
-	_cells = std::vector<std::vector<RelSet>>(_bounds + _numLocVars, dummy_row);
-	for (std::size_t i = offset_vars(); i < _cells.size(); i++) set(i, index_UNDEF(), MT);
-	set(index_REUSE(), index_NULL(), MT);
-	for (std::size_t i = 0; i < _cells.size(); i++) _cells[i][i] = singleton(EQ);
+    _cells = shape_t(boost::extents[_size][_size]);
+    for (std::size_t i = 0; i < _size; i++)
+    	for (std::size_t j = 0; j < _size; j++)
+    		_cells[i][j] = singleton(BT);
+    for (std::size_t i = offset_vars(); i < _size; i++)
+    	set(i, index_UNDEF(), MT);
+	for (std::size_t i = 0; i < _size; i++)
+		_cells[i][i] = singleton(EQ);
 
 	if (numObsVars != _numObsVars) throw std::logic_error("Number of observer variables not supported.");
 	if (numThreads != 1) throw std::logic_error("There must be exactly one threads.");
@@ -37,12 +41,12 @@ void Shape::shrink() {
 /******************************** ACCESS ********************************/
 
 RelSet Shape::at(std::size_t i, std::size_t j) const {
-	// assert(i < _bounds && j < _bounds);
+	assert(i < _bounds && j < _bounds);
 	return _cells[i][j];
 }
 
 bool Shape::test(std::size_t i, std::size_t j, Rel r) const {
-	// assert(i < _bounds && j < _bounds);
+	assert(i < _bounds && j < _bounds);
 	return _cells[i][j].test(r);
 }
 
@@ -112,8 +116,8 @@ void Shape::print(std::ostream& os) const {
 
 bool Shape::operator<(const Shape& other) const {
 	assert(size() == other.size());
-	for (std::size_t i = 0; i < _cells.size(); i++) {
-		for (std::size_t j = i+1; j < _cells.at(i).size(); j++) {
+	for (std::size_t i = 0; i < _size; i++) {
+		for (std::size_t j = i+1; j < _size; j++) {
 			auto l = _cells[i][j].to_ulong();
 			auto r = other._cells[i][j].to_ulong();
 			if (l < r) return true;
@@ -125,8 +129,8 @@ bool Shape::operator<(const Shape& other) const {
 
 bool Shape::operator==(const Shape& other) const {
 	assert(size() == other.size());
-	for (std::size_t i = 0; i < _cells.size(); i++) {
-		for (std::size_t j = i+1; j < _cells.at(i).size(); j++) {
+	for (std::size_t i = 0; i < _size; i++) {
+		for (std::size_t j = i+1; j < _size; j++) {
 			auto l = _cells[i][j].to_ulong();
 			auto r = other._cells[i][j].to_ulong();
 			if (l != r) return false;

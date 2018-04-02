@@ -4,15 +4,18 @@
 #include "relset.hpp"
 #include "prog.hpp"
 
+#include "boost/multi_array.hpp"
 
 namespace tmr {
 
 	class Shape {
 		private:
-			std::vector<std::vector<RelSet>> _cells;
+			typedef boost::multi_array<RelSet, 2> shape_t;
 			std::size_t _numGlobVars;
 			std::size_t _numLocVars;
 			std::size_t _bounds;
+			std::size_t _size;
+			shape_t _cells;
 			constexpr const static std::size_t _numObsVars=2;
 
 		public:
