@@ -38,8 +38,6 @@ const Cfg& RemainingWork::pop() {
 	return *top;
 }
 
-static bool output = false;
-
 void RemainingWork::add(Cfg&& cfg) {
 	auto res = _enc.take(std::move(cfg));
 	if (res.first) _work.insert(&res.second);
@@ -100,7 +98,6 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 			while (!work.done()) {
 				const Cfg& topost = work.pop();
 				work.add(tmr::mk_all_post(topost, prog));
-				output = false;
 
 				SEQUENTIAL_STEPS++;
 				counter++;
