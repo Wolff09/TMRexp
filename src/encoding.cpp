@@ -38,10 +38,19 @@ bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	if (lhs.seen < rhs.seen) return true;
 	if (rhs.seen < lhs.seen) return false;
 
-	// if (lhs.shape->at(5,6) == MF_ && rhs.shape->at(5,6) != MF_) return true;
-	// if (rhs.shape->at(5,6) == MF_ && lhs.shape->at(5,6) != MF_) return false;
-	if (lhs.shape->at(5,6).to_ulong() < rhs.shape->at(5,6).to_ulong()) return true;
-	if (rhs.shape->at(5,6).to_ulong() < lhs.shape->at(5,6).to_ulong()) return false;
+	#if AD_HOC_PRECISION
+		if (lhs.shape->at(5,6).to_ulong() < rhs.shape->at(5,6).to_ulong()) return true;
+		if (rhs.shape->at(5,6).to_ulong() < lhs.shape->at(5,6).to_ulong()) return false;
+	#else
+		auto begin = lhs.shape->offset_program_vars();
+		auto end = lhs.shape->offset_locals(0);
+		for (std::size_t i = begin; i < end; i++) {
+			for (std::size_t j = i+1; j < end; j++) {
+				if (lhs.shape->at(i, j).to_ulong() < rhs.shape->at(i, j).to_ulong()) return true;
+				if (rhs.shape->at(i, j).to_ulong() < lhs.shape->at(i, j).to_ulong()) return false;
+			}
+		}
+	#endif
 
 	return false;
 }

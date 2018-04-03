@@ -50,19 +50,21 @@ static inline RelSet mkrelset() {
 }
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, unsigned short tid) {
-	static const RelSet EQ_MT_MF_GF_BT = mkrelset();
-	// return get_post_cfgs(cfg, tid);
-
-	auto post = get_post_cfgs(cfg, tid);
-	std::vector<Cfg> cppost;
-	cppost.reserve(post.size());
-	for (Cfg& cf : post) {
-		if (cf.shape && cf.shape->test(6,5,GT)) {
-			Shape* rm = isolate_partial_concretisation(*cf.shape, 6, 5, EQ_MT_MF_GF_BT);
-			if (!rm) continue;
-			cf.shape.reset(rm);
+	#if DGLM_HINT
+		static const RelSet EQ_MT_MF_GF_BT = mkrelset();
+		auto post = get_post_cfgs(cfg, tid);
+		std::vector<Cfg> cppost;
+		cppost.reserve(post.size());
+		for (Cfg& cf : post) {
+			if (cf.shape && cf.shape->test(6,5,GT)) {
+				Shape* rm = isolate_partial_concretisation(*cf.shape, 6, 5, EQ_MT_MF_GF_BT);
+				if (!rm) continue;
+				cf.shape.reset(rm);
+			}
+			cppost.push_back(std::move(cf));
 		}
-		cppost.push_back(std::move(cf));
-	}
-	return cppost;
+		return cppost;
+	#else
+		return get_post_cfgs(cfg, tid);
+	#endif
 }

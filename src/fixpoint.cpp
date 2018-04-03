@@ -38,18 +38,66 @@ const Cfg& RemainingWork::pop() {
 	return *top;
 }
 
-void RemainingWork::add(Cfg&& cfg) {
-	if (cfg.shape->at(5,6).count() > 1) {
-		for (Rel r : cfg.shape->at(5,6)) {
-			Shape* split = isolate_partial_concretisation(*cfg.shape, 5, 6, singleton(r));
-			if (split) add(Cfg(cfg, split));
+static inline bool needs_splitting(RelSet rs) {
+	return rs != EQ_ && rs != MT_  && rs != GT_  && rs != MT_GT && rs != MF_GF && rs != MF_ && rs != GF_ && rs != BT_;
+}
+
+#if AD_HOC_PRECISION
+	void RemainingWork::add(Cfg&& cfg) {
+		if (needs_splitting(cfg.shape->at(5,6))) {
+			for (RelSet rs : { EQ_, MT_GT, MF_GF, BT_ }) {
+				Shape* split = isolate_partial_concretisation(*cfg.shape, 5, 6, rs);
+				if (split) add(Cfg(cfg, split));
+			}
+			return;
 		}
-		return;
+
+		auto res = _enc.take(std::move(cfg));
+		if (res.first) _work.insert(&res.second);
 	}
 
-	auto res = _enc.take(std::move(cfg));
-	if (res.first) _work.insert(&res.second);
-}
+#else
+	void RemainingWork::add(Cfg&& cfg) {
+		static std::vector<Shape*> worklist;
+		worklist.reserve(32);
+		worklist.clear();
+		// returns true iff the input cfg was split up
+
+		auto begin = cfg.shape->offset_program_vars();
+		auto end = cfg.shape->offset_locals(0);
+
+		// std::vector<Shape*> worklist;
+		worklist.reserve(32);
+		worklist.push_back(cfg.shape.release());
+
+		while (!worklist.empty()) {
+			Shape* shape = worklist.back();
+			worklist.pop_back();
+
+			for (std::size_t i = begin; i < end; i++) {
+				for (std::size_t j = i+1; j < end; j++) {
+					if (!needs_splitting(shape->at(i, j))) continue;
+					for (RelSet rs : { EQ_, MT_GT, MF_GF, BT_ }) {
+						Shape* update = new Shape(*shape);
+						update->set(i, j, intersection(update->at(i, j), rs));
+						worklist.push_back(update);
+					}
+					goto ctn;
+				}
+			}
+
+			// work.add(Cfg(cfg, shape));
+			{
+				auto res = _enc.take(Cfg(cfg, shape));
+				if (res.first) _work.insert(&res.second);
+				continue;
+			}
+
+			ctn:; // continue here if the shape was split
+			delete shape;
+		}
+	}
+#endif
 
 
 /******************************** FIXED POINT ********************************/

@@ -16,3 +16,7 @@
 
 // AST configuration
 #define PRINT_ID true // prints statement ids (obfuscates code)
+
+// DGLM precision
+#define AD_HOC_PRECISION true
+#define DGLM_HINT false
