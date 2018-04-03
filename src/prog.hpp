@@ -7,7 +7,6 @@
 #include <map>
 #include <functional>
 #include <assert.h>
-#include "make_unique.hpp"
 
 
 namespace tmr {

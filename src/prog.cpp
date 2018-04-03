@@ -2,7 +2,6 @@
 
 #include <stdexcept>
 #include <set>
-#include "make_unique.hpp"
 #include "config.hpp"
 
 using namespace tmr;

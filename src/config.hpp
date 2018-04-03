@@ -8,7 +8,7 @@
 #define MERGE_VALID_PTR true
 
 // interference configuration
-#define SKIP_NOOPS true // ad hoc
+#define SKIP_NOOPS true
 #define KILL_IS_NOOP true
 
 // concretisation configuration
@@ -18,5 +18,5 @@
 #define PRINT_ID true // prints statement ids (obfuscates code)
 
 // making DGLM work
-#define DGLM_PRECISION true
+#define DGLM_PRECISION false
 #define DGLM_HINT false

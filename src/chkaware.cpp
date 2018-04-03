@@ -174,8 +174,8 @@ static inline bool allowed_retry_state(const State* state, const State* other) {
 	// returns true iff retrying from state and reaching other is okay
 	if (state == other) return true;
 	if (state != NULL && other != NULL) {
-		if (state->name() == "d" && other->name() == "s0") return true; // TODO: correct?
-		if (state->name() == "dg" && other->name() == "g") return true; // TODO: correct?
+		if (state->name() == "d" && other->name() == "s0") return true;
+		if (state->name() == "dg" && other->name() == "g") return true;
 	}
 	return false;
 }

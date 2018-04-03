@@ -37,7 +37,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 		for (std::size_t i = 0; i < input.size(); i++)
 			shape1->set(var_index, i, BT_);
 		shape1->set(var_index, var_index, EQ_);
-		auto shape2 = post_assignment_pointer_shape_next_var(*shape1, var_index, input.index_NULL(), &stmt); // TODO: correct?
+		auto shape2 = post_assignment_pointer_shape_next_var(*shape1, var_index, input.index_NULL(), &stmt); // null init
 		delete shape1;
 
 		result.push_back(mk_next_config(cfg, shape2, tid));
@@ -54,7 +54,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 	/* malloc gives a freed cell */
 	if (cfg.freed) {
 		auto old = post_assignment_pointer_shape_var_var(input, var_index, input.index_REUSE(), &stmt);
-		auto shape = post_assignment_pointer_shape_next_var(*old, var_index, input.index_NULL(), &stmt); // TODO: correct?
+		auto shape = post_assignment_pointer_shape_next_var(*old, var_index, input.index_NULL(), &stmt); // null init
 		delete old;
 
 		// ensure that the newly allocated cell is not shared reachable -- invariant integrated into analysis
@@ -169,7 +169,6 @@ std::vector<Cfg> tmr::post_free(const Cfg& cfg, unsigned short tid, const Progra
 					fire_free_event(cf.guard1state, j, prog);
 					if (j == shape->index_REUSE()) {
 						if (!cf.retired) {
-							// TODO: correct?
 							result.pop_back();
 							break;
 						}

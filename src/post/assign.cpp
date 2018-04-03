@@ -121,7 +121,8 @@ std::vector<Cfg> tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std:
 	auto result = mk_next_config_vec(cfg, shape, tid);
 	Cfg& res = result.back();
 	res.own.set(lhs, res.own.at(rhs));
-	res.own.set(rhs, res.own.at(lhs)); // TODO: correct? Could this publish lhs?
+	// res.own.set(rhs, res.own.at(lhs));
+	res.own.set(rhs, false); // over-approximation: publish lhs
 	res.valid_ptr.set(lhs, is_valid_ptr(cfg, rhs));
 	res.valid_next.set(lhs, is_valid_next(cfg, rhs));
 	update_guard(res.guard0state, lhs, rhs, true, cfg, tid);
