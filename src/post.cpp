@@ -39,9 +39,30 @@ static std::vector<Cfg> get_post_cfgs(const Cfg& cfg, unsigned short tid) {
 }
 
 
+static inline RelSet mkrelset() {
+	RelSet result;
+	result.set(EQ);
+	result.set(MT);
+	result.set(MF);
+	result.set(GF);
+	result.set(BT);
+	return result;
+}
+
 std::vector<Cfg> tmr::post(const Cfg& cfg, unsigned short tid) {
+	static const RelSet EQ_MT_MF_GF_BT = mkrelset();
 	// return get_post_cfgs(cfg, tid);
+
 	auto post = get_post_cfgs(cfg, tid);
-	for (Cfg& cf : post) cf.shape->remove_relation(6,5,GT);
-	return post;
+	std::vector<Cfg> cppost;
+	cppost.reserve(post.size());
+	for (Cfg& cf : post) {
+		if (cf.shape && cf.shape->test(6,5,GT)) {
+			Shape* rm = isolate_partial_concretisation(*cf.shape, 6, 5, EQ_MT_MF_GF_BT);
+			if (!rm) continue;
+			cf.shape.reset(rm);
+		}
+		cppost.push_back(std::move(cf));
+	}
+	return cppost;
 }

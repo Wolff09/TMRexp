@@ -12,7 +12,7 @@
 #define KILL_IS_NOOP true
 
 // concretisation configuration
-#define REPEAT_PRUNING false
+#define REPEAT_PRUNING true
 
 // AST configuration
 #define PRINT_ID true // prints statement ids (obfuscates code)
