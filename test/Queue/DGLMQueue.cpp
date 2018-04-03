@@ -58,11 +58,11 @@ static std::unique_ptr<Program> mk_program() {
 	auto linpc = CompCond(OCond(), CompCond(EqCond(Var("h"), Var("Head"), age_compare), EqCond(Var("n"), Null())));
 	auto deqbody = Sqz(Loop(Sqz(
 		Assign(Var("h"), Var("Head")),
-		Orcl(),
 		Gard("h", 0),
 		IfThen(
 			EqCond(Var("h"), Var("Head"), age_compare),
 			Sqz(
+				Orcl(),
 				Assign(Var("n"), Next("h"), LinP(std::move(linpc))),
 				Gard("n", 1),
 				IfThenElse(
@@ -86,6 +86,7 @@ static std::unique_ptr<Program> mk_program() {
 										),
 										// Fr("h"),
 										Rtire("h"),
+										Kill("t"),
 										Brk()
 									)
 								)
@@ -94,7 +95,6 @@ static std::unique_ptr<Program> mk_program() {
 					),
 					Sqz(ChkP(false))
 				),
-				// Kill("t"),
 				Kill("n")
 			)
 		),
