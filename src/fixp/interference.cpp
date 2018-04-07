@@ -8,8 +8,6 @@
 using namespace tmr;
 
 
-static const constexpr std::size_t MAX_PRUNE_ITERATIONS = 2;
-
 /******************************** CHECK MATCH ********************************/
 
 static inline bool is_noop(const Statement& pc) {
