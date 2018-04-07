@@ -53,7 +53,7 @@ There are several binaries for showcasing the tool:
 Compiling
 ---------
 
-To compile this project one needs CMake, an C++17 compiler, and Boost 'multi_array'.
+To compile this project one needs CMake, an C++17 compiler, and Boost `multi_array`.
 Compilation was tested with Apple LLVM version 9.1.0 (clang-902.0.39.1),
 and GNU g++ version 7.3.0.
 
