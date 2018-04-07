@@ -74,7 +74,10 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 	const Cfg& cfg = *input;
 	Shape& shape = *(input->shape);
 
-	for (std::size_t iteration = 0; iteration < MAX_PRUNE_ITERATIONS; iteration++) {
+	bool iterate = true;
+	for (std::size_t iteration = 0; iteration < MAX_PRUNE_ITERATIONS && iterate; iteration++) {
+		iterate = false;
+
 		for (std::size_t row = shape.offset_locals(0); row < shape.offset_locals(1); row++) {
 			for (std::size_t col = shape.offset_locals(1); col < shape.size(); col++) {
 				bool is_row_owned = cfg.own.at(row);
@@ -82,6 +85,9 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 
 				bool is_row_valid = cfg.valid_ptr.at(row);
 				bool is_col_valid = cfg.valid_ptr.at(col);
+
+				bool is_row_valid_next = cfg.valid_next.at(row);
+				bool is_col_valid_next = cfg.valid_next.at(col);
 
 				bool is_row_retired = (cfg.guard0state.at(row) && cfg.guard0state.at(row)->is_special())
 				                   || (cfg.guard1state.at(row) && cfg.guard1state.at(row)->is_special());
@@ -123,6 +129,33 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 					prune |= MF_GF;
 				}
 
+				// TODO: owned and !reuse => only BT possible ?
+
+				if (is_row_owned && !is_row_reuse) {
+					prune |= EQ_MT_MF_GT_GF;
+				}
+				if (is_col_owned && !is_col_reuse) {
+					prune |= EQ_MT_MF_GT_GF;
+				}
+
+
+				// TODO: check again
+
+				if (!is_row_valid && !is_row_reuse) {
+					prune |= MT_GT;
+				}
+				if (!is_col_valid && !is_col_reuse) {
+					prune |= MF_GF;
+				}
+
+				if (!is_row_valid_next && is_col_valid && !is_col_reuse) {
+					prune |= MT_GT;
+				}
+				if (!is_col_valid_next && is_row_valid && !is_row_reuse) {
+					prune |= MF_GF;
+				}
+
+
 
 				bool is_row_freed = (cfg.guard0state.at(row) && cfg.guard0state.at(row)->is_marked())
 				                 || (cfg.guard1state.at(row) && cfg.guard1state.at(row)->is_marked());
@@ -132,9 +165,6 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 				if (is_row_freed || is_col_freed) {
 					// more aggressive pruning if explicit knowledge of freeness is available
 					// TODO: check again
-
-					bool is_row_valid_next = cfg.valid_next.at(row);
-					bool is_col_valid_next = cfg.valid_next.at(col);
 
 					if (is_row_valid && is_col_freed && is_no_reuse) {
 						prune.set(EQ);
@@ -157,10 +187,17 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 					if (is_row_freed ^ is_col_freed) {
 						prune.set(EQ);
 					}
+
+
+					// if (is_row_freed) prune |= MT_GT;
+					// if (is_col_freed) prune |= MF_GF;
 				}
 
 
-				shape.set(row, col, shape.at(row, col) & prune.flip());
+
+				RelSet new_cell = shape.at(row, col) & prune.flip();
+				if (new_cell != shape.at(row, col)) iterate = true;
+				shape.set(row, col, new_cell);
 			}
 		}
 
