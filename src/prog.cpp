@@ -30,7 +30,17 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
     : Program(name, std::move(globals), std::move(locals), std::make_unique<Sequence>(std::vector<std::unique_ptr<Statement>>()), std::move(funs)) {}
 
 Program::Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::unique_ptr<Sequence> init, std::vector<std::unique_ptr<Function>> funs)
-	: _name(name), _globals(mk_vars(true, globals)), _locals(mk_vars(false, locals)), _funs(std::move(funs)), _free(new Function("free", true, Sqz(), AtomicSqz())), _guard(new Function("guard", true, Sqz(), AtomicSqz())), _unguard(new Function("unguard", true, Sqz(), AtomicSqz())), _retire(new Function("retire", true, Sqz(), AtomicSqz())), _init_fun(new Function("init_dummy", true, std::move(init), AtomicSqz())) {
+	: _name(name),
+	  _globals(mk_vars(true, globals)),
+	  _locals(mk_vars(false, locals)),
+	  _funs(std::move(funs)),
+	  _free(new Function("free", true, Sqz(), AtomicSqz())),
+	  _guard(new Function("guard", true, Sqz(), AtomicSqz())),
+	  _unguard(new Function("unguard", true, Sqz(), AtomicSqz())),
+	  _retire(new Function("retire", true, Sqz(), AtomicSqz())),
+	  _enter(new Function("enterQ", true, Sqz(), AtomicSqz())),
+	  _leave(new Function("leaveQ", true, Sqz(), AtomicSqz())),
+	  _init_fun(new Function("init_dummy", true, std::move(init), AtomicSqz())) {
 
 	assert(!has_init_name_clash(_funs));
 
@@ -294,6 +304,16 @@ std::unique_ptr<HPrelease> tmr::UGard(std::size_t index) {
 	return res;
 }
 
+std::unique_ptr<EnterQ> tmr::Enter() {
+	std::unique_ptr<EnterQ> res(new EnterQ());
+	return res;
+}
+
+std::unique_ptr<LeaveQ> tmr::Leave() {
+	std::unique_ptr<LeaveQ> res(new LeaveQ());
+	return res;
+}
+
 std::unique_ptr<Malloc> tmr::Mllc(std::string var) {
 	std::unique_ptr<Malloc> res(new Malloc(Var(var)));
 	return res;
@@ -496,6 +516,12 @@ void HPset::namecheck(const std::map<std::string, Variable*>& name2decl) {
 }
 
 void HPrelease::namecheck(const std::map<std::string, Variable*>& name2decl) {
+}
+
+void EnterQ::namecheck(const std::map<std::string, Variable*>& name2decl) {
+}
+
+void LeaveQ::namecheck(const std::map<std::string, Variable*>& name2decl) {
 }
 
 void LinearizationPoint::namecheck(const std::map<std::string, Variable*>& name2decl) {
@@ -831,6 +857,16 @@ void HPset::print(std::ostream& os, std::size_t indent) const {
 void HPrelease::print(std::ostream& os, std::size_t indent) const {
 	printID;
 	os << "unguard[" << _hpindex << "];";
+}
+
+void EnterQ::print(std::ostream& os, std::size_t indent) const {
+	printID;
+	os << "enterQ;";
+}
+
+void LeaveQ::print(std::ostream& os, std::size_t indent) const {
+	printID;
+	os << "leaveQ;";
 }
 
 void LinearizationPoint::print(std::ostream& os, std::size_t indent) const {

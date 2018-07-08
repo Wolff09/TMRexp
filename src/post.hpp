@@ -28,6 +28,8 @@ namespace tmr {
 	std::vector<Cfg> post(const Cfg& cfg, const Retire& stmt, unsigned short tid);
 	std::vector<Cfg> post(const Cfg& cfg, const HPset& stmt, unsigned short tid);
 	std::vector<Cfg> post(const Cfg& cfg, const HPrelease& stmt, unsigned short tid);
+	std::vector<Cfg> post(const Cfg& cfg, const EnterQ& stmt, unsigned short tid);
+	std::vector<Cfg> post(const Cfg& cfg, const LeaveQ& stmt, unsigned short tid);
 	std::vector<Cfg> post(const Cfg& cfg, const Assignment& stmt, unsigned short tid);
 	std::vector<Cfg> post(const Cfg& cfg, const NullAssignment& stmt, unsigned short tid);
 	std::vector<Cfg> post(const Cfg& cfg, const ReadInputAssignment& stmt, unsigned short tid);

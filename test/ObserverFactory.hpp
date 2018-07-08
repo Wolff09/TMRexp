@@ -263,4 +263,66 @@ namespace tmr {
 		return result;
 	}
 
+	static std::unique_ptr<Observer> ebr_observer(const Function& enterQ, const Function& leaveQ, const Function& retire, const Function& free) {
+		std::vector<std::unique_ptr<State>> states;
+		
+		states.push_back(mk_state("q1", true, false));
+		states.push_back(mk_state("q2", false, false, true));
+		states.push_back(mk_state("n1", false, false));
+		states.push_back(mk_state("n2", false, false, true));
+		states.push_back(mk_state("t", false, false, true));
+		states.push_back(mk_state("f", false, true));
+
+		State& q1 = *states[0];
+		State& q2 = *states[1];
+		State& n1 = *states[2];
+		State& n2 = *states[3];
+		State& st = *states[4];
+		State& sf = *states[5];
+
+		add_trans(q1, q2, retire, OValue::Anonymous());
+		add_trans(q1, sf, free, OValue::Anonymous());
+		add_trans(q1, n1, enterQ, OValue::Anonymous());
+		
+		add_trans(q2, sf, free, OValue::Anonymous());
+		add_trans(q2, n2, enterQ, OValue::Anonymous());
+
+		add_trans(n1, q1, leaveQ, OValue::Anonymous());
+		add_trans(n1, n2, retire, OValue::Anonymous());
+		add_trans(n1, sf, free, OValue::Anonymous());
+
+		add_trans(n2, n1, free, OValue::Anonymous());
+		add_trans(n2, st, leaveQ, OValue::Anonymous());
+
+		add_trans(st, q1, free, OValue::Anonymous());
+		add_trans(st, n2, enterQ, OValue::Anonymous());
+
+		auto result = std::unique_ptr<Observer>(new Observer(std::move(states), 0));
+		return result;
+	}
+
+	static std::unique_ptr<Observer> no_reclamation_observer(const Function& free) {
+		std::vector<std::unique_ptr<State>> states;
+		
+		states.push_back(mk_state("q1", true, false));
+		states.push_back(mk_state("f", false, true));
+
+		State& s0 = *states[0];
+		State& sf = *states[1];
+
+		add_trans(s0, sf, free, OValue::Anonymous());
+
+		auto result = std::unique_ptr<Observer>(new Observer(std::move(states), 0));
+		return result;
+	}
+
+	static std::unique_ptr<Observer> all_reclamation_observer() {
+		std::vector<std::unique_ptr<State>> states;
+		
+		states.push_back(mk_state("q1", true, false));
+
+		auto result = std::unique_ptr<Observer>(new Observer(std::move(states), 0));
+		return result;
+	}
+
 }

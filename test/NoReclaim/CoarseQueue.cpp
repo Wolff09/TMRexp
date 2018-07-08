@@ -54,7 +54,7 @@ static std::unique_ptr<Program> mk_program() {
 		Fun("deq", false, std::move(deqbody))
 	);
 
-	prog->smr_observer(smr_observer(prog->guardfun(), prog->unguardfun(), prog->retirefun(), prog->freefun()));
+	prog->smr_observer(no_reclamation_observer(prog->freefun()));
 
 	return prog;
 }

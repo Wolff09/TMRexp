@@ -147,3 +147,31 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const HPrelease& stmt, unsigned short
 	}
 	return result;
 }
+
+
+/******************************** ENTERQ / LEAVEQ ********************************/
+
+static inline std::vector<Cfg> mk_ebr_post(const Cfg& cfg, const Function& evt, unsigned short tid) {
+	auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
+	auto begin = cfg.shape->offset_locals(0);
+	auto end = cfg.shape->size();
+	for (std::size_t i = begin; i < end; i++) {
+		auto state = result.back().guard0state;
+		if (state.at(i)) {
+			state.set(i, &state.at(i)->next(evt, OValue::Anonymous()));
+		}
+	}
+	return result;
+}
+
+std::vector<Cfg> tmr::post(const Cfg& cfg, const EnterQ& stmt, unsigned short tid) {
+	CHECK_STMT;
+	auto& evt = stmt.function().prog().enterfun();
+	return mk_ebr_post(cfg, evt, tid);
+}
+
+std::vector<Cfg> tmr::post(const Cfg& cfg, const LeaveQ& stmt, unsigned short tid) {
+	CHECK_STMT;
+	auto& evt = stmt.function().prog().leavefun();
+	return mk_ebr_post(cfg, evt, tid);
+}

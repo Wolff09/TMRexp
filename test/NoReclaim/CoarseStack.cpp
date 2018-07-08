@@ -51,7 +51,7 @@ static std::unique_ptr<Program> mk_program() {
 		Fun("pop", false, std::move(popbody))
 	);
 
-	prog->smr_observer(smr_observer(prog->guardfun(), prog->unguardfun(), prog->retirefun(), prog->freefun()));
+	prog->smr_observer(no_reclamation_observer(prog->freefun()));
 
 	return prog;
 }

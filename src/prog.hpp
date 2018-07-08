@@ -224,7 +224,7 @@ namespace tmr {
 			const Statement* _next = NULL;
 
 		public:
-			enum Class { SQZ, ASSIGN, MALLOC, /*FREE,*/ RETIRE, HPSET, HPRELEASE, ITE, WHILE, BREAK, LINP, INPUT, OUTPUT, CAS, SETNULL, ATOMIC, ORACLE, CHECKP, KILL, REACH };
+			enum Class { SQZ, ASSIGN, MALLOC, /*FREE,*/ RETIRE, HPSET, HPRELEASE, ITE, WHILE, BREAK, LINP, INPUT, OUTPUT, CAS, SETNULL, ATOMIC, ORACLE, CHECKP, KILL, REACH, ENTERQ, LEAVEQ };
 			virtual ~Statement() = default;
 			virtual Class clazz() const = 0;
 			unsigned short id() const { assert(_id != 0); return _id; }
@@ -417,6 +417,20 @@ namespace tmr {
 			std::size_t hpindex() const { return _hpindex; }
 	};
 
+	class EnterQ : public Statement {
+		public:
+			Statement::Class clazz() const { return Statement::Class::ENTERQ; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os, std::size_t indent) const;
+	};
+
+	class LeaveQ : public Statement {
+		public:
+			Statement::Class clazz() const { return Statement::Class::LEAVEQ; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os, std::size_t indent) const;
+	};
+
 	class Break : public Statement {
 		public:
 			Statement::Class clazz() const { return Statement::Class::BREAK; }
@@ -587,7 +601,7 @@ namespace tmr {
 			std::vector<std::unique_ptr<Variable>> _globals;
 			std::vector<std::unique_ptr<Variable>> _locals;
 			std::vector<std::unique_ptr<Function>> _funs;
-			std::unique_ptr<Function> _free, _guard, _unguard, _retire;
+			std::unique_ptr<Function> _free, _guard, _unguard, _retire, _enter, _leave;
 			std::unique_ptr<Function> _init_fun;
 			std::size_t _idSize = 0;
 			Sequence* _init() const { return _init_fun->_stmts.get(); }
@@ -608,6 +622,8 @@ namespace tmr {
 			const Function& freefun() const { return *_free; }
 			const Function& guardfun() const { return *_guard; }
 			const Function& unguardfun() const { return *_unguard; }
+			const Function& leavefun() const { return *_leave; }
+			const Function& enterfun() const { return *_enter; }
 			const Function& retirefun() const { return *_retire; }
 			const Sequence& init() const { return _init_fun->body(); }
 			const Function& init_fun() const { return *_init_fun; }
@@ -670,6 +686,8 @@ namespace tmr {
 	std::unique_ptr<Retire> Rtire(std::string var);
 	std::unique_ptr<HPset> Gard(std::string var, std::size_t index);
 	std::unique_ptr<HPrelease> UGard(std::size_t index);
+	std::unique_ptr<EnterQ> Enter();
+	std::unique_ptr<LeaveQ> Leave();
 	std::unique_ptr<Break> Brk();
 	std::unique_ptr<Killer> Kill(std::string var);
 	std::unique_ptr<Killer> Kill();
