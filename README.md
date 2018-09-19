@@ -40,14 +40,7 @@ Experiments
 -----------
 
 Test cases can be found in `test/`.
-There are several binaries for showcasing the tool:
-
-   1. Stack/CoarseStack
-   2. Stack/TreibersStack
-   3. Stack/TreibersRace (optimized version of TreibersStack which is correct but racy)
-   4. Coarse/CoarseQueue
-   5. Queue/MichaelScottQueue
-   6. Queue/DGLMQueue
+There are several binaries for showcasing the tool.
 
 
 Compiling
