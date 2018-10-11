@@ -21,7 +21,7 @@ The main purpose of this implementation is to showcase the usefulness of the res
       - considers reallocations of a single cell only, and
       - perform an ABA check on top of the fixed point to guarantee soundness
 
-For more details visit: [https://www.tcs.cs.tu-bs.de/documents/popl19/artifact.html]
+For more details visit: https://www.tcs.cs.tu-bs.de/documents/popl19/artifact.html
 
 
 [1] M. Herlihy and N. Shavit. The art of multiprocessor programming. Morgan Kaufmann, 2008.  
