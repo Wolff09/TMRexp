@@ -39,7 +39,7 @@ std::ostream& tmr::operator<<(std::ostream& os, const OValue& ov) {
 /************************ EQUALITY  ************************/
 
 Equality::Equality(OValue rhs, bool negated) : rhs(rhs), negated(negated) {
-	assert(rhs.type() == OValue::EMPTY || rhs.type() == OValue::OBSERVABLE);
+	// assert(rhs.type() == OValue::EMPTY || rhs.type() == OValue::OBSERVABLE);
 }
 
 Equality::Equality(OValue rhs) : Equality(rhs, false) {}
@@ -73,6 +73,10 @@ bool Transition::enabled(const Function& event, OValue oval) const {
 /************************ STATE ************************/
 
 State::State(std::string name, bool is_initial, bool is_final) : _name(name), _is_initial(is_initial), _is_final(is_final) {}
+
+State::State(std::string name, bool is_initial, bool is_final, bool is_special) : _name(name), _is_initial(is_initial), _is_final(is_final), _is_special(is_special) {}
+
+State::State(std::string name, bool is_initial, bool is_final, bool is_special, bool is_marked) : _name(name), _is_initial(is_initial), _is_final(is_final), _is_special(is_special), _is_marked(is_marked) {}
 
 const State& State::next(const Function& evt_name, OValue evt_val) const {
 	// search for an enabled transition (assuming there is at most one)
@@ -173,4 +177,9 @@ Observer::Observer(std::vector<std::unique_ptr<State>> states, std::size_t numVa
 		if (s->is_initial())
 			init.push_back(s.get());
 	_init = MultiState(std::move(init));
+
+
+	for (std::size_t i = 0; i < _states.size(); i++)
+		_states.at(i)->_id = i;
 }
+

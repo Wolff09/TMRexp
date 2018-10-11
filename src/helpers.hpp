@@ -20,6 +20,7 @@ namespace tmr {
 	static const constexpr RelSet MT_BT          = RelSet(34); // contains: ↦, ⋈
 	static const constexpr RelSet MT_GF          = RelSet(18); // contains: ↦, ⇠
 	static const constexpr RelSet MT_GT          = RelSet(10); // contains: ↦, ⇢
+	static const constexpr RelSet GT_BT          = RelSet(40); // contains: ⇢, ⋈
 	static const constexpr RelSet EQ_MT_GT       = RelSet(11); // contains: =, ↦, ⇢
 	static const constexpr RelSet EQ_MF_GF       = RelSet(21); // contains: =, ↤, ⇠
 	static const constexpr RelSet EQ_GT_GF       = RelSet(25); // contains: =, ⇢, ⇠
@@ -41,16 +42,9 @@ namespace tmr {
 		switch (expr.clazz()) {
 			case Expr::VAR: return mk_var_index(shape, ((const VarExpr&) expr).decl(), tid);
 			case Expr::SEL: return mk_var_index(shape, ((const Selector&) expr).decl(), tid);
-			case Expr::NIL: return shape.index_FREE();
+			case Expr::NIL: return shape.index_NULL();
 		}
-		assert(false);
 	}
-
-	/**
-	 * @brief Checks whether there are some relations ~,~' with ~∈rel_X_Y and ~∈rel_Y_Z such that the relation rel_X_Z is consistent.
-	 *        (Implements the consistent(x,y,z,~^1,~^2~^3) predicate.)
-	 */
-	// bool consistent(Rel rel_X_Z, RelSet rel_X_Y, RelSet rel_Y_Z);
 
 	/**
 	 * @brief Checks whether the passed relation relating x and z is consistent.
@@ -84,12 +78,25 @@ namespace tmr {
 	Shape* isolate_partial_concretisation(const Shape& shape, const std::size_t row, const std::size_t col, const RelSet match);
 
 	/**
+	 * @brief Removes inconsistent relations in the given shape.
+	 * @details Returns false iff. the given shape contains definitely inconsistent relations.
+	 */
+	bool make_concretisation(Shape& shape);
+
+	/**
 	 * @brief Disambiguates the reachability information about the passed variable.
 	 * @details For a passed variable x, any cell relating x with another cell term
 	 *          is split such that it contains either {=} or {↦,⇢} or {↤,⇠} or {⋈}
 	 *          (or subsets of those).
 	 */
 	std::vector<Shape*> disambiguate(const Shape& shape, const std::size_t index);
+
+	/**
+	 * @brief Disambiguates the reachability information about the passed cell.
+	 * @details The passed shape is split up such that in the resulting shapes the
+	 *          cell contains either {=} or {↦,⇢} or {↤,⇠} or {⋈} (or subsets of those).
+	 */
+	std::vector<Shape*> disambiguate_cell(const Shape& shape, const std::size_t row, const std::size_t col);
 
 	/**
 	 * @brief Merges shapes yielding a fresh one. If the provided list is empty, NULL is returned.
@@ -122,10 +129,5 @@ namespace tmr {
 	 *        Removes all predicates that rely on the removed relations.
 	 */
 	void remove_successors(Shape& shape, std::size_t x);
-
-	/**
-	 * @brief Sets dst.age to src.age.
-	 */
-	void set_age_equal(Cfg& cfg, std::size_t dst, std::size_t src);
 
 }

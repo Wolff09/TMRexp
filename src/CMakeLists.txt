@@ -3,7 +3,7 @@ set(SOURCES
 	shape.cpp
 	observer.cpp
 	cfg.cpp
-	chkmimic.cpp
+	chkaware.cpp
 	counter.cpp
 	encoding.cpp
 	fixp/cfgpost.cpp
@@ -15,6 +15,7 @@ set(SOURCES
 	post/easy.cpp
 	post/eval_cas.cpp
 	post/eval_eqneq.cpp
+	post/hp.cpp
 	post/inout.cpp
 	post/linp.cpp
 	post/mem.cpp

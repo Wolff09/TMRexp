@@ -10,26 +10,22 @@ using namespace tmr;
 
 bool check_special_relations_constraints(const Shape& shape) {
 	auto null = shape.index_NULL();
-	auto free = shape.index_FREE();
+	auto reuse = shape.index_REUSE();
 	auto undef = shape.index_UNDEF();
 	// ensure that null and undef are unrelated
 	if (shape.at(null, undef).count() != 1 || !shape.at(null, undef).test(BT)) return false;
-	// ensure that null and free are unrelated
-	if (shape.at(null, free).count() != 1 || !shape.at(null, free).test(BT)) return false;
-	// ensure that undef and free are unrelated
-	if (shape.at(undef, free).count() != 1 || !shape.at(undef, free).test(BT)) return false;
+	// ensure that null and reuse are unrelated
+	if (shape.at(null, reuse).count() != 1 || !shape.at(null, reuse).test(BT)) return false;
+	// ensure that undef and reuse are unrelated
+	if (shape.at(undef, reuse).count() != 1 || !shape.at(undef, reuse).test(BT)) return false;
 	for (std::size_t i = shape.offset_vars(); i < shape.size(); i++) {
 		// cell term i may only relate with =, ↦, ⇢ or ⋈ to NULL
 		if (shape.at(i, null).test(MF)) return false;
 		if (shape.at(i, null).test(GF)) return false;
-		// cell term i may only relate with ↦, ⇢ or ⋈ to FREE
-		if (shape.at(i, free).test(EQ)) return false;
-		if (shape.at(i, free).test(MF)) return false;
-		if (shape.at(i, free).test(GF)) return false;
 		// cell term i may only relate with ↦, ⇢ or ⋈ to UNDEFINED
-		if (shape.at(i, free).test(EQ)) return false;
-		if (shape.at(i, free).test(MF)) return false;
-		if (shape.at(i, free).test(GF)) return false;
+		if (shape.at(i, undef).test(EQ)) return false;
+		if (shape.at(i, undef).test(MF)) return false;
+		if (shape.at(i, undef).test(GF)) return false;
 	}
 	return true;
 }
@@ -37,11 +33,11 @@ bool check_special_relations_constraints(const Shape& shape) {
 
 /******************************** CONSISTENCY ********************************/
 
-bool consistentEQ(RelSet xy, RelSet yz) {
+static inline bool consistentEQ(RelSet xy, RelSet yz) {
 	return (xy & symmetric(yz)).any();
 }
 
-bool consistentMT(RelSet xy, RelSet yz) {
+static inline bool consistentMT(RelSet xy, RelSet yz) {
 	if (xy.test(MT) && yz.test(EQ)) return true;
 	if (xy.test(MF) && yz.test(GT)) return true;
 	if (xy.test(GT) && (yz & MF_GF).any()) return true;
@@ -51,11 +47,11 @@ bool consistentMT(RelSet xy, RelSet yz) {
 	return false;
 }
 
-bool consistentMF(RelSet xy, RelSet yz) {
+static inline bool consistentMF(RelSet xy, RelSet yz) {
 	return consistentMT(symmetric(yz), symmetric(xy));
 }
 
-bool consistentGT(RelSet xy, RelSet yz) {
+static inline bool consistentGT(RelSet xy, RelSet yz) {
 	if (xy.test(MT) && (yz & MT_GT).any()) return true;
 	if (xy.test(MF) && yz.test(GT)) return true;
 	if (xy.test(GT) && (yz & EQ_MT_MF_GT_GF).any()) return true;
@@ -65,11 +61,11 @@ bool consistentGT(RelSet xy, RelSet yz) {
 	return false;
 }
 
-bool consistentGF(RelSet xy, RelSet yz) {
+static inline bool consistentGF(RelSet xy, RelSet yz) {
 	return consistentGT(symmetric(yz), symmetric(xy));
 }
 
-bool consistentBT(RelSet xy, RelSet yz) {
+static inline bool consistentBT(RelSet xy, RelSet yz) {
 	if (xy.test(MT) && (yz & MF_GF_BT).any()) return true;
 	if (xy.test(MF) && yz.test(BT)) return true;
 	if (xy.test(GT) && (yz & MF_GF_BT).any()) return true;
@@ -81,7 +77,7 @@ bool consistentBT(RelSet xy, RelSet yz) {
 
 typedef bool(*FunctionPointer)(RelSet, RelSet);
 typedef std::array<std::array<bool, 64>, 64> lookup_table;
-static const lookup_table mk_lookup(FunctionPointer fun) {
+static inline lookup_table mk_lookup(FunctionPointer fun) {
 	lookup_table result;
 	for (std::size_t i = 0; i < 64; i++)
 		for (std::size_t j = 0; j < 64; j++)
@@ -98,14 +94,13 @@ static const std::array<lookup_table, 6> CONSISTENT_REL_LOOKUP {{
 	mk_lookup(&consistentBT)
 }};
 
-bool consistentRel(const Rel xz, const RelSet xy, const RelSet yz) {
+static bool consistentRel(const Rel xz, const RelSet xy, const RelSet yz) {
 	return CONSISTENT_REL_LOOKUP[xz][xy.to_ulong()][yz.to_ulong()];
 }
 
 bool tmr::consistent(const Shape& shape, std::size_t x, std::size_t z, Rel rel) {
 	for (std::size_t y = 0; y < shape.size(); y++)
 		if (!consistentRel(rel, shape.at(x,y), shape.at(y,z))) {
-			// std::cout<<"InconsistentRel(x="<<x<<",y="<<y<<",z="<<z<<"): "<<x<<rel<<z<<" via "<<x<<shape.at(x,y)<<y<<" and "<<y<<shape.at(y,z)<<z<<std::endl;//<<" in shape "<<std::endl<<shape<<std::endl;
 			return false;
 		}
 	return true;
@@ -163,7 +158,6 @@ bool tmr::is_closed_under_reflexivity_and_transitivity(const Shape& input, bool 
 	for (std:: size_t i = 0; i < shape.size(); i++)
 		for (std:: size_t j = i+1; j < shape.size(); j++)
 			if (shape.at(i, j) != input.at(i, j)) {
-				// std::cout<<"No Closure@("<<i<<","<<j<<"). "<<input.at(i,j)<<" versus "<<shape.at(i,j)<<" for input "<<std::endl<<input<<"versus"<<std::endl<<shape<<std::endl;
 				if (weak)
 					if (shape.test(i, i, GT) || shape.test(j, j, GT))
 						// selfloop => transitivity got confused (non-trivial constraints not present in shape)
@@ -184,48 +178,123 @@ bool is_concretisation(const Shape& con, const Shape& abs) {
 	return true;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////
 
-bool mk_concretisation(Shape& shape) {
+struct ConcretisationInfo {
+	RelSet ij;
+	RelSet ik;
+	RelSet jk;
+	bool changed;
+	bool changed_ij;
+	bool changed_ik;
+	bool changed_jk;
+	bool inconsistent;
+	ConcretisationInfo() {}
+	ConcretisationInfo(RelSet a, RelSet b, RelSet c) : ij(a), ik(b), jk(c) {}
+};
+
+static const ConcretisationInfo mk_cinfo(RelSet ij, RelSet ik, RelSet jk) {
+	ConcretisationInfo result(ij, ik, jk);
+	bool iterate;
+	do {
+		iterate = false;
+		RelSet ij = result.ij;
+		RelSet ik = result.ik;
+		RelSet jk = result.jk;
+		RelSet ji = symmetric(ij);
+		RelSet kj = symmetric(jk);
+		// Signature: consistentRel(const Rel xz, const RelSet xy, const RelSet yz)
+		for (Rel rel : ij) { if (!consistentRel(rel, ik, kj)) { result.ij.reset(rel); iterate = true; goto ctn; }}
+		for (Rel rel : ik) { if (!consistentRel(rel, ij, jk)) { result.ik.reset(rel); iterate = true; goto ctn; }}
+		for (Rel rel : jk) { if (!consistentRel(rel, ji, ik)) { result.jk.reset(rel); iterate = true; goto ctn; }}
+		ctn:;
+	} while (iterate);
+	result.changed_ij = ij != result.ij;
+	result.changed_ik = ik != result.ik;
+	result.changed_jk = jk != result.jk;
+	result.changed = ij != result.ij || ik != result.ik || jk != result.jk;
+	result.changed = result.changed_ij || result.changed_ik || result.changed_jk;
+	result.inconsistent = result.ij.none() || result.ik.none() || result.jk.none();
+	return result;
+}
+
+typedef std::array<std::array<std::array<ConcretisationInfo, 64>, 64>, 64> CONCRETISATION_LOOKUP_T;
+
+static CONCRETISATION_LOOKUP_T mk_clookup() {
+	CONCRETISATION_LOOKUP_T result;
+	for (std::size_t i = 0; i < 64; i++)
+		for (std::size_t j = 0; j < 64; j++)
+			for (std::size_t k = 0; k < 64; k++)
+				result[i][j][k] = mk_cinfo(RelSet(i), RelSet(j), RelSet(k));
+	return result;
+}
+
+bool tmr::make_concretisation(Shape& shape) {
+	static const CONCRETISATION_LOOKUP_T CONCRETISATION_LOOKUP = mk_clookup(); // likely ~10MB in size
+	auto size = shape.size();
 	bool changed;
 	do {
 		changed = false;
-		for (std::size_t i = 0; i < shape.size(); i++) {
-			for (std::size_t j = i; j < shape.size(); j++) {
-				for (Rel rel : shape.at(i, j)) {
-					if (!consistent(shape, i, j, rel)) {
-						shape.remove_relation(i, j, rel);
-						changed = true;
-					}
+		for (std::size_t i = 0; i < size; i++) {
+			for (std::size_t j = i; j < size; j++) {
+				for (std::size_t k=j; k < size; k++) {
+					auto cell_ij = shape.at(i, j).to_ulong();
+					auto cell_ik = shape.at(i, k).to_ulong();
+					auto cell_jk = shape.at(j, k).to_ulong();
+					auto update = CONCRETISATION_LOOKUP[cell_ij][cell_ik][cell_jk];
+					// TODO: could reading inconsistency from another table speed up things?
+					if (update.inconsistent) return false;
+					#if REPEAT_PRUNING
+						changed |= update.changed;
+					#endif
+					// conditional update: update rarely necessary and "expensive" due to heavy load
+					// also: branch prediction is our friend
+					if (update.changed_ij) shape.set(i, j, update.ij);
+					if (update.changed_ik) shape.set(i, k, update.ik);
+					if (update.changed_jk) shape.set(j, k, update.jk);
 				}
-				// if we removed all relations from one cell, then the shape
-				// is no (partial) concretisation of the abstract input shape
-				if (shape.at(i, j).none()) return false;
 			}
 		}
 	} while (changed);
-	assert(consistent(shape));
-	assert(is_closed_under_reflexivity_and_transitivity(shape));
 	return true;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////
+
+// bool tmr::make_concretisation(Shape& shape) {
+// 	bool changed;
+// 	do {
+// 		changed = false;
+// 		for (std::size_t i = 0; i < shape.size(); i++) {
+// 			for (std::size_t j = i; j < shape.size(); j++) {
+// 				for (Rel rel : shape.at(i, j)) {
+// 					if (!consistent(shape, i, j, rel)) {
+// 						shape.remove_relation(i, j, rel);
+// 						changed = true;
+// 					}
+// 				}
+// 				// if we removed all relations from one cell, then the shape
+// 				// is no (partial) concretisation of the abstract input shape
+// 				if (shape.at(i, j).none()) return false;
+// 			}
+// 		}
+// 	} while (changed);
+// 	return true;
+// }
+
 
 Shape* tmr::isolate_partial_concretisation(const Shape& toSplit, const std::size_t row, const std::size_t col, const RelSet match) {
-	assert(row < toSplit.size());
-	assert(col < toSplit.size());
 	RelSet new_cell = intersection(toSplit.at(row, col), match);
-	
 	if (new_cell.none()) return NULL;
-	assert(new_cell.any());
 
 	Shape* result = new Shape(toSplit);
 	result->set(row, col, new_cell);
-	bool success = mk_concretisation(*result);
+	bool success = make_concretisation(*result);
 	if (!success) {
 		delete result;
 		return NULL;
 	}
-	assert(result->at(row, col).any());
-	assert((result->at(row, col) & new_cell).any());
+
 	return result;
 }
 
@@ -267,7 +336,7 @@ std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t ro
 		Shape* shape = work.top().second;
 		if (col >= shape->size()) {
 			// the shape is fully split up, so do one concretisation step
-			bool success = mk_concretisation(*shape);
+			bool success = make_concretisation(*shape);
 			if (success) {
 				assert(consistent(*shape));
 				assert(is_concretisation(*shape, toSplit));
@@ -293,9 +362,6 @@ std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t ro
 
 			if (shape->at(row, col).none()) {
 				// we ran into an dead end, the shape will never be a concretization
-				assert(!is_concretisation(*shape, toSplit));
-				shape->set(row, col, BT_); // TODO: can this become a consistent concretization ????
-				assert(!is_concretisation(*shape, toSplit) || !consistent(*shape, row, col, BT));
 				delete shape;
 				work.pop();
 				continue;
@@ -326,6 +392,21 @@ std::vector<Shape*> tmr::disambiguate(const Shape& toSplit, const std::size_t ro
 	}
 
 	assert(result.size() > 0);
+	return result;
+}
+
+std::vector<Shape*> tmr::disambiguate_cell(const Shape& shape, const std::size_t row, const std::size_t col) {
+	if (!needsSplitting(shape.at(row, col))) return { new Shape(shape) };
+	std::vector<RelSet> cellsplit = split_cell(shape.at(row, col));
+	std::vector<Shape*> result;
+	result.reserve(4);
+	for (RelSet rs : cellsplit) {
+		Shape* s = new Shape(shape);
+		s->set(row, col, rs);
+		bool success = make_concretisation(*s);
+		if (success) result.push_back(s);
+		else delete s;
+	}
 	return result;
 }
 
@@ -389,20 +470,4 @@ void tmr::remove_successors(Shape& shape, const std::size_t x) {
 			shape.set(v, u, BT);
 		}
 	assert(consistent(shape));
-}
-
-
-/******************************** AGE FIELD UPDATE ********************************/
-
-void tmr::set_age_equal(Cfg& cfg, std::size_t dst, std::size_t src) {
-	cfg.ages->set_real(dst, src, AgeRel::EQ);
-	cfg.ages->set_next(dst, src, AgeRel::EQ);
-	for (std::size_t i = 0; i < cfg.ages->size(); i++) {
-		cfg.ages->set_real(dst, i, cfg.ages->at_real(src, i));
-		cfg.ages->set_next(dst, i, cfg.ages->at_next(src, i));
-	}
-	cfg.ages->set_real(dst, src, AgeRel::EQ);
-	cfg.ages->set_next(dst, src, AgeRel::EQ);
-	assert(cfg.ages->at_real(dst, src) == AgeRel::EQ);
-	assert(cfg.ages->at_next(dst, src) == AgeRel::EQ);
 }

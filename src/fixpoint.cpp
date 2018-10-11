@@ -5,31 +5,25 @@
 #include "fixp/interference.hpp"
 #include "counter.hpp"
 #include "config.hpp"
-#include "chkmimic.hpp"
+#include "chkaware.hpp"
 
 using namespace tmr;
 
 
 /******************************** INITIAL CFG ********************************/
 
-Cfg mk_init_cfg(const Program& prog, const Observer& obs, MemorySetup msetup) {
-	std::size_t numThreads = msetup == MM ? 2 : 1;
+Cfg mk_init_cfg(const Program& prog, const Observer& linobs) {
+	std::size_t numThreads = 1;
+
 	Cfg init(
 		{{ &prog.init(), NULL, NULL }},
-		obs.initial_state(),
-		new Shape(obs.numVars(), prog.numGlobals(), prog.numLocals(), numThreads),
-		new AgeMatrix(prog.numGlobals() + obs.numVars(), prog.numLocals(), numThreads),
-		MultiInOut()
+		linobs.initial_state(),
+		new Shape(linobs.numVars(), prog.numGlobals(), prog.numLocals(), numThreads)
 	);
 	while (init.pc[0] != NULL) {
-		std::vector<Cfg> postpc = tmr::post(init, 0, msetup);
-		assert(postpc.size() == 1);
+		std::vector<Cfg> postpc = tmr::post(init, 0);
 		init = std::move(postpc.front());
 	}
-	assert(init.pc[0] == NULL);
-	assert(init.pc[1] == NULL);
-	assert(init.pc[2] == NULL);
-	assert(init.shape);
 	return init;
 }
 
@@ -44,80 +38,142 @@ const Cfg& RemainingWork::pop() {
 	return *top;
 }
 
+static inline bool needs_splitting(RelSet rs) {
+	return rs != EQ_ && rs != MT_  && rs != GT_  && rs != MT_GT && rs != MF_GF && rs != MF_ && rs != GF_ && rs != BT_;
+}
+
 void RemainingWork::add(Cfg&& cfg) {
-	#if !REPLACE_INTERFERENCE_WITH_SUMMARY
-		if (cfg.state.is_final()) return;
+	#if DGLM_PRECISION
+		if (needs_splitting(cfg.shape->at(5,6))) {
+			for (RelSet rs : { EQ_, MT_GT, MF_GF, BT_ }) {
+				Shape* split = isolate_partial_concretisation(*cfg.shape, 5, 6, rs);
+				if (split) add(Cfg(cfg, split));
+			}
+			return;
+		}
 	#endif
+
 	auto res = _enc.take(std::move(cfg));
 	if (res.first) _work.insert(&res.second);
 }
 
+// #if DGLM_PRECISION
+// 	void RemainingWork::add(Cfg&& cfg) {
+// 		static std::vector<Shape*> worklist;
+// 		worklist.reserve(32);
+// 		worklist.clear();
+// 		// returns true iff the input cfg was split up
+
+// 		auto begin = cfg.shape->offset_program_vars();
+// 		auto end = cfg.shape->offset_locals(0);
+
+// 		// std::vector<Shape*> worklist;
+// 		worklist.reserve(32);
+// 		worklist.push_back(cfg.shape.release());
+
+// 		while (!worklist.empty()) {
+// 			Shape* shape = worklist.back();
+// 			worklist.pop_back();
+
+// 			for (std::size_t i = begin; i < end; i++) {
+// 				for (std::size_t j = i+1; j < end; j++) {
+// 					if (!needs_splitting(shape->at(i, j))) continue;
+// 					for (RelSet rs : { EQ_, MT_GT, MF_GF, BT_ }) {
+// 						Shape* update = new Shape(*shape);
+// 						update->set(i, j, intersection(update->at(i, j), rs));
+// 						worklist.push_back(update);
+// 					}
+// 					goto ctn;
+// 				}
+// 			}
+
+// 			// work.add(Cfg(cfg, shape));
+// 			{
+// 				auto res = _enc.take(Cfg(cfg, shape));
+// 				if (res.first) _work.insert(&res.second);
+// 				continue;
+// 			}
+
+// 			ctn:; // continue here if the shape was split
+// 			delete shape;
+// 		}
+// 	}
+// #endif
+
 
 /******************************** FIXED POINT ********************************/
 
-std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& obs, MemorySetup msetup) {
+std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& linobs) {
 	std::unique_ptr<Encoding> enc = std::make_unique<Encoding>();
 
 	RemainingWork work(*enc);
-	work.add(mk_init_cfg(prog, obs, msetup));
-	assert(!work.done());
 
+	// add all seen possibilities -- this saves interference
+	Cfg init00 = mk_init_cfg(prog, linobs);
+	Cfg init01 = init00.copy();
+	Cfg init10 = init00.copy();
+	Cfg init11 = init00.copy();
+	init01.seen[0] = true;
+	init10.seen[1] = true;
+	init11.seen[0] = true;
+	init11.seen[1] = true;
+	work.add(std::move(init00));
+	work.add(std::move(init01));
+	work.add(std::move(init10));
+	work.add(std::move(init11));
 
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY && USE_MODIFIED_FIXEDPOINT
-		
-		/* FIXED POINT WITH SUMMARIES */
-		/* Since summaries are independent of the current encoding, we
-		 * need to apply them only once like a sequential step
-		 */
+	#if WORKLIST_INTERFERENCE
+		/* SEQUENTIAL and INTERFERENCE steps intertwined using WORKLIST */
+
 		std::size_t counter = 0;
+		std::cerr << "Fixpoint Computation..." << std::endl;
+		std::cerr << "\t[#steps\t\t#enc\t\t#interference]" << std::endl;
 
-		std::cerr << "combined post...     ";
 		while (!work.done()) {
-			const Cfg& topmost = work.pop();
-
-			work.add(tmr::mk_all_post(topmost, prog, msetup));
-			mk_summary(work, topmost, prog, msetup);
+			const Cfg& topost = work.pop();
+			work.add(tmr::mk_all_post(topost, prog));
+			mk_cfg_interference(*enc, work, topost);
 
 			counter++;
-			if (counter%1000 == 0) std::cerr << "[" << counter/1000 << "k-" << enc->size()/1000 << "k-" << work.size()/1000 << "k]";
+			if (counter%500 == 0) {
+				std::cerr << "\t[";
+				std::cerr << counter/1000 << "." << (counter-((counter/1000)*1000))/100 << "k\t\t";
+				std::cerr << enc->size()/1000 << "." << (enc->size()-((enc->size()/1000)*1000))/100 << "k\t\t";
+				std::cerr << INTERFERENCE_STEPS/1000 << "k]";
+				std::cerr << std::endl;
+			}
 		}
-		std::cerr << " done! [enc.size()=" << enc->size() << ", iterations=" << counter << "]" << std::endl;
 
 	#else
+		/* independent SEQUENTIAL and INTERFERENCE steps */
 
-		/* FIXED POINT WITH INTERFERENCE */
 		while (!work.done()) {
 			std::size_t counter = 0;
+			std::cerr << "post image...     [#enc]";
 
-			std::cerr << "post image...     ";
+			// sequential steps
 			while (!work.done()) {
 				const Cfg& topost = work.pop();
+				work.add(tmr::mk_all_post(topost, prog));
+
 				SEQUENTIAL_STEPS++;
-				work.add(tmr::mk_all_post(topost, prog, msetup));
-				
 				counter++;
-				if (counter%10000 == 0) std::cerr << "[" << counter/1000 << "k-" << enc->size()/1000 << "k]";
+				if (counter%1000 == 0) {
+					std::cerr << "[" << enc->size()/1000 << "k]" << std::flush;
+				}
 			}
-			std::cerr << " done! [enc.size()=" << enc->size() << ", iterations=" << counter << "]" << std::endl;
+			std::cerr << " done! [#enc=" << enc->size()/1000 << "." << (enc->size()-((enc->size()/1000)*1000))/100 << "k";
+			std::cerr << ", #step=" << counter/1000 << "k";
+			std::cerr << ", #steptotal=" << SEQUENTIAL_STEPS/1000 << "k]" << std::endl;
 
-			tmr::mk_all_interference(*enc, work, msetup);
+			// interference steps
+			tmr::mk_all_interference(*enc, work);
 		}
 
 	#endif
 
-	std::string ainfo = "";
+	bool is_fp_sound = chk_aba_awareness(*enc);
+	if (!is_fp_sound) std::cerr << "FIXPOINT SOLUTION UNSOUND!" << std::endl;
 
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY && SUMMARY_CHKMIMIC
-		std::cerr << "chk_mimic...        ";
-		if (chk_mimic(*enc)) {
-			std::cerr << " done! [effects=" << SUMMARIES_NEEDED << "]" << std::endl;
-			ainfo = " Approximation proven sound.";
-		} else {
-			std::cerr << " failed!" << std::endl;
-			throw std::runtime_error("Misbehaving Summary: CHK-MIMIC failed.");
-		}
-	#endif
-
-	std::cout << std::endl << "Fixed point computed " << enc->size() << " distinct configurations." << ainfo << std::endl;
 	return enc;
 }

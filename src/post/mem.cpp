@@ -2,10 +2,12 @@
 
 #include <stdexcept>
 #include <assert.h>
+#include <deque>
 #include "relset.hpp"
 #include "../helpers.hpp"
 #include "post/helpers.hpp"
 #include "post/setout.hpp"
+#include "post/assign.hpp"
 #include "config.hpp"
 
 using namespace tmr;
@@ -13,129 +15,68 @@ using namespace tmr;
 
 /******************************** MALLOC ********************************/
 
-bool free_cells_still_free(const Shape& input, const Shape& output) {
-	// if t↦FREE in input shape, then we want to have t↦FREE in output shape, too, to check for prf
-	for (std::size_t i = input.offset_vars(); i < input.size(); i++)
-		if (input.test(i, input.index_FREE(), MT))
-			if (!output.test(i, input.index_FREE(), MT))
-				return false;
-	return true;
-}
-
 #define NON_LOCAL(x) !(x >= cfg.shape->offset_locals(tid) && x < cfg.shape->offset_locals(tid) + cfg.shape->sizeLocals())
-; // this one is actually very useful: it fixes my syntax highlighting :)
+; // this semicolon is actually very useful: it fixes my syntax highlighting :)
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short tid, MemorySetup msetup) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short tid) {
 	CHECK_STMT;
+	
 	const Shape& input = *cfg.shape;
-
-	std::vector<Cfg> result;
-	const auto free_index = input.index_FREE();
 	const auto var_index = mk_var_index(input, stmt.decl(), tid);
+	auto smr_init = stmt.function().prog().smr_observer().initial_state().states().at(0);
 
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY
-		// the first global vairable is an auxiliary one which is local to summaries
-		if (NON_LOCAL(var_index) && &stmt.function().prog().init_fun() != &stmt.function()) {
+	if (NON_LOCAL(var_index) && &stmt.function().prog().init_fun() != &stmt.function()) {
 			throw std::runtime_error("Allocations may not target global variables.");
-		}
-	#endif
-
-	/* malloc(x) does not change the setup of the heap as it is, but simply allocates some part for x;
-	 * that is, we do not need to change the shape: the cell x points to remains and the reachability via this cell is not modified;
-	 * the change is: x now points to another cell
-	 * 
-	 * for garbage collection:  malloc(x) gives a fresh cell, i.e. one that is not reachable by any other variable/pointer/cellterm
-	 * for memory management:   malloc(x) may give a cell that is pointed to by a variable/pointer/cellterm that was freed
-	 */
-
-	// malloc gives a free memory cell
-	result.push_back(mk_next_config(cfg, new Shape(input), tid));
-	for (std::size_t i = 0; i < input.size(); i++)
-		result.back().shape->set(var_index, i, BT_);
-	result.back().shape->set(var_index, var_index, EQ_);
-	set_age_equal(result.back(), var_index, input.index_NULL());
-	if (msetup != MM) {
-		result.back().own.own(var_index);
-		result.back().sin[var_index] = false;
-		result.back().invalid[var_index] = false;
 	}
 
-	/* with GC a free cell is guaranteed to be fresh (no one has a pointer to it)
-	 * without GC the cell can still be pointed to
-	 * (seperate this step from the above to avoid overwriting relations that are added due to transitivity)
-	 */
-	if (msetup == PRF) {
-		#if PRF_REALLOCATION
-			for (std::size_t i = input.offset_vars(); i < input.size(); i++) { // TODO: i = offset_program_vars ?
-				if (i == var_index) continue;
-				
-				Shape* split = isolate_partial_concretisation(input, i, free_index, MT_);
-				if (split == NULL) continue;
+	std::vector<Cfg> result;
 
-				auto eqI = get_related(*split, i, EQ_);
-				auto preI = get_related(*split, i, MF_GF);
+	/* malloc gives a fresh memory cell */
+	{
+		auto shape1 = new Shape(input);
+		for (std::size_t i = 0; i < input.size(); i++)
+			shape1->set(var_index, i, BT_);
+		shape1->set(var_index, var_index, EQ_);
+		auto shape2 = post_assignment_pointer_shape_next_var(*shape1, var_index, input.index_NULL(), &stmt); // null init
+		delete shape1;
 
-				// the cell pointed to by all cells in eqI is reallocated for var => var = eqI and eqI no longer free
-				for (auto eqi : eqI) {
-					split->set(eqi, free_index, GT_); // equal-to-i cell reallocated (use GT since next fields have to remain invalid)
-					split->set(eqi, var_index, EQ_); // equal-to-i cell reallocated for var
-				}
+		result.push_back(mk_next_config(cfg, shape2, tid));
+		Cfg& fresh = result.back();
 
-				// all predecessors of eqI can no longer reach FREE via eqI
-				for (auto prei : preI)
-					if (!consistent(*split, prei, free_index, GT)) {
-						split->remove_relation(prei, free_index, GT);
-						if (split->at(prei, free_index).none())
-							split->set(prei, free_index, BT_);
-					}
+		fresh.own.set(var_index, true);
+		fresh.valid_ptr.set(var_index, true);
+		fresh.valid_next.set(var_index, true);
+		fresh.guard0state.set(var_index, smr_init);
+		fresh.guard1state.set(var_index, smr_init);
+	}
 
-				// var is now equal to i
-				for (std::size_t j = 0; j < split->size(); j++)
-					split->set(var_index, j, split->at(i, j));
 
-				result.push_back(mk_next_config(cfg, split, tid));
-				set_age_equal(result.back(), var_index, i);
-				result.back().own.own(var_index); // TODO: we may own more
-				result.back().sin[var_index] = false; // TODO: there may be less sins
-				result.back().invalid[var_index] = false;
-			}
-		#endif
-	} else if (msetup == MM) {
-		for (std::size_t i = input.offset_vars(); i < input.size(); i++) {
-			if (i == var_index) continue;
-			if (cfg.ages->at(i, false, free_index, true) != AgeRel::EQ) continue;
-			
-			auto shapes = disambiguate(*cfg.shape, i);
-			for (Shape* split : shapes) {
-				if (split->at(i, split->index_UNDEF()) != BT_) {
-					delete split;
-					continue;
-				}
+	/* malloc gives a freed cell */
+	if (cfg.freed) {
+		auto old = post_assignment_pointer_shape_var_var(input, var_index, input.index_REUSE(), &stmt);
+		auto shape = post_assignment_pointer_shape_next_var(*old, var_index, input.index_NULL(), &stmt); // null init
+		delete old;
 
-				auto eqI = get_related(*split, i, EQ_);
-				auto preI = get_related(*split, i, MF_GF);
-				// the cell pointed to by all cells in eqI is reallocated for var => var = eqI and eqI no longer free
-				for (auto eqi : eqI) {
-					split->set(eqi, free_index, BT_); // equal-to-i cell reallocated
-					split->set(eqi, var_index, EQ_); // equal-to-i cell reallocated for var
-				}
-				// all predecessors of eqI can no longer reach FREE via eqI
-				for (auto prei : preI)
-					if (!consistent(*split, prei, free_index, GT)) {
-						split->remove_relation(prei, free_index, GT);
-						if (split->at(prei, free_index).none())
-							split->set(prei, free_index, BT_);
-					}
-				// var is now equal to i
-				for (std::size_t j = 0; j < split->size(); j++)
-					split->set(var_index, j, split->at(i, j));
+		// ensure that the newly allocated cell is not shared reachable -- invariant integrated into analysis
+		for (std::size_t i = cfg.shape->offset_program_vars(); i < cfg.shape->offset_locals(0); i++) {
+			if (!shape) break;
+			old = shape;
+			shape = isolate_partial_concretisation(*old, i, var_index, MF_GF_BT);
+			delete old;
+		}
 
-				result.push_back(mk_next_config(cfg, split, tid));
-				set_age_equal(result.back(), var_index, i);
-				for (auto i : eqI)
-					result.back().ages->set(i, true, free_index, false, AgeRel::BOT); // TODO: GT instead of BOT?
-				result.back().ages->set(var_index, true, free_index, false, AgeRel::BOT); // TODO: GT instead of BOT?
-			}
+		if (shape) {
+			result.push_back(mk_next_config(cfg, shape, tid));
+			Cfg& reuse = result.back();
+
+			reuse.own.set(var_index, true);
+			reuse.valid_ptr.set(var_index, true);
+			reuse.valid_next.set(var_index, true);
+			reuse.guard0state.set(var_index, smr_init);
+			reuse.guard1state.set(var_index, smr_init);
+
+			reuse.freed = false;
+			reuse.retired = false;
 		}
 	}
 
@@ -145,124 +86,104 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 
 /******************************** FREE ********************************/
 
-static std::vector<OValue> get_possible_data(const Cfg& cfg, std::size_t var) {
-	std::vector<OValue> result;
-	const Shape& shape = *cfg.shape;
-	const Observer& obs = cfg.state.observer();
-	bool anonymous = true;
-	for (std::size_t i = 0; i < shape.sizeObservers(); i++) {
-		auto cell = shape.at(var, shape.index_ObserverVar(i));
-		if (cell.test(EQ)) result.push_back(obs.mk_var(i));
-		if (!haveCommon(cell, MT_GT_MF_GF_BT)) anonymous = false;
+static Shape* extract_shared_unreachable(const Shape& shape, std::size_t var) {
+	// extracts a subshape of the given one where var is not globally reachable, not null, and not udef; or null if no such shape exists
+	std::unique_ptr<Shape> result;
+	result.reset(tmr::isolate_partial_concretisation(shape, var, shape.index_NULL(), MT_GT_BT));
+	if (!result) return NULL;
+	result.reset(tmr::isolate_partial_concretisation(*result, var, shape.index_UNDEF(), MT_GT_BT));
+	for (std::size_t i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
+		if (!result) break; // happens if var is definitely reachable from some shared variable, definitely null, or definitely udef
+		result.reset(tmr::isolate_partial_concretisation(*result, i, var, MF_GF_BT)); // shared i does not reach var
 	}
-	if (anonymous) result.push_back(OValue::Anonymous());
-	return result;
+	return result.release();
 }
 
-static bool is_globally_reachable(const Shape& shape, std::size_t var) {
-	for (auto i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
-		if (haveCommon(shape.at(i, var), EQ_MT_GT)) {
-			std::cout << std::endl << "var=" << var << "; i=" << i << "; shape.at(i, var):" << shape.at(i,var) << std::endl;
-			return true;
+static inline std::deque<Shape*> split_shape_for_eq(Shape* input, std::size_t begin, std::size_t end) {
+	// same as in hp.cpp
+	std::deque<Shape*> result;
+	result.push_back(input);
+	for (std::size_t i = begin; i < end; i++) {
+		for (std::size_t j = i+1; j < end; j++) {
+			std::size_t size = result.size();
+			for (std::size_t k = 0; k < size; k++) {
+				Shape* shape = result.at(k);
+				Shape* eq_shape = isolate_partial_concretisation(*shape, i, j, EQ_);
+				Shape* neq_shape = isolate_partial_concretisation(*shape, i, j, MT_GT_MF_GF_BT);
+				result[k] = eq_shape ? eq_shape : neq_shape;
+				if (eq_shape && neq_shape) result.push_back(neq_shape);
+				delete shape;
+			}
 		}
 	}
-	return false;
+	// erase NULL
+	for (auto it = result.begin(); it != result.end(); ) {
+        if (*it == NULL) it = result.erase(it);
+        else ++it;
+    }
+    return result;
 }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const Free& stmt, unsigned short tid, MemorySetup msetup) {
-	CHECK_STMT;
+static inline bool is_free_forbidden(const DynamicSMRState& state, std::size_t var, const Program& prog) {
+	return state.at(var) && state.at(var)->next(prog.freefun(), OValue::Anonymous()).is_final();
+}
+
+static inline void fire_free_event(DynamicSMRState& state, std::size_t var, const Program& prog) {
+	if (state.at(var)) {
+		state.set(var, &state.at(var)->next(prog.freefun(), OValue::Anonymous()));
+	}
+}
+
+static inline bool is_final(const DynamicSMRState& state, std::size_t var) {
+	return state.at(var) && state.at(var)->is_final();
+}
+
+std::vector<Cfg> tmr::post_free(const Cfg& cfg, unsigned short tid, const Program& prog) {
 	const Shape& input = *cfg.shape;
-
-	const auto var_index = mk_var_index(input, stmt.decl(), tid);
-	// std::cout << "free(" << var_index << ")" << std::endl;
-	CHECK_ACCESS(var_index);
-
-	/* with garbage collection, a free has no effect */
-	if (msetup == GC) return mk_next_config_vec(cfg, new Shape(input), tid);
-
-	/* without garbage collection, a free marks a part of the heap as free
-	 * but the content of the freed memory cell is not altered
-	 */
-	CHECK_PRF_ws(var_index, stmt);
-	if (input.test(var_index, input.index_FREE(), MT)) {
-		std::cout << "*********************" << std::endl;
-		std::cout << "Double Free detected!" << std::endl;
-		std::cout << "during: " << stmt << std::endl;
-		std::cout << "with: " << stmt.var() << "=" << var_index << std::endl;
-		std::cout << "in cfg: " << cfg << *cfg.shape << *cfg.ages << std::endl;
-		throw std::runtime_error("Double free: while freeing cell term with id=" + std::to_string(var_index) + ".");
-	}
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY
-		if (is_globally_reachable(input, var_index)) {
-			std::cout << cfg << *cfg.shape << std::endl;
-			throw std::runtime_error("Globally reachable cells may not be freed.");
-		}
-	#endif
-
-	const auto free_index = input.index_FREE();
-	const std::vector<std::size_t> free_index_vec = { free_index };
-	
 	std::vector<Cfg> result;
-	
-	auto shapes = disambiguate(input, var_index);
-	result.reserve(shapes.size());
 
-	if (msetup == PRF) {
-		/* we remove the successors of the freed variable as no one is allowed to access
-		 * its next field again (guarantee due to pointer race freedom)
-		 * then mark the cell as being freed
+	for (std::size_t i = input.offset_locals(tid); i < input.offset_locals(tid) + input.sizeLocals(); i++) {
+		if (cfg.own.at(i)) continue;
+		if (is_free_forbidden(cfg.guard0state, i, prog)) continue;
+		if (is_free_forbidden(cfg.guard1state, i, prog)) continue;
+		/* Note:
+		 * This check above is a quick check for whether or not the free is allowed.
+		 * There might be an alias of the considered pointer which prohibits the free.
+		 * We optimistically assume that this is not the case, and check later whether the free was wrong.
 		 */
-		for (Shape* shape : shapes) {
-			remove_successors(*shape, var_index);
+		
+		auto tmp = extract_shared_unreachable(*cfg.shape, i);
+		if (!tmp) continue;
 
-			auto eqVar = get_related(*shape, var_index, EQ_);
-			auto preVar = get_related(*shape, var_index, MF_GF);
-			relate_all(*shape, eqVar, free_index_vec, MT);
-			relate_all(*shape, preVar, free_index_vec, GT);
+		auto eqsplit = split_shape_for_eq(tmp, 0, tmp->size()); // consumes tmp
+		for (Shape* shape : eqsplit){
+			result.push_back(Cfg(cfg, shape));
+			auto& cf = result.back();
 
-			assert(consistent(*shape));
-			assert(is_closed_under_reflexivity_and_transitivity(*shape));
-
-			result.push_back(mk_next_config(cfg, shape, tid));
-
-			// freeing a cell publishes them as they might be reallocated by someone
-			for (std::size_t i : eqVar) {
-				result.back().own.publish(i);
-				result.back().invalid[i] = true;
+			// TODO: one could think about more precisely querying what becomes invalid
+			for (std::size_t j = 0; j < cf.shape->size(); j++) {
+				if (cf.shape->test(i, j, EQ)) {
+					cf.valid_ptr.set(j, false);
+					cf.valid_next.set(j, false);
+					fire_free_event(cf.guard0state, j, prog);
+					fire_free_event(cf.guard1state, j, prog);
+					if (j == shape->index_REUSE()) {
+						if (!cf.retired) {
+							result.pop_back();
+							break;
+						}
+						cf.freed = true;
+						cf.retired = false;
+					}
+					if (is_final(cf.guard0state, j) || is_final(cf.guard1state, j)) {
+						// Thorough check whether or not the free was allowed.
+						// If we end up here, it was not.
+						// In this case, we drop (ignore) the computed post image.
+						result.pop_back();
+						break;
+					}
+				}
 			}
-		}
-
-	} else if (msetup == MM) {
-		/* the cell is freed but we can still access it
-		 * mark it free (done via age matrix), but do not alter the shape
-		 * (note the note below!)
-		 */
-		for (Shape* shape : shapes) {
-			result.push_back(mk_next_config(cfg, shape, tid));
-			auto eqVar = get_related(*shape, var_index, EQ_);
-			for (std::size_t i : eqVar) {
-				// result.back().own.publish(i);
-				result.back().ages->set(i, false, free_index, true, AgeRel::EQ);
-			}
-		}
-	}
-
-	if (stmt.function().has_output()) {
-		// make the ObsFree observer move
-		// TODO: we have to find the deleted data value, but we rely on the fact that the cell is freed which was used for firing the linearisation event
-		for (Cfg& cf : result) {
-			std::vector<OValue> possible_data = get_possible_data(cf, var_index);
-			if (possible_data.size() != 1) {
-				std::cout << cf << *cf.shape << std::endl << "values("<<possible_data.size()<<"): ";
-				for (auto v : possible_data) std::cout << v << " ";
-				std::cout << std::endl;
-				throw std::runtime_error("Unsupported free: multiple data values possible.");
-			}
-			OValue freed_data = possible_data.front();
-
-			cf.state = cf.state.next(stmt.function().prog().freefun(), freed_data);
-			if (cf.state.is_final())
-				throw std::runtime_error("Double free: while freeing cell containing observed value");
 		}
 	}
 

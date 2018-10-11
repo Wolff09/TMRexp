@@ -5,7 +5,7 @@
 using namespace tmr;
 
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const Atomic& stmt, unsigned short tid, MemorySetup msetup){
+std::vector<Cfg> tmr::post(const Cfg& cfg, const Atomic& stmt, unsigned short tid){
 	std::vector<Cfg> result;
 	result.reserve(4);
 
@@ -13,7 +13,6 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Atomic& stmt, unsigned short ti
 
 	work.push_back(cfg.copy());
 	work.back().pc[tid] = stmt.sqz().next();
-	assert(work.back().pc[tid] == &stmt.sqz().at(0));
 
 	while (!work.empty()) {
 		if (work.back().pc[tid] == NULL) {
@@ -24,7 +23,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Atomic& stmt, unsigned short ti
 			work.pop_back();
 		} else {
 			// cfg is still in atomic block, so execute pc[tid]
-			auto postimg = tmr::post(work.back(), tid, msetup);
+			auto postimg = tmr::post(work.back(), tid);
 			work.pop_back();
 			for (Cfg& pi : postimg) work.push_back(std::move(pi));
 		}

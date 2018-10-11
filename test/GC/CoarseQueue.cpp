@@ -37,45 +37,11 @@ static std::unique_ptr<Program> mk_program() {
 					Write("node"),
 					Assign(Var("copy1"), Var("Head")),
 					Assign(Var("Head"), Var("node")),
-					Fr("copy1")
+					Rtire("copy1")
 				)
 			)
 		)
 	);
-
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY
-		// enq summary
-		auto enqsum = AtomicSqz(
-			Mllc("node"),
-			SetNull(Next("node")),
-			Read("node"),
-			LinP(),
-			Assign(Var("copy1"), Next("Tail")),
-			CAS(Next("Tail"), Var("copy1"), Var("node"), false),
-			ChkReach("copy1"),
-			Assign(Var("copy2"), Var("Tail")),
-			CAS(Var("Tail"), Var("copy2"), Var("node"), false),
-			ChkReach("copy2")
-		);
-
-		// deq summary
-		auto deqsum = AtomicSqz(
-			Assign(Var("node"), Next("Head")),
-			IfThenElse(
-				EqCond(Var("node"), Null()),
-				Sqz(
-					LinP()
-				),
-				Sqz(
-					LinP("node"),
-					Write("node"),
-					Assign(Var("copy1"), Var("Head")),
-					CAS(Var("Head"), Var("Head"), Var("node"), false),
-					Fr("copy1")
-				)
-			)
-		);
-	#endif
 
 	std::string name = "CoarseQueue";
 
@@ -84,16 +50,11 @@ static std::unique_ptr<Program> mk_program() {
 		{"Head", "Tail"},
 		{"node", "copy1", "copy2"},
 		std::move(init),
-		#if REPLACE_INTERFERENCE_WITH_SUMMARY
-			Fun("enq", true, std::move(enqbody), std::move(enqsum)),
-			Fun("deq", false, std::move(deqbody), std::move(deqsum))
-		#else
-			Fun("enq", true, std::move(enqbody)),
-			Fun("deq", false, std::move(deqbody))
-		#endif
+		Fun("enq", true, std::move(enqbody)),
+		Fun("deq", false, std::move(deqbody))
 	);
 
-	prog->set_chk_mimic_precision(true);
+	prog->smr_observer(no_reclamation_observer(prog->freefun()));
 
 	return prog;
 }

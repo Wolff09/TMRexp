@@ -7,44 +7,46 @@ using namespace tmr;
 
 static const std::array<std::array<RelSet, 3>, 3> RELSET_LOOKUP =  {{ {{BT_, EQ_, MF_}}, {{EQ_, EQ_, MF_}}, {{MT_, MT_, BT_}} }}; // BT used as dummy
 
-void check_ownership_violation(const Cfg& cfg, std::size_t lhs, std::size_t rhs) {
-	if (cfg.own.is_owned(lhs) != cfg.own.is_owned(rhs) && lhs != cfg.shape->index_NULL() && rhs != cfg.shape->index_NULL()) {
-		std::cout << "******************************************************" << std::endl;
-		std::cout << "Malicious comparison: comparing owned with public cell" << std::endl;
-		std::cout << "in cfg: " << cfg << *cfg.shape << *cfg.ages;
-		throw std::runtime_error("Malicious comparison: comparing owned with public cell");
+static inline bool is_shared_var(const Shape& shape, std::size_t var) {
+	return shape.offset_program_vars() <= var && var < shape.offset_locals(0);
+}
+
+static inline bool is_retired_var(const Cfg& cfg, std::size_t var) {
+	bool g0retire = cfg.guard0state.at(var) && cfg.guard0state.at(var)->is_special();
+	bool g1retire = cfg.guard1state.at(var) && cfg.guard1state.at(var)->is_special();
+	return g0retire || g1retire;
+}
+
+static inline void check_deref(const Cfg& cfg, const Shape& shape, const Expr& expr, std::size_t var, unsigned short tid) {
+	if (expr.clazz() == Expr::SEL) {
+		if (is_invalid_ptr(cfg, var)) {
+			raise_rpr(cfg, var, "Dereferencing invalid pointer.");
+		}
+		check_ptr_access(shape, var);
 	}
 }
 
-std::pair<Shape*, Shape*> tmr::eval_eqneq(const Cfg& cfg, const Shape& input, const Expr& le, const Expr& re, bool inverted, unsigned short tid, bool check_own, bool check_eprf) {
+std::pair<Shape*, Shape*> tmr::eval_eqneq(const Cfg& cfg, const Shape& input, const Expr& le, const Expr& re, bool inverted, unsigned short tid, bool allow_invalid) {
 	assert(le.type() == POINTER);
 	assert(re.type() == POINTER);
 
 	// get cell term indexes for le and re
-	std::size_t lhs = le.clazz() == Expr::NIL ? input.index_NULL() : mk_var_index(input, le, tid);
-	std::size_t rhs = re.clazz() == Expr::NIL ? input.index_NULL() : mk_var_index(input, re, tid);
-
-	if (check_own)
-		check_ownership_violation(cfg, lhs, rhs);
-	if (check_eprf) {
-	 	if (cfg.sin[lhs]) raise_eprf(cfg, lhs, "Bad comparison (lhs).");
-	 	if (cfg.sin[rhs]) raise_eprf(cfg, rhs, "Bad comparison (rhs).");
-	}	
-
+	std::size_t lhs = mk_var_index(input, le, tid);
+	std::size_t rhs = mk_var_index(input, re, tid);
 	if (lhs == rhs) return { new Shape(input), NULL };
 
-	// Rel rel;
-	//      if (le.clazz() == Expr::NIL && re.clazz() == Expr::VAR) rel = EQ;
-	// else if (le.clazz() == Expr::NIL && re.clazz() == Expr::SEL) rel = MF;
-	// else if (le.clazz() == Expr::VAR && re.clazz() == Expr::NIL) rel = EQ;
-	// else if (le.clazz() == Expr::VAR && re.clazz() == Expr::VAR) rel = EQ;
-	// else if (le.clazz() == Expr::VAR && re.clazz() == Expr::SEL) rel = MF;
-	// else if (le.clazz() == Expr::SEL && re.clazz() == Expr::NIL) rel = MT;
-	// else if (le.clazz() == Expr::SEL && re.clazz() == Expr::VAR) rel = MT;
-	// else throw std::logic_error("Malicious call to tmr::eval_eqneq()");
-	// RelSet sing = singleton(rel);
-	RelSet sing = RELSET_LOOKUP[le.clazz()][re.clazz()];
+	check_deref(cfg, input, le, lhs, tid);
+	check_deref(cfg, input, re, rhs, tid);
 
+	if (!allow_invalid) {
+		if (is_invalid(cfg, le, tid) || is_invalid(cfg, re, tid)) {
+			std::cout << "Comparison with invalid pointer/expression" << std::endl;
+			std::cout << cfg << *cfg.shape << std::endl;
+			throw std::runtime_error("Comparison with invalid pointer.");
+		}
+	}
+
+	RelSet sing = RELSET_LOOKUP[le.clazz()][re.clazz()];
 	// split heap and decide which shape enters which branch
 	Shape* eq = isolate_partial_concretisation(input, lhs, rhs, sing);
 	Shape* neq = isolate_partial_concretisation(input, lhs, rhs, sing.flip());
@@ -53,50 +55,46 @@ std::pair<Shape*, Shape*> tmr::eval_eqneq(const Cfg& cfg, const Shape& input, co
 	else return { eq, neq };
 }
 
-std::vector<Cfg> tmr::eval_cond_eqneq(const Cfg& cfg, const EqNeqCondition& cond, const Statement* nY, const Statement* nN, unsigned short tid, MemorySetup msetup) {
-	auto sp = eval_eqneq(cfg, cond.lhs(), cond.rhs(), cond.is_inverted(), tid, msetup);
+std::vector<Cfg> tmr::eval_cond_eqneq(const Cfg& cfg, const EqNeqCondition& cond, const Statement* nY, const Statement* nN, unsigned short tid) {
+	auto& le = cond.lhs();
+	auto& re = cond.rhs();
+	bool is_inverted = cond.is_inverted();
+	auto sp = eval_eqneq(cfg, le, re, is_inverted, tid);
 	
 	std::vector<Cfg> result;
-	result.reserve((sp.first != NULL ? 1 : 0) + (sp.second != NULL ? 1 : 0));
+	result.reserve(2);
 	
-	if (sp.first != NULL)
+	// true branch
+	if (sp.first != NULL) {
 		result.push_back(mk_next_config(cfg, sp.first, nY, tid));
-	if (sp.second != NULL)
-		result.push_back(mk_next_config(cfg, sp.second, nN, tid));
 
-	return result;
-}
+		// if it is a comparison with =, then validity may be updated
+		if (!is_inverted) {
+			Cfg& cf = result.back();
+			std::size_t lhs = mk_var_index(*cf.shape, le, tid);
+			std::size_t rhs = mk_var_index(*cf.shape, re, tid);
+			if (cf.valid_ptr.at(lhs) ^ cf.valid_ptr.at(rhs)) {
+				cf.valid_ptr.set(lhs, true);
+				cf.valid_ptr.set(rhs, true);
+			}
 
-
-std::vector<Cfg> tmr::eval_cond_wage(const Cfg& cfg, const EqPtrAgeCondition& cond, const Statement* nY, const Statement* nN, unsigned short tid, MemorySetup msetup) {
-	std::size_t lhs = mk_var_index(*cfg.shape, cond.cond().lhs(), tid);
-	std::size_t rhs = mk_var_index(*cfg.shape, cond.cond().rhs(), tid);
-	bool lhs_next = cond.cond().lhs().clazz() == Expr::SEL;
-	bool rhs_next = cond.cond().rhs().clazz() == Expr::SEL;
-
-	if (cfg.ages->at(lhs, lhs_next, rhs, rhs_next) != AgeRel::BOT && cfg.ages->at(lhs, lhs_next, rhs, rhs_next) != AgeRel::EQ) {
-		std::vector<Cfg> result;
-		result.push_back(mk_next_config(cfg, new Shape(*cfg.shape), nN, tid));
-		return result;
+			// Prune false-positive post image (the false-positive can be harmful for the analysis)
+			bool is_shared = is_shared_var(*cf.shape, lhs) || is_shared_var(*cf.shape, rhs);
+			bool is_retired = is_retired_var(cf, lhs) || is_retired_var(cf, rhs);
+			if (is_shared && is_retired) {
+				/* This case is a false-positive due to the invariant that shared objects are never retired.
+				 * We check the invariant whenever the shared heap is modified.
+				 * Hence, the fact that here a shared object is shared must be due to the coarse shape analysis and shape merging.
+				 * ==> We simply remove the constructed post image as it cannot occur.
+				 */
+				result.pop_back();
+			}
+		}
 	}
 
-	auto sp = eval_eqneq(cfg, cond.cond().lhs(), cond.cond().rhs(), cond.cond().is_inverted(), tid, msetup);
-
-	std::vector<Cfg> result;
-	result.reserve((sp.first != NULL ? 1 : 0) + (sp.second != NULL ? 1 : 0));
-
-	if (sp.first != NULL) {
-		// check ages again (the above is only a shortcut to prevent heavy operations)
-		if (cfg.ages->at(lhs, lhs_next, rhs, rhs_next) == AgeRel::BOT) {
-			std::cout << "An age field misuse was detected (relation is undefined) in the following Condition: " << std::endl << "    " << cond;
-			std::cout << std::endl << "For tid="<<tid<<" in the following configuration: " << std::endl << "    " << cfg << *cfg.shape << *cfg.ages << std::endl;
-			delete sp.first;
-			throw std::runtime_error("Age Field Misuse detected!");
-			
-		} else {
-			const Statement* next = cfg.ages->at(lhs, lhs_next, rhs, rhs_next) == AgeRel::EQ ? nY : nN;
-			result.push_back(mk_next_config(cfg, sp.first, next, tid));
-		}
+	// false branch
+	if (sp.second != NULL) {
+		result.push_back(mk_next_config(cfg, sp.second, nN, tid));
 	}
 
 	return result;

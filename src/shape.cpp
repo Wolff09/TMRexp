@@ -6,18 +6,24 @@ using namespace tmr;
 /******************************** CONSTRUCTION ********************************/
 
 Shape::Shape(std::size_t numObsVars, std::size_t numGlobVars, std::size_t numLocVars, unsigned short numThreads) :
-             _numObsVars(numObsVars),
              _numGlobVars(numGlobVars),
              _numLocVars(numLocVars),
-             _numThreads(numThreads),
-             _bounds(3 + numObsVars + numGlobVars + numThreads*numLocVars) {
+             _bounds(3 + 2 + numGlobVars + numThreads*numLocVars),
+             _size(3 + 2 + numGlobVars + numThreads*numLocVars + numLocVars),
+             _cells(boost::extents[_size][_size]) {
 
 	// init shape
-	RelSet dummy_cell = singleton(BT);
-	std::vector<RelSet> dummy_row(_bounds + _numLocVars, dummy_cell);
-	_cells = std::vector<std::vector<RelSet>>(_bounds + _numLocVars, dummy_row);
-	for (std::size_t i = offset_vars(); i < _cells.size(); i++) set(i, index_UNDEF(), MT);
-	for (std::size_t i = 0; i < _cells.size(); i++) _cells[i][i] = singleton(EQ);
+    _cells = shape_t(boost::extents[_size][_size]);
+    for (std::size_t i = 0; i < _size; i++)
+    	for (std::size_t j = 0; j < _size; j++)
+    		_cells[i][j] = singleton(BT);
+    for (std::size_t i = offset_vars(); i < _size; i++)
+    	set(i, index_UNDEF(), MT);
+	for (std::size_t i = 0; i < _size; i++)
+		_cells[i][i] = singleton(EQ);
+
+	if (numObsVars != _numObsVars) throw std::logic_error("Number of observer variables not supported.");
+	if (numThreads != 1) throw std::logic_error("There must be exactly one threads.");
 }
 
 
@@ -25,12 +31,10 @@ Shape::Shape(std::size_t numObsVars, std::size_t numGlobVars, std::size_t numLoc
 
 void Shape::extend() {
 	_bounds += _numLocVars;
-	_numThreads++;
 }
 
 void Shape::shrink() {
 	_bounds -= _numLocVars;
-	_numThreads--;
 }
 
 
@@ -49,12 +53,18 @@ bool Shape::test(std::size_t i, std::size_t j, Rel r) const {
 
 /******************************** MODIFICATION ********************************/
 
+static inline std::array<RelSet, 64> mk_lookup() {
+	std::array<RelSet, 64> result;
+	for (std::size_t k = 0; k < 64; k++)
+		result[k] = symmetric(RelSet(k));
+	return result;
+}
+
 void Shape::set(std::size_t i, std::size_t j, RelSet rs) {
+	static const std::array<RelSet, 64> SYMMETRIC_LOOKUP = mk_lookup();
 	assert(i < _bounds && j < _bounds);
 	_cells[i][j] = rs;
-	// if (i == j) _cells[i][i] |= symmetric(rs);
-	// else _cells[j][i] = symmetric(_cells[i][j]);
-	_cells[j][i] = symmetric(rs);
+	_cells[j][i] = SYMMETRIC_LOOKUP[rs.to_ulong()]; // symmetric(rs);
 	assert(_cells[i][j].any());
 	assert(_cells[j][i].any());
 }
@@ -62,17 +72,12 @@ void Shape::set(std::size_t i, std::size_t j, RelSet rs) {
 void Shape::remove_relation(std::size_t i, std::size_t j, Rel r) {
 	assert(i < _bounds && j < _bounds);
 	_cells[i][j].set(r, false);
-	// if (i == j) _cells[i][i].set(symmetric(r), false);
-	// else _cells[j][i] = symmetric(_cells[i][j]);
 	_cells[j][i].set(symmetric(r), false);
 }
 
 void Shape::add_relation(std::size_t i, std::size_t j, Rel r) {
 	assert(i < _bounds && j < _bounds);
-	// if ((i == 8 && j == 0) || (i == 0 && j == 8)) if (r == BT) std::cout << "LLLaddBT" << std::endl;
 	_cells[i][j].set(r, true);
-	// if (i == j) _cells[i][i].set(symmetric(r), true);
-	// else _cells[j][i] = symmetric(_cells[i][j]);
 	_cells[j][i].set(symmetric(r), true);
 }
 
@@ -111,8 +116,8 @@ void Shape::print(std::ostream& os) const {
 
 bool Shape::operator<(const Shape& other) const {
 	assert(size() == other.size());
-	for (std::size_t i = 0; i < _cells.size(); i++) {
-		for (std::size_t j = i+1; j < _cells.at(i).size(); j++) {
+	for (std::size_t i = 0; i < _size; i++) {
+		for (std::size_t j = i+1; j < _size; j++) {
 			auto l = _cells[i][j].to_ulong();
 			auto r = other._cells[i][j].to_ulong();
 			if (l < r) return true;
@@ -124,8 +129,8 @@ bool Shape::operator<(const Shape& other) const {
 
 bool Shape::operator==(const Shape& other) const {
 	assert(size() == other.size());
-	for (std::size_t i = 0; i < _cells.size(); i++) {
-		for (std::size_t j = i+1; j < _cells.at(i).size(); j++) {
+	for (std::size_t i = 0; i < _size; i++) {
+		for (std::size_t j = i+1; j < _size; j++) {
 			auto l = _cells[i][j].to_ulong();
 			auto r = other._cells[i][j].to_ulong();
 			if (l != r) return false;

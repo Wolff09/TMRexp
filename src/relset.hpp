@@ -97,6 +97,7 @@ namespace tmr {
 	 * @brief Computes the symmetric relation.
 	 */
 	static Rel symmetric(const Rel& rel) {
+		// TODO: make lookup table?
 		switch (rel) {
 			case EQ: return EQ;
 			case MT: return MF;

@@ -21,7 +21,9 @@ namespace tmr {
 				result.push_back(mk_next_config(cfg, eq, tid));
 				result.back().inout[tid] = observer.mk_var(i);
 
-				remaining = isolate_partial_concretisation(*remaining, var, cti, MT_GT_MF_GF_BT);
+				auto tmp = remaining;
+				remaining = isolate_partial_concretisation(*tmp, var, cti, MT_GT_MF_GF_BT);
+				delete tmp;
 				if (remaining == NULL) break;
 			}
 		}

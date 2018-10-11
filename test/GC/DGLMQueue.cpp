@@ -10,8 +10,8 @@ bool DGLMhint(void* param) {
 }
 
 static std::unique_ptr<Program> mk_program() {
-	bool use_age_fields = true;
-	bool age_compare = true;
+	bool use_age_fields = false;
+	bool age_compare = false;
 
 	// init
 	std::unique_ptr<Sequence> init = Sqz(
@@ -41,9 +41,9 @@ static std::unique_ptr<Program> mk_program() {
 					Sqz(CAS(Var("Tail"), Var("t"), Var("n"), use_age_fields))
 				))
 			),
-			Kill("t"),
 			Kill("n"),
-			SetNull(Next("h"))
+			Kill("t")//,
+			// SetNull(Next("h"))
 		)),
 		CAS(Var("Tail"), Var("t"), Var("h"), use_age_fields)
 	);
@@ -73,7 +73,9 @@ static std::unique_ptr<Program> mk_program() {
 										CAS(Var("Tail"), Var("t"), Var("n"), use_age_fields)
 									)
 								),
-								Fr("h"),
+								// Fr("h"),
+								Rtire("h"),
+								Kill("t"),
 								Brk()
 							)
 						)
@@ -82,87 +84,10 @@ static std::unique_ptr<Program> mk_program() {
 			),
 			Sqz(ChkP(false))
 		),
-		Kill("h"),
-		Kill("t"),
 		Kill("n"),
+		Kill("h"),
 		Kill()
 	)));
-
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY
-		// enq summary
-		auto enqsum = AtomicSqz(
-			Assign(Var("t"), Next("Tail")),
-			IfThenElse(
-				EqCond(Var("t"), Null()),
-				Sqz(
-					Mllc("n"),
-					SetNull(Next("n")),
-					Read("n"),
-					CAS(Next("Tail"), Var("t"), Var("n"), LinP(), use_age_fields),
-					ChkReach("t")
-				),
-				Sqz(
-					Assign(Var("h"), Var("Tail")),
-					CAS(Var("Tail"), Var("Tail"), Var("t"), use_age_fields),
-					IfThenElse(
-						EqCond(Var("Tail"), Var("Head")),
-						Sqz(Fr("h")),
-						Sqz(ChkReach("h"))
-					)
-				)
-			)
-		);
-
-		// deq summary
-			auto deqsum = AtomicSqz(
-			IfThenElse(
-				EqCond(Var("Head"), Var("Tail")),
-				Sqz(
-					Assign(Var("n"), Next("Head")),
-					IfThenElse(
-						EqCond(Var("n"), Null()),
-						Sqz(
-							LinP()
-							// IfThenElse(
-							// 	NDCond(),
-							// 	Sqz(LinP()),
-							// 	Sqz(
-							// 		CAS(Var("Tail"), Var("Tail"), Var("Head"), use_age_fields)
-							// 	)
-							// )
-						),
-						Sqz(
-							Assign(Var("h"), Var("Head")),
-							CAS(Var("Head"), Var("Head"), Var("n"), LinP("n"), use_age_fields),
-							ChkReach("h")
-						)
-					)
-				),
-				Sqz(
-					IfThenElse(
-						EqCond(Next("Tail"), Var("Head")),
-						Sqz(
-							Assign(Var("t"), Var("Tail")),
-							CAS(Var("Tail"), Var("Tail"), Var("Head"), use_age_fields),
-							Fr("t") // this gives double free as expected
-						),
-						Sqz(
-							Assign(Var("n"), Next("Head")),
-							IfThenElse(
-								EqCond(Var("n"), Null()),
-								Sqz(LinP()),
-								Sqz(
-									Assign(Var("h"), Var("Head")),
-									CAS(Var("Head"), Var("Head"), Var("n"), LinP("n"), use_age_fields),
-									Fr("h")
-								)
-							)
-						)
-					)
-				)
-			)
-		);
-	#endif
 
 	std::string name = "DGLMQueue";
 
@@ -171,17 +96,12 @@ static std::unique_ptr<Program> mk_program() {
 		{"Head", "Tail"},
 		{"h", "t", "n"},
 		std::move(init),
-		#if REPLACE_INTERFERENCE_WITH_SUMMARY
-			Fun("enq", true, std::move(enqbody), std::move(enqsum)),
-			Fun("deq", false, std::move(deqbody), std::move(deqsum))
-		#else
-			Fun("enq", true, std::move(enqbody)),
-			Fun("deq", false, std::move(deqbody))
-		#endif
+		Fun("enq", true, std::move(enqbody)),
+		Fun("deq", false, std::move(deqbody))
 	);
 
-	// prog->set_chk_mimic_precision(true);
-	prog->set_hint(&DGLMhint);
+	prog->smr_observer(no_reclamation_observer(prog->freefun()));
+	// prog->set_hint(&DGLMhint);
 
 	return prog;
 }

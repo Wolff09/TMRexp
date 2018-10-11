@@ -5,8 +5,8 @@
 #include <string>
 #include <iostream>
 #include <map>
+#include <functional>
 #include <assert.h>
-#include "make_unique.hpp"
 
 
 namespace tmr {
@@ -34,7 +34,9 @@ namespace tmr {
 	class ReadInputAssignment;
 	class WriteOutputAssignment;
 	class Malloc;
-	class Free;
+	// class Free;
+	class Retire;
+	class HPset;
 	class Conditional;
 	class Ite;
 	class While;
@@ -44,6 +46,7 @@ namespace tmr {
 	class Function;
 	class Program;
 
+	class Observer;
 
 	class Variable {
 		private:
@@ -118,6 +121,7 @@ namespace tmr {
 
 	class Condition {
 		public:
+			virtual ~Condition() = default;
 			enum Type { EQNEQ, CASC, TRUEC, WAGE, COMPOUND, ORACLEC, NONDET };
 			virtual Type type() const = 0;
 			virtual void namecheck(const std::map<std::string, Variable*>& name2decl) = 0;
@@ -180,6 +184,7 @@ namespace tmr {
 
 		public:
 			EqPtrAgeCondition(std::unique_ptr<VarExpr> lhs, std::unique_ptr<VarExpr> rhs) : _cond(new EqNeqCondition(std::move(lhs), std::move(rhs))) {}
+			virtual ~EqPtrAgeCondition() = default;
 			virtual Type type() const { return Type::WAGE; }
 			virtual void namecheck(const std::map<std::string, Variable*>& name2decl);
 			virtual void print(std::ostream& os) const;
@@ -221,7 +226,7 @@ namespace tmr {
 			const Statement* _next = NULL;
 
 		public:
-			enum Class { SQZ, ASSIGN, MALLOC, FREE, ITE, WHILE, BREAK, LINP, INPUT, OUTPUT, CAS, SETNULL, ATOMIC, ORACLE, CHECKP, KILL, REACH };
+			enum Class { SQZ, ASSIGN, MALLOC, /*FREE,*/ RETIRE, HPSET, HPRELEASE, ITE, WHILE, BREAK, LINP, INPUT, OUTPUT, CAS, SETNULL, ATOMIC, ORACLE, CHECKP, KILL, REACH, ENTERQ, LEAVEQ };
 			virtual ~Statement() = default;
 			virtual Class clazz() const = 0;
 			unsigned short id() const { assert(_id != 0); return _id; }
@@ -266,7 +271,7 @@ namespace tmr {
 			std::size_t propagateId(std::size_t id);
 
 			Atomic(std::unique_ptr<Sequence> sqz) : _sqz(std::move(sqz)) {
-				assert(_sqz->size() > 0);
+				// assert(_sqz->size() > 0);
 			}
 			const Sequence& sqz() const { return *_sqz; }
 	};
@@ -337,6 +342,7 @@ namespace tmr {
 
 		public:
 			InOutAssignment(std::unique_ptr<Expr> expr) : _ptr(std::move(expr)) {}
+			virtual ~InOutAssignment() = default;
 			virtual Statement::Class clazz() const = 0;
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			virtual void print(std::ostream& os, std::size_t indent) const = 0;
@@ -371,18 +377,61 @@ namespace tmr {
 			const Variable& decl() const { return _var->decl(); }
 	};
 
-	class Free : public Statement {
+	class Retire : public Statement {
 		private:
 			std::unique_ptr<VarExpr> _var;
 
 		public:
-			Statement::Class clazz() const { return Statement::Class::FREE; }
+			Statement::Class clazz() const { return Statement::Class::RETIRE; }
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
 
-			Free(std::unique_ptr<VarExpr> var) : _var(std::move(var)) {}
+			Retire(std::unique_ptr<VarExpr> var) : _var(std::move(var)) {}
 			const VarExpr& var() const { return *_var; }
 			const Variable& decl() const { return _var->decl(); }
+	};
+
+	class HPset : public Statement {
+		private:
+			std::unique_ptr<VarExpr> _var;
+			std::size_t _hpindex;
+
+		public:
+			Statement::Class clazz() const { return Statement::Class::HPSET; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os, std::size_t indent) const;
+
+			HPset(std::unique_ptr<VarExpr> var, std::size_t index) : _var(std::move(var)), _hpindex(index) {}
+			const VarExpr& var() const { return *_var; }
+			const Variable& decl() const { return _var->decl(); }
+			std::size_t hpindex() const { return _hpindex; }
+	};
+
+	class HPrelease : public Statement {
+		private:
+			std::size_t _hpindex;
+
+		public:
+			Statement::Class clazz() const { return Statement::Class::HPRELEASE; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os, std::size_t indent) const;
+
+			HPrelease(std::size_t index) : _hpindex(index) {}
+			std::size_t hpindex() const { return _hpindex; }
+	};
+
+	class EnterQ : public Statement {
+		public:
+			Statement::Class clazz() const { return Statement::Class::ENTERQ; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os, std::size_t indent) const;
+	};
+
+	class LeaveQ : public Statement {
+		public:
+			Statement::Class clazz() const { return Statement::Class::LEAVEQ; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os, std::size_t indent) const;
 	};
 
 	class Break : public Statement {
@@ -555,10 +604,11 @@ namespace tmr {
 			std::vector<std::unique_ptr<Variable>> _globals;
 			std::vector<std::unique_ptr<Variable>> _locals;
 			std::vector<std::unique_ptr<Function>> _funs;
-			std::unique_ptr<Function> _free;
+			std::unique_ptr<Function> _free, _guard, _unguard, _retire, _enter, _leave;
 			std::unique_ptr<Function> _init_fun;
 			std::size_t _idSize = 0;
 			Sequence* _init() const { return _init_fun->_stmts.get(); }
+			std::unique_ptr<Observer> _smrobs;
 			bool _has_hint = false;
 			std::function<bool(void*)> _hint;
 			bool _increase_precision_chk_mimick = false;
@@ -566,12 +616,18 @@ namespace tmr {
 		public:
 			Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::vector<std::unique_ptr<Function>> funs);
 			Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::unique_ptr<Sequence> init, std::vector<std::unique_ptr<Function>> funs);
+			std::string name() const { return _name; }
 			std::size_t size() const { return _funs.size(); }
 			std::size_t idSize() const { return _idSize; }
 			std::size_t numGlobals() const { return _globals.size(); }
 			std::size_t numLocals() const { return _locals.size(); }
 			const Function& at(std::size_t index) const { return *_funs.at(index); }
 			const Function& freefun() const { return *_free; }
+			const Function& guardfun() const { return *_guard; }
+			const Function& unguardfun() const { return *_unguard; }
+			const Function& leavefun() const { return *_leave; }
+			const Function& enterfun() const { return *_enter; }
+			const Function& retirefun() const { return *_retire; }
 			const Sequence& init() const { return _init_fun->body(); }
 			const Function& init_fun() const { return *_init_fun; }
 			void print(std::ostream& os) const;
@@ -581,6 +637,8 @@ namespace tmr {
 			bool apply_hint(void* param) const { assert(has_hint()); return _hint(param); }
 			void set_chk_mimic_precision(bool val) { _increase_precision_chk_mimick = val; }
 			bool precise_check_mimick() const { return _increase_precision_chk_mimick; }
+			const Observer& smr_observer() const { return *_smrobs; }
+			void smr_observer(std::unique_ptr<Observer> smr) { _smrobs = std::move(smr); }
 	};
 
 
@@ -627,7 +685,12 @@ namespace tmr {
 	std::unique_ptr<While> Loop(std::unique_ptr<Sequence> body);
 
 	std::unique_ptr<Malloc> Mllc(std::string var);
-	std::unique_ptr<Free> Fr(std::string var);
+	// std::unique_ptr<Free> Fr(std::string var);
+	std::unique_ptr<Retire> Rtire(std::string var);
+	std::unique_ptr<HPset> Gard(std::string var, std::size_t index);
+	std::unique_ptr<HPrelease> UGard(std::size_t index);
+	std::unique_ptr<EnterQ> Enter();
+	std::unique_ptr<LeaveQ> Leave();
 	std::unique_ptr<Break> Brk();
 	std::unique_ptr<Killer> Kill(std::string var);
 	std::unique_ptr<Killer> Kill();
@@ -665,3 +728,5 @@ namespace tmr {
 	}
 
 }
+
+#include "observer.hpp"

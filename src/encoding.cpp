@@ -1,5 +1,6 @@
 #include "encoding.hpp"
 
+#include "config.hpp"
 
 using namespace tmr;
 
@@ -7,68 +8,48 @@ using namespace tmr;
 /******************************** SORTING ********************************/
 
 bool cfg_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
-	// std::cout << "- comparing:" << std::endl << "    " << lhs << "    " << rhs;
-	assert(lhs.shape != NULL);
-	assert(rhs.shape != NULL);
-	assert(lhs.shape->size() == rhs.shape->size());
-	assert(lhs.ages->size() == rhs.ages->size());
-
-	// compare trivial stuff
-	// if (lhs.state < rhs.state) return true;
-	// if (rhs.state < lhs.state) return false;
-
-	// age field comparsion
-	for (std::size_t col = lhs.shape->offset_locals(0); col < lhs.ages->size(); col++)
-		for (std::size_t row = 0; row < col; row++)
-			for (bool bc : {false, true})
-				for (bool br : {false, true}) {
-					auto lij = lhs.ages->at(row, br, col, bc).type();
-					auto rij = rhs.ages->at(row, br, col, bc).type();
-					if (lij < rij) return true;
-					else if (lij > rij) return false;
-				}
-
-	// compare remaining trivial stuff
 	if (lhs.pc < rhs.pc) return true;
 	if (rhs.pc < lhs.pc) return false;
 	if (lhs.inout < rhs.inout) return true;
 	if (rhs.inout < lhs.inout) return false;
-	if (lhs.seen < rhs.seen) return true;
-	if (rhs.seen < lhs.seen) return false;
-	// if (lhs.own < rhs.own) return true;
-	// if (lhs.own > rhs.own) return false;
-	// if (lhs.sin < rhs.sin) return true;
-	// if (lhs.sin > rhs.sin) return false;
-	// if (lhs.invalid < rhs.invalid) return true;
-	// if (lhs.invalid > rhs.invalid) return false;
 	if (lhs.oracle < rhs.oracle) return true;
 	if (rhs.oracle < lhs.oracle) return false;
+	if (lhs.guard0state < rhs.guard0state) return true;
+	if (rhs.guard0state < lhs.guard0state) return false;
+	if (lhs.guard1state < rhs.guard1state) return true;
+	if (rhs.guard1state < lhs.guard1state) return false;
 
-	// if rhs is not smaller, return false
+	#if !MERGE_VALID_PTR
+		// more precision
+		if (lhs.valid_ptr < rhs.valid_ptr) return true;
+		if (rhs.valid_ptr < lhs.valid_ptr) return false;
+	#endif
+
 	return false;
 }
 
 bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
-	// std::cout << "- comparing:" << std::endl << "    " << lhs << "    " << rhs;
-	assert(lhs.shape != NULL);
-	assert(rhs.shape != NULL);
-	assert(lhs.shape->size() == rhs.shape->size());
-	assert(lhs.ages->size() == rhs.ages->size());
-
-	// state
+	if (lhs.freed < rhs.freed) return true;
+	if (rhs.freed < lhs.freed) return false;
+	if (lhs.retired < rhs.retired) return true;
+	if (rhs.retired < lhs.retired) return false;
 	if (lhs.state < rhs.state) return true;
 	if (rhs.state < lhs.state) return false;
+	if (lhs.seen < rhs.seen) return true;
+	if (rhs.seen < lhs.seen) return false;
 
-	// global age field
-	for (std::size_t col = 0; col < lhs.shape->offset_locals(0); col++)
-		for (std::size_t row = 0; row < col; row++)
-			for (bool bc : {false, true})
-				for (bool br : {false, true}) {
-					auto lij = lhs.ages->at(row, br, col, bc).type();
-					auto rij = rhs.ages->at(row, br, col, bc).type();
-					if (lij < rij) return true;
-					else if (lij > rij) return false;
-				}
+	#if DGLM_PRECISION
+		if (lhs.shape->at(5,6).to_ulong() < rhs.shape->at(5,6).to_ulong()) return true;
+		if (rhs.shape->at(5,6).to_ulong() < lhs.shape->at(5,6).to_ulong()) return false;
+		// auto begin = lhs.shape->offset_program_vars();
+		// auto end = lhs.shape->offset_locals(0);
+		// for (std::size_t i = begin; i < end; i++) {
+		// 	for (std::size_t j = i+1; j < end; j++) {
+		// 		if (lhs.shape->at(i, j).to_ulong() < rhs.shape->at(i, j).to_ulong()) return true;
+		// 		if (rhs.shape->at(i, j).to_ulong() < lhs.shape->at(i, j).to_ulong()) return false;
+		// 	}
+		// }
+	#endif
 
 	return false;
 }
@@ -77,9 +58,6 @@ bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 /******************************** ENCODING TAKE ********************************/
 
 std::pair<bool, const Cfg&> Encoding::take(Cfg&& new_cfg) {
-	assert(new_cfg.shape);
-	assert(consistent(*new_cfg.shape));
-
 	__store__::iterator pos = _map.find(new_cfg);
 
 	if (pos == _map.end()) {
@@ -89,7 +67,6 @@ std::pair<bool, const Cfg&> Encoding::take(Cfg&& new_cfg) {
 		nv.insert(std::move(new_cfg));
 		std::pair<Cfg, std::set<Cfg, cfg_comparator>> nkvp = std::make_pair(std::move(key), std::move(nv));
 		auto insert = _map.insert(std::move(nkvp));
-		assert(insert.second);
 		// std::cerr << "encoding ate that cfg" << std::endl;
 		auto& inserted_pair = *insert.first;
 		return { true, *inserted_pair.second.begin() };
@@ -103,20 +80,12 @@ std::pair<bool, const Cfg&> Encoding::take(Cfg&& new_cfg) {
 
 		} else {
 			const Cfg& cfg = *subpos;
-			assert(cfg.pc == new_cfg.pc);
-			assert(cfg.state == new_cfg.state);
-			assert(cfg.ages == new_cfg.ages);
-			assert(cfg.inout == new_cfg.inout);
-			assert(cfg.seen == new_cfg.seen);
 			// std::cerr << "encoding augments itself" << std::endl;
 
+			// merge shapes
 			bool updated = false;
 			Shape& dst = *cfg.shape;
 			Shape& src = *new_cfg.shape;
-			assert(consistent(dst));
-			assert(consistent(src));
-			assert(cfg.pc == new_cfg.pc);
-			assert(dst.size() == src.size());
 			for (std::size_t row = 0; row < dst.size(); row++) {
 				for (std::size_t col = row; col < dst.size(); col++) {
 					auto both = setunion(dst.at(row, col), src.at(row, col));
@@ -126,25 +95,25 @@ std::pair<bool, const Cfg&> Encoding::take(Cfg&& new_cfg) {
 					}
 				}
 			}
-			assert(consistent(*cfg.shape));
 
-			for (std::size_t i = 0; i < dst.size(); i++) {
-				bool new_sin = cfg.sin[i] || new_cfg.sin[i];
-				if (cfg.sin[i] != new_sin) {
+			for (std::size_t i = dst.offset_locals(0); i < dst.size(); i++) {
+				#if MERGE_VALID_PTR
+					bool new_valid_ptr = cfg.valid_ptr.at(i) && new_cfg.valid_ptr.at(i);
+					if (cfg.valid_ptr.at(i) != new_valid_ptr) {
+						updated = true;
+						cfg.valid_ptr.set(i, new_valid_ptr);
+					}
+				#endif
+				bool new_valid_next = cfg.valid_next.at(i) && new_cfg.valid_next.at(i);
+				if (cfg.valid_next.at(i) != new_valid_next) {
 					updated = true;
-					cfg.sin[i] = new_sin;
+					cfg.valid_next.set(i, new_valid_next);
 				}
 
-				bool new_invalid = cfg.invalid[i] || new_cfg.invalid[i];
-				if (cfg.invalid[i] != new_invalid) {
+				bool new_own = cfg.own.at(i) && new_cfg.own.at(i);
+				if (cfg.own.at(i) != new_own) {
 					updated = true;
-					cfg.invalid[i] = new_invalid;
-				}
-
-				bool new_own = cfg.own.is_owned(i) && new_cfg.own.is_owned(i);
-				if (cfg.own.is_owned(i) != new_own) {
-					updated = true;
-					cfg.own.set_ownership(i, new_own);
+					cfg.own.set(i, new_own);
 				}
 			}
 

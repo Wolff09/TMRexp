@@ -2,7 +2,6 @@
 
 #include <stdexcept>
 #include <set>
-#include "make_unique.hpp"
 #include "config.hpp"
 
 using namespace tmr;
@@ -27,236 +26,21 @@ static bool has_init_name_clash(const std::vector<std::unique_ptr<Function>>& fu
 	return false;
 }
 
-struct VariableComparator {
-	bool operator()(const Variable& lhs, const Variable& rhs) const {
-		return &lhs < &rhs;
-	}
-};
-
-static void enforce_static_properties(const Statement* stmtptr,
-                                      std::map<std::reference_wrapper<const Variable>, std::reference_wrapper<const Expr>, VariableComparator> var2val,
-                                      std::set<std::reference_wrapper<const Variable>, VariableComparator> allocations,
-                                      std::set<std::reference_wrapper<const Variable>, VariableComparator> tobefreed,
-                                      std::size_t number_of_seen_cas) {
-	// we enforce statically:
-	// (0) static single assignment form
-	// (1) at most one CAS path in summary
-	// (2) cells that are removed from the global state are freed
-	//     we do this as follows:
-	//         - using (0)
-	//         - content only removed when "out" linearisation point fired
-	//         - ensure that this is done in CAS equivalent to "p = p.next"
-	//         - ensure that old p is captured by some local pointer variable
-	//         - ensure that this local is freed
-	// (3) allocations are published
-	//     we do this as follows:
-	//         - using (0)
-	//         - ensuring that an allocation appears as src in some CAS
-
-
-	auto ensure_not_assigned = [&] (const Variable& var) {
-		if (allocations.find(var) != allocations.end() || var2val.find(var) != var2val.end())
-			throw std::logic_error("Bad summary: multiple assignments to variables in summareis are not supported.");
-	};
-
-	if (stmtptr == NULL) {
-		if (allocations.size() != 0) throw std::logic_error("Bad summary: some cells need publishing.");
-		if (tobefreed.size() != 0) {
-			for (auto& v : tobefreed) std::cout << "to be freed: " << v << std::endl;
-			throw std::logic_error("Bad summary: some cells need freeing.");
-		}
-		return;
-	}
-	const Statement& stmt = *stmtptr;
-
-	if (stmt.clazz() == Statement::WHILE) {
-		throw std::logic_error("Bad summary: while loops not supported.");
-	} else if (stmt.clazz() == Statement::ITE) {
-		const Ite& ite = static_cast<const Ite&>(stmt);
-		auto condtype = ite.cond().type();
-		if (condtype == Condition::CASC || condtype == Condition::COMPOUND || condtype == Condition::ORACLEC)
-			throw std::logic_error("Bad summary: unsupported condition.");
-		if (ite.next_false_branch()) enforce_static_properties(ite.next_false_branch(), var2val, allocations, tobefreed, number_of_seen_cas);
-		if (ite.next_true_branch()) enforce_static_properties(ite.next_true_branch(), std::move(var2val), std::move(allocations), std::move(tobefreed), number_of_seen_cas);
-		return;
-	} else if (stmt.clazz() == Statement::ATOMIC) {
-		enforce_static_properties(&static_cast<const Atomic&>(stmt).sqz(), std::move(var2val), std::move(allocations), std::move(tobefreed), number_of_seen_cas);
-		return;
-	} else if (stmt.clazz() == Statement::ASSIGN || stmt.clazz() == Statement::SETNULL) {
-		auto& lhsexpr = stmt.clazz() == Statement::ASSIGN ? static_cast<const Assignment&>(stmt).lhs() : static_cast<const NullAssignment&>(stmt).lhs();
-		auto& rhsexpr = stmt.clazz() == Statement::ASSIGN ? static_cast<const Assignment&>(stmt).rhs() : *std::make_shared<NullExpr>();
-		if (lhsexpr.clazz() == Expr::VAR) {
-			const Variable& var = static_cast<const VarExpr&>(lhsexpr).decl();
-			ensure_not_assigned(var);
-			if (!var2val.insert({ var, rhsexpr }).second)
-				throw std::logic_error("Bad summary: malicious insertion to var2val.");
-		} else if (lhsexpr.clazz() == Expr::SEL) {
-			const Variable& var = static_cast<const Selector&>(lhsexpr).decl();
-			if (allocations.count(var) == 0) {
-				throw std::logic_error("Bad summary: non-CAS assignment to non-owned pointer selector.");
-			}
-		}
-	} else if (stmt.clazz() == Statement::MALLOC) {
-		if (!allocations.insert(static_cast<const Malloc&>(stmt).decl()).second)
-			throw std::logic_error("Bad summary: malicious insertion to allocations.");
-	} else if (stmt.clazz() == Statement::FREE) {
-		const Variable& trg = static_cast<const Malloc&>(stmt).decl();
-		tobefreed.erase(trg);
-		// TODO: remove aliases from tobefreed
-	} else if (stmt.clazz() == Statement::CAS) {
-		// if (number_of_seen_cas != 0) throw std::logic_error("Bad summary: too many CAS at current path.");
-		number_of_seen_cas++;
-		const CompareAndSwap& cas = static_cast<const CompareAndSwap&>(stmt);
-
-		auto isequalvar = [](const Expr& lhs, const Variable& rhs) -> bool {
-			if (lhs.clazz() == Expr::VAR) {
-				const Variable& lhsvar = static_cast<const VarExpr&>(lhs).decl();
-				return &lhsvar == &rhs;
-			} else {
-				return false;
-			}
-		};
-		auto isequal = [](const Expr& lhs, const Expr& rhs) -> bool {
-			if (lhs.clazz() == Expr::VAR && rhs.clazz() == Expr::VAR) {
-				const Variable& lhsvar = static_cast<const VarExpr&>(lhs).decl();
-				const Variable& rhsvar = static_cast<const VarExpr&>(rhs).decl();
-				return &lhsvar == &rhsvar;
-			} else if (lhs.clazz() == Expr::SEL && rhs.clazz() == Expr::SEL) {
-				if (lhs.type() != rhs.type()) return false;
-				const Variable& lhsvar = static_cast<const Selector&>(lhs).decl();
-				const Variable& rhsvar = static_cast<const Selector&>(rhs).decl();
-				return &lhsvar == &rhsvar;
-			} else {
-				return false;
-			}
-		};
-
-		// ensure that CAS does not fail
-		{
-			if (!isequal(cas.dst(), cas.cmp())) {
-				// look up value of cmp and check again
-				if (cas.cmp().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (cmp is no var).");
-				const Variable& cmp = static_cast<const VarExpr&>(cas.cmp()).decl();
-				if (var2val.count(cmp) == 0) {
-					throw std::logic_error("Bad summary: CAS might fail.");
-				}
-				const Expr& cmpval = var2val.at(cmp);
-				if (!isequal(cas.dst(), cmpval)) {
-					throw std::logic_error("Bad summary: CAS might fail.");
-				}
-			}
-		}
-
-		// // ensure that there is a carbon copy of the modified pointer (we need an alias to check ownership-transfer later)
-		{
-			bool carbon_copy_found = false;
-			for (const auto& entry : var2val) {
-				const Variable& var = entry.first;
-				const Expr& val = entry.second;
-				if (!isequalvar(cas.dst(), var) && isequal(cas.dst(), val)) {
-					// var is a carbon copy of cas.dst(); as such it is not exactly the expression cas.dst()
-					carbon_copy_found = true;
-					tobefreed.insert(var); // var needs to be checked: free iff no longer reachable
-				}
-			}
-			if (!carbon_copy_found) {
-				throw std::logic_error("Bad summary: malformed CAS modifying shared heap (no alias of removed cell found).");
-			}
-		}
-
-		// published thing is not owned any more
-		{
-			if (cas.src().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (src is no var).");
-			const Variable& src = static_cast<const VarExpr&>(cas.src()).decl();
-			allocations.erase(src);
-		}
-
-// 		if (cas.fires_lp() && cas.lp().event().has_output()) {
-// 			// ensure that the effect of the CAS is dst = dst.next
-// 			if (cas.dst().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (dst is no var).");
-// 			const Variable& dst = static_cast<const VarExpr&>(cas.dst()).decl();
-// 			if (cas.cmp().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (cmp is no var).");
-// 			const Variable& cmp = static_cast<const VarExpr&>(cas.cmp()).decl();
-// 			if (&dst != &cmp) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (dst and cmp mismatch).");
-// 			if (cas.src().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (src is no var).");
-// 			const Variable& src = static_cast<const VarExpr&>(cas.src()).decl();
-// 			if (var2val.find(src) == var2val.end()) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (src does not have a value).");
-// 			const Expr& srcval = var2val.at(src);
-// 			if (srcval.clazz() != Expr::SEL) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (srcval is no selector).");
-// 			const Variable& evalsrc = static_cast<const Selector&>(srcval).decl();
-// 			if (&dst != &evalsrc) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (bad cas assignment).");
-// 			// add pre-CAS dst to tobefreed
-// 			bool carbon_copy_found = false;
-// 			for (const auto& entry : var2val) {
-// 				const Expr& value = entry.second;
-// 				if (value.clazz() == Expr::VAR) {
-// 					const Variable& var = static_cast<const VarExpr&>(value).decl();
-// 					if (&var == &dst) {
-// 						tobefreed.insert(entry.first);
-// 						carbon_copy_found = true;
-// 					}
-// 				}
-// 			}
-// //			if (!carbon_copy_found) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (no alias of removed cell found).");
-// 		} else if (cas.fires_lp() && cas.lp().event().has_input()) {
-// 			if (cas.src().clazz() != Expr::VAR) throw std::logic_error("Bad summary: malformed CAS modifying shared heap (src is no var).");
-// 			const Variable& src = static_cast<const VarExpr&>(cas.src()).decl();
-// 			// remove src from allocations
-// 			allocations.erase(src);
-// 		}
-
-	} else if (stmt.clazz() == Statement::REACH) {
-		const Variable& var = static_cast<const EnforceReach&>(stmt).var().decl();
-		tobefreed.erase(var);
-	}
-
-	enforce_static_properties(stmt.next(), std::move(var2val), std::move(allocations), std::move(tobefreed), number_of_seen_cas);
-}
-
-static void enforce_static_properties(const Atomic* summary) {
-	enforce_static_properties(summary, {}, {}, {}, 0);
-}
-
-// static void checkLocalSSA(const Statement& stmt, std::set<std::reference_wrapper<const Variable>, VariableComparator> previous_assignments = {}) {
-// 	if (stmt.clazz() == Statement::WHILE) {
-// 		throw std::logic_error("While loops in summaries are not supported.");
-// 	} else if (stmt.clazz() == Statement::ITE) {
-// 		const Ite& ite = static_cast<const Ite&>(stmt);
-// 		auto condtype = ite.cond().type();
-// 		if (condtype == Condition::CASC || condtype == Condition::COMPOUND || condtype == Condition::ORACLEC)
-// 			throw std::logic_error("Unsupported condition in summary.");
-// 		if (ite.next_false_branch()) checkLocalSSA(*ite.next_false_branch(), previous_assignments);
-// 		if (ite.next_true_branch()) checkLocalSSA(*ite.next_true_branch(), std::move(previous_assignments));
-// 		return;
-// 	} else if (stmt.clazz() == Statement::ATOMIC) {
-// 		checkLocalSSA(static_cast<const Atomic&>(stmt).sqz(), std::move(previous_assignments));
-// 		return;
-// 	} else if (stmt.clazz() == Statement::ASSIGN) {
-// 		const Assignment& assign = static_cast<const Assignment&>(stmt);
-// 		if (assign.lhs().clazz() == Expr::VAR) {
-// 			const Variable& var = static_cast<const VarExpr&>(assign.lhs()).decl();
-// 			if (!previous_assignments.insert(var).second) {
-// 				throw std::logic_error("Multiple assignments to local variables in summaries are not supported");
-// 			}
-// 		}
-// 	} else if (stmt.clazz() == Statement::SETNULL) {
-// 		const NullAssignment& nulla = static_cast<const NullAssignment&>(stmt);
-// 		if (nulla.lhs().clazz() == Expr::VAR) {
-// 			const Variable& var = static_cast<const VarExpr&>(nulla.lhs()).decl();
-// 			if (!previous_assignments.insert(var).second) {
-// 				throw std::logic_error("Multiple assignments to local variables in summaries are not supported");
-// 			}
-// 		}
-// 	}
-// 	auto next = stmt.next();
-// 	if (next) checkLocalSSA(*next, std::move(previous_assignments));
-// }
-
 Program::Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::vector<std::unique_ptr<Function>> funs)
     : Program(name, std::move(globals), std::move(locals), std::make_unique<Sequence>(std::vector<std::unique_ptr<Statement>>()), std::move(funs)) {}
 
 Program::Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::unique_ptr<Sequence> init, std::vector<std::unique_ptr<Function>> funs)
-	: _name(name), _globals(mk_vars(true, globals)), _locals(mk_vars(false, locals)), _funs(std::move(funs)), _free(new Function("free", true, Sqz(), AtomicSqz())), _init_fun(new Function("init_dummy", true, std::move(init), AtomicSqz())) {
+	: _name(name),
+	  _globals(mk_vars(true, globals)),
+	  _locals(mk_vars(false, locals)),
+	  _funs(std::move(funs)),
+	  _free(new Function("free", true, Sqz(), AtomicSqz())),
+	  _guard(new Function("guard", true, Sqz(), AtomicSqz())),
+	  _unguard(new Function("unguard", true, Sqz(), AtomicSqz())),
+	  _retire(new Function("retire", true, Sqz(), AtomicSqz())),
+	  _enter(new Function("enterQ", true, Sqz(), AtomicSqz())),
+	  _leave(new Function("leaveQ", true, Sqz(), AtomicSqz())),
+	  _init_fun(new Function("init_dummy", true, std::move(init), AtomicSqz())) {
 
 	assert(!has_init_name_clash(_funs));
 
@@ -267,19 +51,16 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
 			break;
 		}
 	}
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY
-		for (const auto& f : _funs)
-			if (!f->_summary)
-				throw std::logic_error("Missing Summary for function '" + f->name() + "'!");
-	#endif
 
-	// TODO: prevent name clashes with __in__ and __out__
 	// namecheck, typecheck
 	std::map<std::string, Variable*> name2decl;
 	for (const auto& v : _globals) {
 		assert(name2decl.count(v->name()) == 0);
 		name2decl[v->name()] = v.get();
 	}
+
+	if (name2decl.count("__in__") > 0) throw std::logic_error("Variable name '__in__' is reserved.");
+	if (name2decl.count("__out__") > 0) throw std::logic_error("Variable name '__out__' is reserved.");
 
 	// init must only access global variables
 	_init_fun->namecheck(name2decl);
@@ -291,9 +72,6 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
 
 	for (const auto& f : _funs) {
 		f->namecheck(name2decl);
-		#if REPLACE_INTERFERENCE_WITH_SUMMARY
-			f->_summary->namecheck(name2decl);
-		#endif
 	}
 	for (const auto& f : _funs) f->_prog = this;
 	_init_fun->_prog = this;
@@ -311,10 +89,6 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
 	id = _init_fun->propagateId(id);
 	for (const auto& f : _funs)
 		id = f->propagateId(id);
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY
-		for (const auto& f : _funs)
-			id = f->_summary->propagateId(id);
-	#endif
 	_idSize = id;
 
 	// ensure that init does only consist of simple statements
@@ -323,19 +97,10 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
 		assert(!fi->is_conditional());
 		fi = fi->next();
 	}
-
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY
-		for (const auto& f : _funs)
-			enforce_static_properties(f->_summary.get());
-	#endif
 }
 
 bool Program::is_summary_statement(const Statement& stmt) const {
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY
-		return stmt.id() >= _funs.front()->_summary->id();
-	#else
-		return false;
-	#endif
+	return false;
 }
 
 Function::Function(std::string name, bool is_void, std::unique_ptr<Sequence> stmts)
@@ -344,11 +109,8 @@ Function::Function(std::string name, bool is_void, std::unique_ptr<Sequence> stm
 Function::Function(std::string name, bool is_void, std::unique_ptr<Sequence> stmts, std::unique_ptr<Atomic> summary)
 	: _name(name), _stmts(std::move(stmts)), _has_input(is_void), _summary(std::move(summary)) {
 		_stmts->propagateFun(this);
-		#if REPLACE_INTERFERENCE_WITH_SUMMARY
-			if (!_summary) throw std::logic_error("Missing Summary for function '" + name + "'");
-			_summary->propagateNext(NULL, NULL);
-			_summary->propagateFun(this);
-		#endif
+		if (summary && summary->sqz().size() != 0)
+			throw std::logic_error("Expected empty summary.");
 }
 
 Assignment::Assignment(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs) : _lhs(std::move(lhs)), _rhs(std::move(rhs)), _fires_lp(false) {
@@ -525,9 +287,30 @@ std::unique_ptr<While> tmr::Loop(std::unique_ptr<Sequence> body) {
 	return res;
 }
 
+std::unique_ptr<Retire> tmr::Rtire(std::string var) {
+	std::unique_ptr<Retire> res(new Retire(Var(var)));
+	return res;
+}
 
-std::unique_ptr<Free> tmr::Fr(std::string var) {
-	std::unique_ptr<Free> res(new Free(Var(var)));
+std::unique_ptr<HPset> tmr::Gard(std::string var, std::size_t index) {
+	if (index > 1) throw std::logic_error("HP index must be 0 or 1.");
+	std::unique_ptr<HPset> res(new HPset(Var(var), index));
+	return res;
+}
+
+std::unique_ptr<HPrelease> tmr::UGard(std::size_t index) {
+	if (index > 1) throw std::logic_error("HP index must be 0 or 1.");
+	std::unique_ptr<HPrelease> res(new HPrelease(index));
+	return res;
+}
+
+std::unique_ptr<EnterQ> tmr::Enter() {
+	std::unique_ptr<EnterQ> res(new EnterQ());
+	return res;
+}
+
+std::unique_ptr<LeaveQ> tmr::Leave() {
+	std::unique_ptr<LeaveQ> res(new LeaveQ());
 	return res;
 }
 
@@ -712,14 +495,33 @@ void InOutAssignment::namecheck(const std::map<std::string, Variable*>& name2dec
 	_ptr->namecheck(name2decl);
 	assert(_ptr->type() == DATA);
 	assert((clazz() == INPUT && function().has_input()) || (clazz() == OUTPUT && function().has_output()));
+
+	if (expr().clazz() == Expr::VAR) {
+		if (!static_cast<const VarExpr&>(expr()).decl().local()) {
+			throw std::logic_error("Input/Output statements must target local variables.");
+		}
+	}
 }
 
 void Malloc::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	_var->namecheck(name2decl);
 }
 
-void Free::namecheck(const std::map<std::string, Variable*>& name2decl) {
+void Retire::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	_var->namecheck(name2decl);
+}
+
+void HPset::namecheck(const std::map<std::string, Variable*>& name2decl) {
+	_var->namecheck(name2decl);
+}
+
+void HPrelease::namecheck(const std::map<std::string, Variable*>& name2decl) {
+}
+
+void EnterQ::namecheck(const std::map<std::string, Variable*>& name2decl) {
+}
+
+void LeaveQ::namecheck(const std::map<std::string, Variable*>& name2decl) {
 }
 
 void LinearizationPoint::namecheck(const std::map<std::string, Variable*>& name2decl) {
@@ -1037,9 +839,34 @@ void Malloc::print(std::ostream& os, std::size_t indent) const {
 	os << "malloc(" << var() << ");";
 }
 
-void Free::print(std::ostream& os, std::size_t indent) const {
+// void Free::print(std::ostream& os, std::size_t indent) const {
+// 	printID;
+// 	os << "free(" << var() << ");";
+// }
+
+void Retire::print(std::ostream& os, std::size_t indent) const {
 	printID;
-	os << "free(" << var() << ");";
+	os << "retire(" << var() << ");";
+}
+
+void HPset::print(std::ostream& os, std::size_t indent) const {
+	printID;
+	os << "guard[" << _hpindex << "](" << var() << ");";
+}
+
+void HPrelease::print(std::ostream& os, std::size_t indent) const {
+	printID;
+	os << "unguard[" << _hpindex << "];";
+}
+
+void EnterQ::print(std::ostream& os, std::size_t indent) const {
+	printID;
+	os << "enterQ;";
+}
+
+void LeaveQ::print(std::ostream& os, std::size_t indent) const {
+	printID;
+	os << "leaveQ;";
 }
 
 void LinearizationPoint::print(std::ostream& os, std::size_t indent) const {
@@ -1149,13 +976,13 @@ void Program::print(std::ostream& os) const {
 		_init()->print(os, 1);
 	}
 	for (const auto& f : _funs) f->print(os, 1);
-	#if REPLACE_INTERFERENCE_WITH_SUMMARY
-		for (const auto& f : _funs) {
-			os << std::endl << std::endl;
-			INDENT(1);
-			os << "summary(" << f->name() << "): ";
-			f->_summary->print(os, 1);
-		}
-	#endif
+	// #if REPLACE_INTERFERENCE_WITH_SUMMARY
+	// 	for (const auto& f : _funs) {
+	// 		os << std::endl << std::endl;
+	// 		INDENT(1);
+	// 		os << "summary(" << f->name() << "): ";
+	// 		f->_summary->print(os, 1);
+	// 	}
+	// #endif
 	os << std::endl << "END" << std::endl;
 }

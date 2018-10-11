@@ -7,6 +7,7 @@
 #include "prog.hpp"
 #include "shape.hpp"
 #include "observer.hpp"
+#include "config.hpp"
 
 #include <set>
 
@@ -40,69 +41,40 @@ namespace tmr {
 	typedef MultiStore<bool, 2> SeenOV;
 
 
-	class AgeRel {
-		public:
-			enum Type { EQ=0, LT=1, GT=2, BOT=3 };
-			AgeRel(Type type);
-			operator Type() const;
-			Type type() const;
-			AgeRel symmetric() const;
+	template<typename T, T DEFAULT>
+	class DynamicStore {
 		private:
-			unsigned char _val;
-	};
-
-	class AgeMatrix {
-		private:
-			std::size_t _bounds;
-			std::vector<AgeRel> _rels; // col store, right upper triangle, w/o diagonal, w/o NULL,FREE,UNDEF
-
+			std::size_t _offset;
+			std::vector<T> _store;
 		public:
-			AgeMatrix(std::size_t numNonLocals, std::size_t numLocals, std::size_t numThreads);
-			std::size_t size() const { return _bounds; }
-			AgeRel at(std::size_t row, bool row_next, std::size_t col, bool col_next) const;
-			inline AgeRel at_real(std::size_t row, std::size_t col) const { return at(row, false, col, false); }
-			inline AgeRel at_next(std::size_t row, std::size_t col) const { return at(row, true, col, true); }
-			void set(std::size_t row, bool row_next, std::size_t col, bool col_next, AgeRel rel);
-			inline void set_real(std::size_t row, std::size_t col, AgeRel rel) { set(row, false, col, false, rel); }
-			inline void set_next(std::size_t row, std::size_t col, AgeRel rel) { set(row, true, col, true, rel); }
-			void extend(std::size_t numLocals);
-			void shrink(std::size_t numLocals);
-			bool operator==(const AgeMatrix& other) const;
-	};
-
-	class Ownership {
-		private:
-			std::size_t _first_obs;
-			std::size_t _first_global;
-			std::size_t _first_local;
-			std::vector<bool> _bits;
-
-		public:
-			Ownership(std::size_t first_obs, std::size_t first_global, std::size_t first_local, std::size_t max_size);
-			bool is_owned(std::size_t pos) const;
-			void publish(std::size_t pos);
-			void own(std::size_t pos);
-			void set_ownership(std::size_t pos, bool val);
-			bool operator<(const Ownership& other) const;
-			bool operator>(const Ownership& other) const;
+			DynamicStore(std::size_t offset, std::size_t size) : _offset(offset), _store(size) {}
+			DynamicStore(const T& prototype, std::size_t offset, std::size_t size) : _offset(offset), _store(size, prototype) {}
+			T at(std::size_t index) const { return index < _offset ? DEFAULT : _store.at(index-_offset); }
+			void set(std::size_t index, T value) {
+				if (index >= _offset) {
+					_store.at(index-_offset) = value;
+				}
+			}
+			bool operator<(const DynamicStore<T, DEFAULT>& other) const {
+				for (std::size_t i = 0; i < _store.size(); i++)
+					if (_store[i] < other._store[i]) return true;
+					else if (other._store[i] < _store[i]) return false;
+				return false;
+			}
+			bool operator==(const DynamicStore<T, DEFAULT>& other) const {
+				for (std::size_t i = 0; i < _store.size(); i++)
+					if (_store[i] != other._store[i]) return false;
+				return true;
+			}
+			bool operator!=(const DynamicStore<T, DEFAULT>& other) const {
+				return !(*this == other);
+			}
 			void print(std::ostream& os) const;
 	};
 
-	class StrongInvalidity {
-		private:
-			std::vector<bool> _bits;
-
-		public:
-			StrongInvalidity(std::size_t max_size);
-			bool is_strongly_invalid(std::size_t pos) const;
-			bool at(std::size_t pos) const;
-			void set(std::size_t pos, bool val);
-			std::vector<bool>::reference operator[](std::size_t pos);
-			std::vector<bool>::const_reference operator[](std::size_t pos) const;
-			bool operator<(const StrongInvalidity& other) const;
-			bool operator>(const StrongInvalidity& other) const;
-			void print(std::ostream& os) const;
-	};
+	typedef DynamicStore<bool, false> DynamicOwnership;
+	typedef DynamicStore<bool, true> DynamicValidity;
+	typedef DynamicStore<const State*, nullptr> DynamicSMRState;
 
 
 	struct Cfg {
@@ -111,28 +83,31 @@ namespace tmr {
 		MultiInOut inout;
 		MultiOracle oracle;
 		std::unique_ptr<Shape> shape;
-		std::unique_ptr<AgeMatrix> ages;
 		SeenOV seen;
-		mutable Ownership own;
-		mutable StrongInvalidity sin;
-		mutable StrongInvalidity invalid;
+		mutable DynamicOwnership own;
+		mutable DynamicValidity valid_ptr;
+		mutable DynamicValidity valid_next;
+		mutable DynamicSMRState guard0state;
+		mutable DynamicSMRState guard1state;
+		bool freed;
+		bool retired;
 
-
-		Cfg(std::array<const Statement*, 3> pc, MultiState state, Shape* shape, AgeMatrix* ages, MultiInOut inout)
-		  : pc(pc), state(state), inout(inout), shape(shape), ages(ages),
-		    own(shape->offset_vars(), shape->offset_program_vars(), shape->offset_locals(0), shape->size() + shape->sizeLocals()),
-		    sin(shape->size() + shape->sizeLocals()), invalid(shape->size() + shape->sizeLocals()) {
-
+		Cfg(std::array<const Statement*, 3> pc, MultiState linstate, Shape* shape/*, MultiInOut inout*/)
+		  : pc(pc), state(linstate), /*inout(inout),*/ shape(shape),
+		    own(false, shape->offset_locals(0), 2*shape->sizeLocals()),
+		    valid_ptr(false, shape->offset_locals(0), 2*shape->sizeLocals()),
+		    valid_next(false, shape->offset_locals(0), 2*shape->sizeLocals()),
+		    guard0state(NULL, shape->offset_locals(0), 2*shape->sizeLocals()),
+		    guard1state(NULL, shape->offset_locals(0), 2*shape->sizeLocals()),
+		    freed(true), retired(false)
+		{
 			for (std::size_t i = 0; i < seen.size(); i++) seen[i] = false;
-			for (std::size_t i = 0; i < oracle.size(); i++) oracle[i] = true;
+			for (std::size_t i = 0; i < oracle.size(); i++) oracle[i] = false;
 		}
-		Cfg(const Cfg& cfg, Shape* shape) : pc(cfg.pc), state(cfg.state), inout(cfg.inout), oracle(cfg.oracle), shape(shape), ages(new AgeMatrix(*cfg.ages)), seen(cfg.seen), own(cfg.own), sin(cfg.sin), invalid(cfg.invalid) {}
-
+		Cfg(const Cfg& cfg, Shape* shape) : pc(cfg.pc), state(cfg.state), inout(cfg.inout), oracle(cfg.oracle), shape(shape), seen(cfg.seen), own(cfg.own), valid_ptr(cfg.valid_ptr), valid_next(cfg.valid_next), guard0state(cfg.guard0state), guard1state(cfg.guard1state), freed(cfg.freed), retired(cfg.retired) {}
 		Cfg copy() const;
 	};
 
-	std::ostream& operator<<(std::ostream& os, const AgeRel& r);
-	std::ostream& operator<<(std::ostream& os, const AgeMatrix& m);
 	std::ostream& operator<<(std::ostream& os, const Cfg& cfg);
 
 }
