@@ -57,7 +57,7 @@ namespace tmr {
 		t_end = std::chrono::high_resolution_clock::now();
 		auto time_taken_aba = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
 		if (result.conformance)
-			std::cout << "ABA awareness check took: " << time_taken/1000.0 << "s" << std::endl << std::endl;
+			std::cout << "ABA awareness check took: " << time_taken_aba/1000.0 << "s" << std::endl << std::endl;
 		else
 			time_taken_aba = 0;
 
@@ -67,7 +67,7 @@ namespace tmr {
 		std::cout << "Program:  " << program.name() << std::endl;
 		std::cout << "Verdict:  " << answer << std::endl;
 		std::cout << "Time:     " << time_taken/1000.0 << "s" << std::endl;
-		std::cout << "ABA time: " << time_taken_aba/1000.0 << "s (included in 'Time')" << std::endl;
+		std::cout << "ABA time: " << time_taken_aba/1000.0 << "s" << std::endl;
 		std::cout << "Fixpoint: ";
 		#if WORKLIST_INTERFERENCE
 			std::cout << "Interference via Worklist" << std::endl;

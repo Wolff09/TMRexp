@@ -19,5 +19,5 @@
 #define PRINT_ID true // prints statement ids (obfuscates code)
 
 // making DGLM work
-#define DGLM_PRECISION false
-#define DGLM_HINT false
+#define DGLM_HINT false // set to: true for DGLM, false otherwise
+#define DGLM_PRECISION false // not required

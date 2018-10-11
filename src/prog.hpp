@@ -121,6 +121,7 @@ namespace tmr {
 
 	class Condition {
 		public:
+			virtual ~Condition() = default;
 			enum Type { EQNEQ, CASC, TRUEC, WAGE, COMPOUND, ORACLEC, NONDET };
 			virtual Type type() const = 0;
 			virtual void namecheck(const std::map<std::string, Variable*>& name2decl) = 0;
@@ -183,6 +184,7 @@ namespace tmr {
 
 		public:
 			EqPtrAgeCondition(std::unique_ptr<VarExpr> lhs, std::unique_ptr<VarExpr> rhs) : _cond(new EqNeqCondition(std::move(lhs), std::move(rhs))) {}
+			virtual ~EqPtrAgeCondition() = default;
 			virtual Type type() const { return Type::WAGE; }
 			virtual void namecheck(const std::map<std::string, Variable*>& name2decl);
 			virtual void print(std::ostream& os) const;
@@ -340,6 +342,7 @@ namespace tmr {
 
 		public:
 			InOutAssignment(std::unique_ptr<Expr> expr) : _ptr(std::move(expr)) {}
+			virtual ~InOutAssignment() = default;
 			virtual Statement::Class clazz() const = 0;
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			virtual void print(std::ostream& os, std::size_t indent) const = 0;
