@@ -5,11 +5,11 @@ using namespace tmr;
 
 /******************************** CONSTRUCTION ********************************/
 
-Shape::Shape(std::size_t numObsVars, std::size_t numGlobVars, std::size_t numLocVars, unsigned short numThreads) :
+Shape::Shape(std::size_t numGlobVars, std::size_t numLocVars, unsigned short numThreads) :
              _numGlobVars(numGlobVars),
              _numLocVars(numLocVars),
-             _bounds(3 + 2 + numGlobVars + numThreads*numLocVars),
-             _size(3 + 2 + numGlobVars + numThreads*numLocVars + numLocVars),
+             _bounds(3 + numGlobVars + numThreads*numLocVars),
+             _size(3 + numGlobVars + numThreads*numLocVars + numLocVars),
              _cells(boost::extents[_size][_size]) {
 
 	// init shape
@@ -21,9 +21,6 @@ Shape::Shape(std::size_t numObsVars, std::size_t numGlobVars, std::size_t numLoc
     	set(i, index_UNDEF(), MT);
 	for (std::size_t i = 0; i < _size; i++)
 		_cells[i][i] = singleton(EQ);
-
-	if (numObsVars != _numObsVars) throw std::logic_error("Number of observer variables not supported.");
-	if (numThreads != 1) throw std::logic_error("There must be exactly one threads.");
 }
 
 
@@ -41,12 +38,10 @@ void Shape::shrink() {
 /******************************** ACCESS ********************************/
 
 RelSet Shape::at(std::size_t i, std::size_t j) const {
-	assert(i < _bounds && j < _bounds);
 	return _cells[i][j];
 }
 
 bool Shape::test(std::size_t i, std::size_t j, Rel r) const {
-	assert(i < _bounds && j < _bounds);
 	return _cells[i][j].test(r);
 }
 
@@ -62,21 +57,16 @@ static inline std::array<RelSet, 64> mk_lookup() {
 
 void Shape::set(std::size_t i, std::size_t j, RelSet rs) {
 	static const std::array<RelSet, 64> SYMMETRIC_LOOKUP = mk_lookup();
-	assert(i < _bounds && j < _bounds);
 	_cells[i][j] = rs;
 	_cells[j][i] = SYMMETRIC_LOOKUP[rs.to_ulong()]; // symmetric(rs);
-	assert(_cells[i][j].any());
-	assert(_cells[j][i].any());
 }
 
 void Shape::remove_relation(std::size_t i, std::size_t j, Rel r) {
-	assert(i < _bounds && j < _bounds);
 	_cells[i][j].set(r, false);
 	_cells[j][i].set(symmetric(r), false);
 }
 
 void Shape::add_relation(std::size_t i, std::size_t j, Rel r) {
-	assert(i < _bounds && j < _bounds);
 	_cells[i][j].set(r, true);
 	_cells[j][i].set(symmetric(r), true);
 }

@@ -5,17 +5,10 @@ project(TMRexp CXX)
 # verbose output
 set(CMAKE_VERBOSE_MAKEFILE OFF)
 
-
-# debug info
-if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE RelWithDebInfo)
-endif(NOT CMAKE_BUILD_TYPE)
-
-
 # don't get rid of assertions
-# set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Debug)
 # set(CMAKE_BUILD_TYPE RelWithDebInfo)
-set(CMAKE_BUILD_TYPE Release)
+# set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 

@@ -11,10 +11,10 @@
 
 namespace tmr {
 
-	std::pair<Shape*, Shape*> eval_eqneq(const Cfg& cfg, const Shape& shape, const Expr& le, const Expr& re, bool inverted, unsigned short tid, bool allow_invalid=true);
+	std::pair<Shape*, Shape*> eval_eqneq(const Cfg& cfg, const Shape& shape, const Expr& le, const Expr& re, bool inverted, unsigned short tid);
 
-	static std::pair<Shape*, Shape*> eval_eqneq(const Cfg& cfg, const Expr& le, const Expr& re, bool inverted, unsigned short tid, bool allow_invalid=true) {
-		return eval_eqneq(cfg, *cfg.shape, le, re, inverted, tid, allow_invalid);
+	static std::pair<Shape*, Shape*> eval_eqneq(const Cfg& cfg, const Expr& le, const Expr& re, bool inverted, unsigned short tid) {
+		return eval_eqneq(cfg, *cfg.shape, le, re, inverted, tid);
 	}
 	
 	std::vector<Cfg> eval_cond_eqneq(const Cfg& cfg, const EqNeqCondition& cond, const Statement* nY, const Statement* nN, unsigned short tid);

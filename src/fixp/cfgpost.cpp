@@ -31,48 +31,34 @@ inline bool filter_pc(Cfg& cfg, const unsigned short& tid) {
 }
 
 
-/******************************** LOCAL VAR HELPER ********************************/
-
-bool are_locals_undef(const Shape& shape, const unsigned short tid) {
-	for (std::size_t i = shape.offset_locals(tid); i < shape.sizeLocals(); i++)
-		for (std::size_t t = 0; t < shape.size(); t++)
-			if (t == shape.index_UNDEF() && shape.at(i, t) != MT_) return false;
-			else if (t == i && shape.at(t, t) != EQ_) return false;
-			else if (shape.at(t, i) != BT_) return false;
-	return true;
-}
-
-void set_locals_undef(Cfg& cfg, const unsigned short tid) {
-	Shape& shape = *cfg.shape;
-
-	for (std::size_t i = shape.offset_locals(tid); i < shape.offset_locals(tid) + shape.sizeLocals(); i++) {
-		for (std::size_t t = 0; t < shape.size(); t++) {
-			shape.set(i, t, BT);
-		}
-		shape.set(i, i, EQ);
-		shape.set(i, shape.index_UNDEF(), MT);
-	}
-}
-
-
 /******************************** OVALUE HELPER ********************************/
 
-std::vector<OValue> get_possible_ovaluess(const Cfg& cfg, const Observer& observer, const Function& fun) {
-	assert(fun.has_input() ^ fun.has_output());
-	std::vector<OValue> result;
-	if (fun.has_input()) {
-		for (std::size_t i = 0; i < observer.numVars(); i++)
-			if (!cfg.seen[i])
-				result.push_back(observer.mk_var(i));
-		result.push_back(OValue::Anonymous());
-	} else {
-		result.push_back(OValue());
-	}
-	return result;
+inline std::vector<DataValue> get_possible_data_args(const Cfg& cfg, const Function& fun) {
+	return {{ DataValue::DATA, DataValue::OTHER }};
+}
+
+
+/******************************** EVENT HELPER *********************************/
+
+inline void fire_event(Cfg& cfg, Event evt) {
+	cfg.state0 = cfg.state0.next(evt);
+	cfg.state1 = cfg.state1.next(evt);
+}
+
+inline void fire_enter_event(Cfg& cfg, const Function& callee, unsigned short tid, DataValue dval) {
+	auto event = Event::mk_enter(callee, tid, dval);
+	fire_event(cfg, event);
+}
+
+inline void fire_exit_event(Cfg& cfg, unsigned short tid) {
+	auto event = Event::mk_exit(tid);
+	fire_event(cfg, event);
 }
 
 
 /******************************** POST FOR ONE THREAD ********************************/
+
+// TODO: locals must not be undefified!!!!!
 
 void mk_tid_post(std::vector<Cfg>& result, const Cfg& input, unsigned short tid, const Program& prog) {
 	if (input.pc[tid] != NULL) {
@@ -84,39 +70,24 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& input, unsigned short tid,
 			// this must be done before handling returning fuctions as the pc might be set to NULL
 			while (filter_pc(pcf, tid)) { /* empty */ }
 			if (pcf.pc[tid] == NULL) {
-				if (pcf.inout[tid].type() == OValue::DUMMY)
-					if (input.pc[tid]->function().has_output())
-						throw std::runtime_error("Return value is missing or was read from a potentially free cell.");
-				// if the currently called function returned, all local info is reset (goes out of scope)
-				set_locals_undef(pcf, tid);
-				pcf.inout[tid] = OValue();
-				pcf.oracle[tid] = false;
-				for (std::size_t i = 0; i < pcf.shape->sizeLocals(); i++) {
-					pcf.own.set(pcf.shape->offset_locals(tid) + i, true);
-					pcf.valid_ptr.set(pcf.shape->offset_locals(tid) + i, false);
-					pcf.valid_next.set(pcf.shape->offset_locals(tid) + i, false);
-					pcf.guard0state.set(pcf.shape->offset_locals(tid) + i, nullptr);
-					pcf.guard1state.set(pcf.shape->offset_locals(tid) + i, nullptr);
-				}
+				// currently called function returned
+				fire_exit_event(pcf, tid); // TODO: correct?
+				pcf.arg[tid] = DataValue::OTHER;
 			}
 			result.push_back(std::move(pcf));
 		}
 	} else {
-		// when entering a method all local variables of the executing thread should point to UNDEF
-		// if the called method has input, the input is chosen, if it has output, the output is initialized empty
-		const Observer& observer = input.state.observer();
-		// result.reserve(result.size() + prog.size());
+		// invoke function
 		for (std::size_t i = 0; i < prog.size(); i++) {
 			const Function& fun = prog.at(i);
-			std::vector<OValue> ovals = get_possible_ovaluess(input, observer, fun);
-			for (OValue ov : ovals) {
+			auto dvals = get_possible_data_args(input, fun);
+			for (DataValue arg : dvals) {
 				result.push_back(input.copy());
-				result.back().pc[tid] = &fun.body();
-				result.back().inout[tid] = ov;
-				if (ov.type() == OValue::OBSERVABLE)
-					result.back().seen[ov.id()] = true;
-				// filter out noops
-				while (filter_pc(result.back(), tid)) { /* empty */ }
+				Cfg& cf = result.back();
+				cf.pc[tid] = &fun.body();
+				cf.arg[tid] = arg;
+				fire_enter_event(cf, fun, tid, arg); // TODO: correct?
+				while (filter_pc(cf, tid)) { /* empty */ }
 			}
 		}
 	}
@@ -126,7 +97,8 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& input, unsigned short tid,
 /******************************** POST FOR ALL THREADS ********************************/
 
 std::vector<Cfg> tmr::mk_all_post(const Cfg& cfg, const Program& prog) {
-	std::vector<Cfg> result = post_free(cfg, 0, prog);
+	std::vector<Cfg> result;
 	mk_tid_post(result, cfg, 0, prog);
+	mk_tid_post(result, cfg, 1, prog);
 	return result;
 }

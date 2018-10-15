@@ -16,10 +16,9 @@ namespace tmr {
 			std::size_t _bounds;
 			std::size_t _size;
 			shape_t _cells;
-			constexpr const static std::size_t _numObsVars=2;
 
 		public:
-			Shape(std::size_t numObsVars, std::size_t numGlobVars, std::size_t numLocVars, unsigned short numThreads);
+			Shape(std::size_t numGlobVars, std::size_t numLocVars, unsigned short numThreads);
 			std::size_t size() const { return _bounds; }
 			std::size_t sizeLocals() const { return _numLocVars; }
 			std::size_t sizeObservers() const { return 2; }
@@ -50,28 +49,22 @@ namespace tmr {
 			 */
 			inline std::size_t index_NULL() const { return 0; }
 			// inline std::size_t index_FREE() const { return 1; }
-			inline std::size_t index_REUSE() const { return 1; }
+			inline std::size_t index_REUSE() const { return 1; } // TODO: delete
 			inline std::size_t index_UNDEF() const { return 2; }
-			std::size_t index_ObserverVar(const unsigned short id) const {
-				assert(id < _numObsVars);
-				return 3+id;
-			}
 			std::size_t index_GlobalVar(const Variable& var) const {
 				assert(var.global());
 				assert(var.id() < _numGlobVars);
-				return 3 + _numObsVars + var.id();
+				return 3 + var.id();
 			}
 			std::size_t index_LocalVar(const Variable& var, unsigned short tid) const {
 				assert(var.local());
 				assert(var.id() < _numLocVars);
-				// assert(tid < _numThreads);
-				return 3 + _numObsVars + _numGlobVars + tid*_numLocVars + var.id();
+				return 3 + _numGlobVars + tid*_numLocVars + var.id();
 			}
 			inline std::size_t offset_vars() const { return 3; }
-			std::size_t offset_program_vars() const { return 3+_numObsVars; }
+			std::size_t offset_program_vars() const { return 3; }
 			std::size_t offset_locals(unsigned short tid) const {
-				// assert(tid < _numThreads);
-				return 3 + _numObsVars + _numGlobVars + tid*_numLocVars;
+				return 3 + _numGlobVars + tid*_numLocVars;
 			}
 
 			void extend();

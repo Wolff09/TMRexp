@@ -8,81 +8,54 @@ using namespace tmr;
 
 /************************ VALUES ************************/
 
-bool OValue::operator==(const OValue& other) const {
-	return _type == other._type && _id == other._id;
-}
-
-bool OValue::operator<(const OValue& other) const {
-	if (_type < other._type) return true;
-	if (_type > other._type) return false;
-	assert(_type == other._type);
-	return _type == OBSERVABLE && _id < other._id;
-}
-
-void OValue::print(std::ostream& os) const {
+std::ostream& tmr::operator<<(std::ostream& os, const DataValue& val) {
 	os << "<";
-	switch (_type) {
-		case EMPTY: os << "empty"; break;
-		case ANONYMOUS: os << "?"; break;
-		case OBSERVABLE: os << _id; break;
-		case DUMMY: os << "_"; break;
+	switch (val) {
+		case DataValue::DATA: os << "D"; break;
+		case DataValue::OTHER: os << "?"; break;
 	}
 	os << ">";
-}
-
-std::ostream& tmr::operator<<(std::ostream& os, const OValue& ov) {
-	ov.print(os);
 	return os;
 }
 
 
-/************************ EQUALITY  ************************/
+/************************ VALUES ************************/
 
-Equality::Equality(OValue rhs, bool negated) : rhs(rhs), negated(negated) {
-	// assert(rhs.type() == OValue::EMPTY || rhs.type() == OValue::OBSERVABLE);
+bool Event::operator==(const Event& other) const {
+	return type == other.type && func == other.func && tid == other.tid && dval == other.dval;
 }
 
-Equality::Equality(OValue rhs) : Equality(rhs, false) {}
-
-bool Equality::eval(OValue lhs) const {
-	return (lhs == rhs) ^ negated;
+Event Event::mk_enter(const Function& func, unsigned int tid, DataValue dval) {
+	return Event(ENTER, &func, tid, dval);
 }
 
-
-/************************ GUARD ************************/
-
-Guard::Guard(std::vector<Equality> equalities) : eqs(equalities) {}
-
-bool Guard::eval(OValue oval) const {
-	for (const auto& e : eqs)
-		if (!e.eval(oval))
-			return false;
-	return true;
+Event Event::mk_exit(unsigned int tid) {
+	return Event(EXIT, nullptr, tid, DataValue::DATA);
 }
 
-
-/************************ TRANSITION ************************/
-
-Transition::Transition(const Function& fun, const Guard guard, const State& next) : evt(fun), guard(guard), next(next) {}
-
-bool Transition::enabled(const Function& event, OValue oval) const {
-	return &evt == &event && guard.eval(oval);
+Event Event::mk_free(DataValue dval) {
+	return Event(FREE, nullptr, 0, dval);
 }
 
 
 /************************ STATE ************************/
 
-State::State(std::string name, bool is_initial, bool is_final) : _name(name), _is_initial(is_initial), _is_final(is_final) {}
+void State::add_transition(std::unique_ptr<Transition> transition) {
+	 // TODO: ensure determinism { 
+	for (const auto& trans : _out) {
+		if (transition->same_trigger(*trans)) {
+			throw std::logic_error("Non-deterministic observers are not supported");
+		}
+	}
+	_out.push_back(std::move(transition));
+}
 
-State::State(std::string name, bool is_initial, bool is_final, bool is_special) : _name(name), _is_initial(is_initial), _is_final(is_final), _is_special(is_special) {}
-
-State::State(std::string name, bool is_initial, bool is_final, bool is_special, bool is_marked) : _name(name), _is_initial(is_initial), _is_final(is_final), _is_special(is_special), _is_marked(is_marked) {}
-
-const State& State::next(const Function& evt_name, OValue evt_val) const {
-	// search for an enabled transition (assuming there is at most one)
-	for (const auto& t : _out)
-		if (t->enabled(evt_name, evt_val))
-			return t->next;
+const State& State::next(Event evt) const {
+	for (const auto& trans : _out) {
+		if (trans->enabled(evt)) {
+			return trans->dst();
+		}
+	}
 
 	// if no enabled transition was found we stay at the current state
 	return *this;
@@ -95,28 +68,32 @@ MultiState::MultiState() {}
 
 MultiState::MultiState(std::vector<const State*> states) : _states(states) {}
 
-MultiState MultiState::next(const Function& evt_name, OValue evt_val) const {
+MultiState MultiState::next(Event evt) const {
 	MultiState result;
 	result._states.reserve(_states.size());
 	for (const State* s : _states) {
 		assert(s != NULL);
-		result._states.push_back(&s->next(evt_name, evt_val));
+		result._states.push_back(&s->next(evt));
 	}
 	return result;
 }
 
 bool MultiState::is_final() const {
-	for (const State* s : _states)
-		if (s->is_final())
+	for (const State* s : _states) {
+		if (s->is_final()) {
 			return true;
+		}
+	}
 	return false;
 }
 
 const State& MultiState::find_final() const {
 	assert(is_final());
-	for (const State* s : _states)
-		if (s->is_final())
+	for (const State* s : _states) {
+		if (s->is_final()) {
 			return *s;
+		}
+	}
 
 	assert(false);
 	throw std::logic_error("Malicious call to MultiState::find_final()");
@@ -150,36 +127,19 @@ void MultiState::print(std::ostream& os) const {
 
 /************************ OBSERVER ************************/
 
-bool Observer::has_final() const {
-	for (const auto& s : _states)
-		if (s->is_final()) return true;
-	return false;
-}
-
-bool Observer::has_initial() const {
-	for (const auto& s : _states)
-		if (s->is_initial()) return true;
-	return false;
-}
-
-Observer::Observer(std::vector<std::unique_ptr<State>> states, std::size_t numVars) : _states(std::move(states)), _numVars(numVars) {
-	// tell them who's their daddy
-	for (const auto& s : _states)
-		s->_obs = this;
-
-	// check for initial/final states
-	assert(std::count_if(_states.begin(), _states.end(), [](const std::unique_ptr<State>& s){ return s->is_initial(); }) > 0);
-	assert(std::count_if(_states.begin(), _states.end(), [](const std::unique_ptr<State>& s){ return s->is_final(); }) > 0);
+Observer::Observer(std::vector<std::unique_ptr<State>> states) : _states(std::move(states)) {
+	// check for initial states
+	if (std::count_if(_states.begin(), _states.end(), [](const std::unique_ptr<State>& s){ return s->is_initial(); }) == 0) {
+		throw std::logic_error("Observers must have an initial state");
+	}
 
 	// make initial state
 	std::vector<const State*> init;
-	for (const auto& s : _states)
-		if (s->is_initial())
+	for (const auto& s : _states) {
+		if (s->is_initial()) {
 			init.push_back(s.get());
+		}
+	}
 	_init = MultiState(std::move(init));
-
-
-	for (std::size_t i = 0; i < _states.size(); i++)
-		_states.at(i)->_id = i;
 }
 

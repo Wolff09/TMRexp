@@ -15,6 +15,4 @@ namespace tmr {
 	 */	
 	void mk_all_interference(Encoding& enc, RemainingWork& work);
 
-	void mk_cfg_interference(Encoding& enc, RemainingWork& work, const Cfg& cfg);
-
 }

@@ -32,16 +32,11 @@ namespace tmr {
 	class NullAssignment;
 	class InOutAssignment;
 	class ReadInputAssignment;
-	class WriteOutputAssignment;
 	class Malloc;
-	// class Free;
-	class Retire;
-	class HPset;
 	class Conditional;
 	class Ite;
 	class While;
 	class Break;
-	class LinearizationPoint;
 	class CompareAndSwap;
 	class Function;
 	class Program;
@@ -162,14 +157,6 @@ namespace tmr {
 			void propagateFun(const Function* fun);
 	};
 
-	class OracleCondition : public Condition {
-		public:
-			Type type() const { return Type::ORACLEC; }
-			void namecheck(const std::map<std::string, Variable*>& name2decl);
-			void print(std::ostream& os) const;
-			void propagateFun(const Function* fun);
-	};
-
 	class NonDetCondition : public Condition {
 		public:
 			Type type() const { return Type::NONDET; }
@@ -226,7 +213,7 @@ namespace tmr {
 			const Statement* _next = NULL;
 
 		public:
-			enum Class { SQZ, ASSIGN, MALLOC, /*FREE,*/ RETIRE, HPSET, HPRELEASE, ITE, WHILE, BREAK, LINP, INPUT, OUTPUT, CAS, SETNULL, ATOMIC, ORACLE, CHECKP, KILL, REACH, ENTERQ, LEAVEQ };
+			enum Class { SQZ, ASSIGN, MALLOC, ITE, WHILE, BREAK, INPUT, CAS, SETNULL, ATOMIC, KILL };
 			virtual ~Statement() = default;
 			virtual Class clazz() const = 0;
 			unsigned short id() const { assert(_id != 0); return _id; }
@@ -276,33 +263,10 @@ namespace tmr {
 			const Sequence& sqz() const { return *_sqz; }
 	};
 
-	class LinearizationPoint : public Statement {
-		private:
-			std::unique_ptr<VarExpr> _var;
-			std::unique_ptr<Condition> _cond;
-
-		public:
-			Statement::Class clazz() const { return Statement::Class::LINP; }
-			void namecheck(const std::map<std::string, Variable*>& name2decl);
-			void print(std::ostream& os, std::size_t indent) const;
-			void propagateFun(const Function* fun);
-
-			LinearizationPoint();
-			LinearizationPoint(std::unique_ptr<Condition> cond);
-			LinearizationPoint(std::unique_ptr<VarExpr> var);
-			LinearizationPoint(std::unique_ptr<VarExpr> var, std::unique_ptr<Condition> cond);
-			bool has_var() const { return _var.get() != NULL; }
-			bool has_cond() const { return _cond.get() != NULL; }
-			const Condition& cond() const { assert(has_cond()); return *_cond; }
-			const VarExpr& var() const { assert(has_var()); return *_var; }
-			const Function& event() const { return function(); }
-	};
-
 	class Assignment : public Statement {
 		private:
 			std::unique_ptr<Expr> _lhs;
 			std::unique_ptr<Expr> _rhs;
-			std::unique_ptr<LinearizationPoint> _lp;
 			bool _fires_lp;
 
 		public:
@@ -314,11 +278,9 @@ namespace tmr {
 			void propagateFun(const Function* fun);
 
 			Assignment(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs);
-			Assignment(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs, std::unique_ptr<LinearizationPoint> lp);
 			const Expr& lhs() const { return *_lhs; }
 			const Expr& rhs() const { return *_rhs; }
 			bool fires_lp() const { return _fires_lp; }
-			const LinearizationPoint& lp() const { assert(fires_lp()); return *_lp; }
 	};
 
 	class NullAssignment : public Statement {
@@ -356,13 +318,6 @@ namespace tmr {
 			void print(std::ostream& os, std::size_t indent) const;
 	};
 
-	class WriteOutputAssignment : public InOutAssignment {
-		public:
-			WriteOutputAssignment(std::unique_ptr<Expr> src) : InOutAssignment(std::move(src)) {}
-			Statement::Class clazz() const { return Statement::OUTPUT; }
-			void print(std::ostream& os, std::size_t indent) const;
-	};
-
 	class Malloc : public Statement {
 		private:
 			std::unique_ptr<VarExpr> _var;
@@ -375,63 +330,6 @@ namespace tmr {
 			Malloc(std::unique_ptr<VarExpr> var) : _var(std::move(var)) {}
 			const VarExpr& var() const { return *_var; }
 			const Variable& decl() const { return _var->decl(); }
-	};
-
-	class Retire : public Statement {
-		private:
-			std::unique_ptr<VarExpr> _var;
-
-		public:
-			Statement::Class clazz() const { return Statement::Class::RETIRE; }
-			void namecheck(const std::map<std::string, Variable*>& name2decl);
-			void print(std::ostream& os, std::size_t indent) const;
-
-			Retire(std::unique_ptr<VarExpr> var) : _var(std::move(var)) {}
-			const VarExpr& var() const { return *_var; }
-			const Variable& decl() const { return _var->decl(); }
-	};
-
-	class HPset : public Statement {
-		private:
-			std::unique_ptr<VarExpr> _var;
-			std::size_t _hpindex;
-
-		public:
-			Statement::Class clazz() const { return Statement::Class::HPSET; }
-			void namecheck(const std::map<std::string, Variable*>& name2decl);
-			void print(std::ostream& os, std::size_t indent) const;
-
-			HPset(std::unique_ptr<VarExpr> var, std::size_t index) : _var(std::move(var)), _hpindex(index) {}
-			const VarExpr& var() const { return *_var; }
-			const Variable& decl() const { return _var->decl(); }
-			std::size_t hpindex() const { return _hpindex; }
-	};
-
-	class HPrelease : public Statement {
-		private:
-			std::size_t _hpindex;
-
-		public:
-			Statement::Class clazz() const { return Statement::Class::HPRELEASE; }
-			void namecheck(const std::map<std::string, Variable*>& name2decl);
-			void print(std::ostream& os, std::size_t indent) const;
-
-			HPrelease(std::size_t index) : _hpindex(index) {}
-			std::size_t hpindex() const { return _hpindex; }
-	};
-
-	class EnterQ : public Statement {
-		public:
-			Statement::Class clazz() const { return Statement::Class::ENTERQ; }
-			void namecheck(const std::map<std::string, Variable*>& name2decl);
-			void print(std::ostream& os, std::size_t indent) const;
-	};
-
-	class LeaveQ : public Statement {
-		public:
-			Statement::Class clazz() const { return Statement::Class::LEAVEQ; }
-			void namecheck(const std::map<std::string, Variable*>& name2decl);
-			void print(std::ostream& os, std::size_t indent) const;
 	};
 
 	class Break : public Statement {
@@ -501,7 +399,6 @@ namespace tmr {
 			std::unique_ptr<Expr> _dst;
 			std::unique_ptr<Expr> _cmp;
 			std::unique_ptr<Expr> _src;
-			std::unique_ptr<LinearizationPoint> _lp;
 			bool _update_age_fields;
 
 		public:
@@ -512,59 +409,22 @@ namespace tmr {
 			void propagateFun(const Function* fun);
 
 			CompareAndSwap(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, bool update_age_fields);
-			CompareAndSwap(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, std::unique_ptr<LinearizationPoint> lp, bool update_age_fields);
 			const Expr& dst() const { return *_dst; }
 			const Expr& cmp() const { return *_cmp; }
 			const Expr& src() const { return *_src; }
-			bool fires_lp() const { return _lp.get() != NULL; }
-			const LinearizationPoint& lp() const { assert(fires_lp()); return *_lp; }
 			bool update_age_fields() const { return _update_age_fields; }
-	};
-
-	class Oracle : public Statement {
-		public:
-			Statement::Class clazz() const { return Statement::Class::ORACLE; }
-			void namecheck(const std::map<std::string, Variable*>& name2decl);
-			void print(std::ostream& os, std::size_t indent) const;
-	};
-
-	class CheckProphecy : public Statement {
-		private:
-			bool _cond;
-
-		public:
-			Statement::Class clazz() const { return Statement::Class::CHECKP; }
-			void namecheck(const std::map<std::string, Variable*>& name2decl);
-			void print(std::ostream& os, std::size_t indent) const;
-			CheckProphecy(bool cond) : _cond(cond) {}
-			bool cond() const { return _cond; }
 	};
 
 	class Killer : public Statement {
 		private:
-			bool _confused;
 			std::unique_ptr<VarExpr> _to_kill;
 
 		public:
 			Statement::Class clazz() const { return Statement::Class::KILL; }
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
-			Killer() : _confused(true) {}
-			Killer(std::unique_ptr<VarExpr> to_kill) : _confused(false), _to_kill(std::move(to_kill)) {}
+			Killer(std::unique_ptr<VarExpr> to_kill) : _to_kill(std::move(to_kill)) {}
 			const VarExpr& var() const { return *_to_kill; }
-			bool kill_confused() const { return _confused; }
-	};
-
-	class EnforceReach : public Statement {
-		private:
-			std::unique_ptr<VarExpr> _to_check;
-
-		public:
-			Statement::Class clazz() const { return Statement::Class::REACH; }
-			void namecheck(const std::map<std::string, Variable*>& name2decl);
-			void print(std::ostream& os, std::size_t indent) const;
-			EnforceReach(std::unique_ptr<VarExpr> to_check) : _to_check(std::move(to_check)) {}
-			const VarExpr& var() const { return *_to_check; }
 	};
 
 	/*********************** PROGRAM ***********************/
@@ -573,13 +433,10 @@ namespace tmr {
 		private:
 			std::string _name;
 			std::unique_ptr<Sequence> _stmts;
-			bool _has_input; // a function has either input or output
 			const Program* _prog;
-			std::unique_ptr<Atomic> _summary;
 
 		public:
-			Function(std::string name, bool is_void, std::unique_ptr<Sequence> stmts);
-			Function(std::string name, bool is_void, std::unique_ptr<Sequence> stmts, std::unique_ptr<Atomic> summary);
+			Function(std::string name, std::unique_ptr<Sequence> stmts);
 			std::string name() const { return _name; }
 			std::size_t size() const { return _stmts->size(); }
 			const Sequence& body() const { return *_stmts; }
@@ -588,12 +445,8 @@ namespace tmr {
 			std::size_t propagateId(std::size_t id) { return _stmts->propagateId(id); }
 			void print(std::ostream& os, std::size_t indent=0) const;
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
-			bool has_input() const { return _has_input; }
-			bool has_output() const { return !has_input(); }		
-			std::string input_name() const { assert(has_input()); return "__in__"; }
-			std::string output_name() const { assert(has_output()); return "__out__"; }
+			std::string arg_name() const { return "__arg__"; }
 			const Program& prog() const { return *_prog; }
-			const Atomic& summary() const { assert(_summary); return *_summary; }
 
 		friend class Program;
 	};
@@ -604,41 +457,22 @@ namespace tmr {
 			std::vector<std::unique_ptr<Variable>> _globals;
 			std::vector<std::unique_ptr<Variable>> _locals;
 			std::vector<std::unique_ptr<Function>> _funs;
-			std::unique_ptr<Function> _free, _guard, _unguard, _retire, _enter, _leave;
 			std::unique_ptr<Function> _init_fun;
+			std::unique_ptr<Function> _init_thread_fun;
 			std::size_t _idSize = 0;
 			Sequence* _init() const { return _init_fun->_stmts.get(); }
-			std::unique_ptr<Observer> _smrobs;
-			bool _has_hint = false;
-			std::function<bool(void*)> _hint;
-			bool _increase_precision_chk_mimick = false;
 
 		public:
-			Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::vector<std::unique_ptr<Function>> funs);
-			Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::unique_ptr<Sequence> init, std::vector<std::unique_ptr<Function>> funs);
+			Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::unique_ptr<Sequence> init, std::unique_ptr<Sequence> init_thread, std::vector<std::unique_ptr<Function>> funs);
 			std::string name() const { return _name; }
 			std::size_t size() const { return _funs.size(); }
 			std::size_t idSize() const { return _idSize; }
 			std::size_t numGlobals() const { return _globals.size(); }
 			std::size_t numLocals() const { return _locals.size(); }
 			const Function& at(std::size_t index) const { return *_funs.at(index); }
-			const Function& freefun() const { return *_free; }
-			const Function& guardfun() const { return *_guard; }
-			const Function& unguardfun() const { return *_unguard; }
-			const Function& leavefun() const { return *_leave; }
-			const Function& enterfun() const { return *_enter; }
-			const Function& retirefun() const { return *_retire; }
 			const Sequence& init() const { return _init_fun->body(); }
-			const Function& init_fun() const { return *_init_fun; }
+			const Sequence& init_thread() const { return _init_thread_fun->body(); }
 			void print(std::ostream& os) const;
-			bool is_summary_statement(const Statement& stmt) const;
-			void set_hint(std::function<bool(void*)> hint) { _has_hint = true; _hint = hint; }
-			bool has_hint() const { return _has_hint; }
-			bool apply_hint(void* param) const { assert(has_hint()); return _hint(param); }
-			void set_chk_mimic_precision(bool val) { _increase_precision_chk_mimick = val; }
-			bool precise_check_mimick() const { return _increase_precision_chk_mimick; }
-			const Observer& smr_observer() const { return *_smrobs; }
-			void smr_observer(std::unique_ptr<Observer> smr) { _smrobs = std::move(smr); }
 	};
 
 
@@ -665,41 +499,23 @@ namespace tmr {
 	std::unique_ptr<CASCondition> CasCond(std::unique_ptr<CompareAndSwap> cas);
 	std::unique_ptr<Condition> EqCond(std::unique_ptr<VarExpr> lhs, std::unique_ptr<VarExpr> rhs, bool use_age_fields);
 	std::unique_ptr<CompoundCondition> CompCond(std::unique_ptr<Condition> lhs, std::unique_ptr<Condition> rhs);
-	std::unique_ptr<OracleCondition> OCond();
 	std::unique_ptr<NonDetCondition> NDCond();
 
 	std::unique_ptr<Assignment> Assign (std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs);
-	std::unique_ptr<Assignment> Assign (std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs, std::unique_ptr<LinearizationPoint> lp);
 	std::unique_ptr<NullAssignment> SetNull (std::unique_ptr<Expr> lhs);
 	std::unique_ptr<ReadInputAssignment> Read(std::string var);
-	std::unique_ptr<WriteOutputAssignment> Write(std::string var);
-
-	std::unique_ptr<LinearizationPoint> LinP(std::unique_ptr<Condition> cond);
-	std::unique_ptr<LinearizationPoint> LinP(std::string var);
-	std::unique_ptr<LinearizationPoint> LinP();
-	std::unique_ptr<Oracle> Orcl();
-	std::unique_ptr<CheckProphecy> ChkP(bool cond);
 
 	std::unique_ptr<Ite> IfThen(std::unique_ptr<Condition> cond, std::unique_ptr<Sequence> ifs);
 	std::unique_ptr<Ite> IfThenElse(std::unique_ptr<Condition> cond, std::unique_ptr<Sequence> ifs, std::unique_ptr<Sequence> elses);
 	std::unique_ptr<While> Loop(std::unique_ptr<Sequence> body);
 
 	std::unique_ptr<Malloc> Mllc(std::string var);
-	// std::unique_ptr<Free> Fr(std::string var);
-	std::unique_ptr<Retire> Rtire(std::string var);
-	std::unique_ptr<HPset> Gard(std::string var, std::size_t index);
-	std::unique_ptr<HPrelease> UGard(std::size_t index);
-	std::unique_ptr<EnterQ> Enter();
-	std::unique_ptr<LeaveQ> Leave();
 	std::unique_ptr<Break> Brk();
 	std::unique_ptr<Killer> Kill(std::string var);
-	std::unique_ptr<Killer> Kill();
-	std::unique_ptr<EnforceReach> ChkReach(std::string var);
 
 	std::unique_ptr<CompareAndSwap> CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, bool update_age_fields);
-	std::unique_ptr<CompareAndSwap> CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, std::unique_ptr<LinearizationPoint> lp, bool update_age_fields);
 
-	std::unique_ptr<Function> Fun(std::string name, bool is_void, std::unique_ptr<Sequence> body, std::unique_ptr<Atomic> summary = {});
+	std::unique_ptr<Function> Fun(std::string name, std::unique_ptr<Sequence> body);
 
 	template<typename... Args>
 	static std::unique_ptr<Sequence> Sqz(Args... pack) {
@@ -718,12 +534,12 @@ namespace tmr {
 	}
 
 	template<typename... Args>
-	static std::unique_ptr<Program> Prog(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::unique_ptr<Sequence> init, Args... funpack) {
+	static std::unique_ptr<Program> Prog(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::unique_ptr<Sequence> init, std::unique_ptr<Sequence> init_thread, Args... funpack) {
 		// std::vector<std::unique_ptr<Function>> funs { std::move(funpack)... }; // does not work :(
 		std::unique_ptr<Function> args[] { std::move(funpack)... };
 		std::vector<std::unique_ptr<Function>> funs;
 		for (auto& f : args) funs.push_back(std::move(f));
-		std::unique_ptr<Program> res(new Program(name, std::move(globals), std::move(locals), std::move(init), std::move(funs)));
+		std::unique_ptr<Program> res(new Program(name, std::move(globals), std::move(locals), std::move(init), std::move(init_thread), std::move(funs)));
 		return res;
 	}
 

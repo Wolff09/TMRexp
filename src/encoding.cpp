@@ -10,47 +10,16 @@ using namespace tmr;
 bool cfg_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	if (lhs.pc < rhs.pc) return true;
 	if (rhs.pc < lhs.pc) return false;
-	if (lhs.inout < rhs.inout) return true;
-	if (rhs.inout < lhs.inout) return false;
-	if (lhs.oracle < rhs.oracle) return true;
-	if (rhs.oracle < lhs.oracle) return false;
-	if (lhs.guard0state < rhs.guard0state) return true;
-	if (rhs.guard0state < lhs.guard0state) return false;
-	if (lhs.guard1state < rhs.guard1state) return true;
-	if (rhs.guard1state < lhs.guard1state) return false;
-
-	#if !MERGE_VALID_PTR
-		// more precision
-		if (lhs.valid_ptr < rhs.valid_ptr) return true;
-		if (rhs.valid_ptr < lhs.valid_ptr) return false;
-	#endif
-
+	if (lhs.arg < rhs.arg) return true;
+	if (rhs.arg < lhs.arg) return false;
 	return false;
 }
 
 bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
-	if (lhs.freed < rhs.freed) return true;
-	if (rhs.freed < lhs.freed) return false;
-	if (lhs.retired < rhs.retired) return true;
-	if (rhs.retired < lhs.retired) return false;
-	if (lhs.state < rhs.state) return true;
-	if (rhs.state < lhs.state) return false;
-	if (lhs.seen < rhs.seen) return true;
-	if (rhs.seen < lhs.seen) return false;
-
-	#if DGLM_PRECISION
-		if (lhs.shape->at(5,6).to_ulong() < rhs.shape->at(5,6).to_ulong()) return true;
-		if (rhs.shape->at(5,6).to_ulong() < lhs.shape->at(5,6).to_ulong()) return false;
-		// auto begin = lhs.shape->offset_program_vars();
-		// auto end = lhs.shape->offset_locals(0);
-		// for (std::size_t i = begin; i < end; i++) {
-		// 	for (std::size_t j = i+1; j < end; j++) {
-		// 		if (lhs.shape->at(i, j).to_ulong() < rhs.shape->at(i, j).to_ulong()) return true;
-		// 		if (rhs.shape->at(i, j).to_ulong() < lhs.shape->at(i, j).to_ulong()) return false;
-		// 	}
-		// }
-	#endif
-
+	if (lhs.state0 < rhs.state0) return true;
+	if (rhs.state0 < lhs.state0) return false;
+	if (lhs.state1 < rhs.state1) return true;
+	if (rhs.state1 < lhs.state1) return false;
 	return false;
 }
 
@@ -93,27 +62,6 @@ std::pair<bool, const Cfg&> Encoding::take(Cfg&& new_cfg) {
 						dst.set(row, col, both);
 						updated = true;
 					}
-				}
-			}
-
-			for (std::size_t i = dst.offset_locals(0); i < dst.size(); i++) {
-				#if MERGE_VALID_PTR
-					bool new_valid_ptr = cfg.valid_ptr.at(i) && new_cfg.valid_ptr.at(i);
-					if (cfg.valid_ptr.at(i) != new_valid_ptr) {
-						updated = true;
-						cfg.valid_ptr.set(i, new_valid_ptr);
-					}
-				#endif
-				bool new_valid_next = cfg.valid_next.at(i) && new_cfg.valid_next.at(i);
-				if (cfg.valid_next.at(i) != new_valid_next) {
-					updated = true;
-					cfg.valid_next.set(i, new_valid_next);
-				}
-
-				bool new_own = cfg.own.at(i) && new_cfg.own.at(i);
-				if (cfg.own.at(i) != new_own) {
-					updated = true;
-					cfg.own.set(i, new_own);
 				}
 			}
 

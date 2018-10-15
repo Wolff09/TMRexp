@@ -19,37 +19,31 @@ static std::vector<std::unique_ptr<Variable>> mk_vars(bool global, std::vector<s
 	return result;
 }
 
-static bool has_init_name_clash(const std::vector<std::unique_ptr<Function>>& funs) {
-	for (const auto& f : funs)
-		if (f->name() == "init")
+bool startsWith(std::string mainStr, std::string toMatch) {
+	// taken from: https://thispointer.com/c-check-if-a-string-starts-with-an-another-given-string/
+	if(mainStr.find(toMatch) == 0) return true;
+	else return false;
+}
+
+static bool uses_reserved_name(const std::vector<std::unique_ptr<Function>>& funs) {
+	for (const auto& f : funs) {
+		auto fname = f->name();
+		if (startsWith(fname, "_"))
 			return true;
+	}
 	return false;
 }
 
-Program::Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::vector<std::unique_ptr<Function>> funs)
-    : Program(name, std::move(globals), std::move(locals), std::make_unique<Sequence>(std::vector<std::unique_ptr<Statement>>()), std::move(funs)) {}
-
-Program::Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::unique_ptr<Sequence> init, std::vector<std::unique_ptr<Function>> funs)
+Program::Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::unique_ptr<Sequence> init, std::unique_ptr<Sequence> init_thread, std::vector<std::unique_ptr<Function>> funs)
 	: _name(name),
 	  _globals(mk_vars(true, globals)),
 	  _locals(mk_vars(false, locals)),
 	  _funs(std::move(funs)),
-	  _free(new Function("free", true, Sqz(), AtomicSqz())),
-	  _guard(new Function("guard", true, Sqz(), AtomicSqz())),
-	  _unguard(new Function("unguard", true, Sqz(), AtomicSqz())),
-	  _retire(new Function("retire", true, Sqz(), AtomicSqz())),
-	  _enter(new Function("enterQ", true, Sqz(), AtomicSqz())),
-	  _leave(new Function("leaveQ", true, Sqz(), AtomicSqz())),
-	  _init_fun(new Function("init_dummy", true, std::move(init), AtomicSqz())) {
+	  _init_fun(new Function("_init", std::move(init))),
+	  _init_thread_fun(new Function("_threadinit", std::move(init_thread))) {
 
-	assert(!has_init_name_clash(_funs));
-
-	bool has_aux = false;
-	for (const auto& n : globals) {
-		if (n == "aux") {
-			has_aux = true;
-			break;
-		}
+	if (uses_reserved_name(_funs)) {
+		throw std::logic_error("Function names must not start with '_'.");
 	}
 
 	// namecheck, typecheck
@@ -70,11 +64,13 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
 		name2decl[v->name()] = v.get();
 	}
 
+	_init_thread_fun->namecheck(name2decl);
 	for (const auto& f : _funs) {
 		f->namecheck(name2decl);
 	}
 	for (const auto& f : _funs) f->_prog = this;
 	_init_fun->_prog = this;
+	_init_thread_fun->_prog = this;
 
 	// set variable ids
 	for (std::size_t i = 0; i < _globals.size(); i++) _globals[i]->_id = i;
@@ -83,6 +79,7 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
 	// propagate stmt next field
 	for (const auto& f : _funs) f->propagateNext();
 	_init_fun->propagateNext();
+	_init_thread_fun->propagateNext();
 
 	// propagate statement ids
 	std::size_t id = 1; // id=0 is reserved for NULL
@@ -99,28 +96,14 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
 	}
 }
 
-bool Program::is_summary_statement(const Statement& stmt) const {
-	return false;
-}
 
-Function::Function(std::string name, bool is_void, std::unique_ptr<Sequence> stmts)
-	: Function(name, is_void, std::move(stmts), {}) {}
-
-Function::Function(std::string name, bool is_void, std::unique_ptr<Sequence> stmts, std::unique_ptr<Atomic> summary)
-	: _name(name), _stmts(std::move(stmts)), _has_input(is_void), _summary(std::move(summary)) {
+Function::Function(std::string name, std::unique_ptr<Sequence> stmts) : _name(name), _stmts(std::move(stmts)) {
 		_stmts->propagateFun(this);
-		if (summary && summary->sqz().size() != 0)
-			throw std::logic_error("Expected empty summary.");
 }
 
 Assignment::Assignment(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs) : _lhs(std::move(lhs)), _rhs(std::move(rhs)), _fires_lp(false) {
 	assert(_lhs->clazz() != Expr::NIL);
 	assert(_rhs->clazz() != Expr::NIL);
-}
-
-Assignment::Assignment(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs, std::unique_ptr<LinearizationPoint> lp) : Assignment(std::move(lhs), std::move(rhs)) {
-	_lp = std::move(lp);
-	_fires_lp = true;
 }
 
 CompareAndSwap::CompareAndSwap(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, bool update_age_fields)
@@ -130,26 +113,9 @@ CompareAndSwap::CompareAndSwap(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> 
 	assert(_src->clazz() == Expr::VAR || _src->clazz() == Expr::SEL);
 }
 
-CompareAndSwap::CompareAndSwap(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, std::unique_ptr<LinearizationPoint> lp, bool update_age_fields)
-	: CompareAndSwap(std::move(dst), std::move(cmp), std::move(src), update_age_fields) {
-	assert(_dst->clazz() == Expr::VAR || _dst->clazz() == Expr::SEL);
-	assert(_cmp->clazz() == Expr::VAR || _cmp->clazz() == Expr::NIL);
-	assert(_src->clazz() == Expr::VAR || _src->clazz() == Expr::SEL);
-	_lp = std::move(lp);
-	assert(!_lp->has_cond());
-}
-
 CompoundCondition::CompoundCondition(std::unique_ptr<Condition> lhs, std::unique_ptr<Condition> rhs) : _lhs(std::move(lhs)), _rhs(std::move(rhs)) {
 	assert(_lhs->type() != COMPOUND);
 }
-
-LinearizationPoint::LinearizationPoint() {}
-
-LinearizationPoint::LinearizationPoint(std::unique_ptr<Condition> cond) : _cond(std::move(cond)) {}
-
-LinearizationPoint::LinearizationPoint(std::unique_ptr<VarExpr> var) : _var(std::move(var)) {}
-
-LinearizationPoint::LinearizationPoint(std::unique_ptr<VarExpr> var, std::unique_ptr<Condition> cond) : _var(std::move(var)), _cond(std::move(cond)) {}
 
 
 /******************************** SHORTCUTS ********************************/
@@ -212,21 +178,10 @@ std::unique_ptr<CompoundCondition> tmr::CompCond(std::unique_ptr<Condition> lhs,
 	return res;
 }
 
-std::unique_ptr<OracleCondition> tmr::OCond() {
-	std::unique_ptr<OracleCondition> res(new OracleCondition());
-	return res;
-}
-
 
 std::unique_ptr<Assignment> tmr::Assign (std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs) {
 	if (rhs->clazz() == Expr::NIL) throw std::logic_error("Assigning NULL not supported. Use NullAssignment/SetNull instead.");
 	std::unique_ptr<Assignment> res(new Assignment(std::move(lhs), std::move(rhs)));
-	return res;
-}
-
-std::unique_ptr<Assignment> tmr::Assign (std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs, std::unique_ptr<LinearizationPoint> lp) {
-	if (rhs->clazz() == Expr::NIL) throw std::logic_error("Assigning NULL not supported. Use NullAssignment/SetNull instead.");
-	std::unique_ptr<Assignment> res(new Assignment(std::move(lhs), std::move(rhs), std::move(lp)));
 	return res;
 }
 
@@ -237,37 +192,6 @@ std::unique_ptr<NullAssignment> tmr::SetNull (std::unique_ptr<Expr> lhs) {
 
 std::unique_ptr<ReadInputAssignment> tmr::Read(std::string var) {
 	std::unique_ptr<ReadInputAssignment> res(new ReadInputAssignment(Data(var)));
-	return res;
-}
-
-std::unique_ptr<WriteOutputAssignment> tmr::Write(std::string var) {
-	std::unique_ptr<WriteOutputAssignment> res(new WriteOutputAssignment(Data(var)));
-	return res;
-}
-
-
-std::unique_ptr<LinearizationPoint> tmr::LinP(std::unique_ptr<Condition> cond) {
-	std::unique_ptr<LinearizationPoint> res(new LinearizationPoint(std::move(cond)));
-	return res;
-}
-
-std::unique_ptr<LinearizationPoint> tmr::LinP(std::string var) {
-	std::unique_ptr<LinearizationPoint> res(new LinearizationPoint(Var(var)));
-	return res;
-}
-
-std::unique_ptr<LinearizationPoint> tmr::LinP() {
-	std::unique_ptr<LinearizationPoint> res(new LinearizationPoint());
-	return res;
-}
-
-std::unique_ptr<Oracle> tmr::Orcl() {
-	std::unique_ptr<Oracle> res(new Oracle());
-	return res;
-}
-
-std::unique_ptr<CheckProphecy> tmr::ChkP(bool cond) {
-	std::unique_ptr<CheckProphecy> res(new CheckProphecy(cond));
 	return res;
 }
 
@@ -287,33 +211,6 @@ std::unique_ptr<While> tmr::Loop(std::unique_ptr<Sequence> body) {
 	return res;
 }
 
-std::unique_ptr<Retire> tmr::Rtire(std::string var) {
-	std::unique_ptr<Retire> res(new Retire(Var(var)));
-	return res;
-}
-
-std::unique_ptr<HPset> tmr::Gard(std::string var, std::size_t index) {
-	if (index > 1) throw std::logic_error("HP index must be 0 or 1.");
-	std::unique_ptr<HPset> res(new HPset(Var(var), index));
-	return res;
-}
-
-std::unique_ptr<HPrelease> tmr::UGard(std::size_t index) {
-	if (index > 1) throw std::logic_error("HP index must be 0 or 1.");
-	std::unique_ptr<HPrelease> res(new HPrelease(index));
-	return res;
-}
-
-std::unique_ptr<EnterQ> tmr::Enter() {
-	std::unique_ptr<EnterQ> res(new EnterQ());
-	return res;
-}
-
-std::unique_ptr<LeaveQ> tmr::Leave() {
-	std::unique_ptr<LeaveQ> res(new LeaveQ());
-	return res;
-}
-
 std::unique_ptr<Malloc> tmr::Mllc(std::string var) {
 	std::unique_ptr<Malloc> res(new Malloc(Var(var)));
 	return res;
@@ -329,15 +226,6 @@ std::unique_ptr<Killer> tmr::Kill(std::string var) {
 	std::unique_ptr<Killer> res(new Killer(Var(var)));
 	return res;
 }
-std::unique_ptr<Killer> tmr::Kill() {
-	std::unique_ptr<Killer> res(new Killer());
-	return res;
-}
-
-std::unique_ptr<EnforceReach> tmr::ChkReach(std::string var) {
-	std::unique_ptr<EnforceReach> res(new EnforceReach(Var(var)));
-	return res;
-}
 
 
 std::unique_ptr<CompareAndSwap> tmr::CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, bool update_age_fields) {
@@ -346,15 +234,9 @@ std::unique_ptr<CompareAndSwap> tmr::CAS(std::unique_ptr<Expr> dst, std::unique_
 	return res;
 }
 
-std::unique_ptr<CompareAndSwap> tmr::CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, std::unique_ptr<LinearizationPoint> lp, bool update_age_fields) {
-	if (cmp->clazz() != Expr::VAR) throw std::logic_error("Second argument of CAS must be a VarExpr.");
-	std::unique_ptr<CompareAndSwap> res(new CompareAndSwap(std::move(dst), std::move(cmp), std::move(src), std::move(lp), update_age_fields));
-	return res;
-}
 
-
-std::unique_ptr<Function> tmr::Fun(std::string name, bool is_void, std::unique_ptr<Sequence> body, std::unique_ptr<Atomic> summary) {
-	std::unique_ptr<Function> res(new Function(name, is_void, std::move(body), std::move(summary)));
+std::unique_ptr<Function> tmr::Fun(std::string name, std::unique_ptr<Sequence> body) {
+	std::unique_ptr<Function> res(new Function(name, std::move(body)));
 	return res;
 }
 
@@ -377,8 +259,6 @@ void CASCondition::propagateFun(const Function* fun) {
 	_cas->propagateFun(fun);
 }
 
-void OracleCondition::propagateFun(const Function* fun) {}
-
 void NonDetCondition::propagateFun(const Function* fun) {}
 
 void TrueCondition::propagateFun(const Function* fun) {}
@@ -389,13 +269,6 @@ void Sequence::propagateFun(const Function* fun) {
 }
 
 
-void LinearizationPoint::propagateFun(const Function* fun) {
-	Statement::propagateFun(fun);
-	assert(&event() == fun);
-	assert(!fun->has_input() || !has_var());
-	//assert(!is_prophet() || fun->has_output());
-}
-
 void Atomic::propagateFun(const Function* fun) {
 	Statement::propagateFun(fun);
 	_sqz->propagateFun(fun);
@@ -403,8 +276,6 @@ void Atomic::propagateFun(const Function* fun) {
 
 void Assignment::propagateFun(const Function* fun) {
 	Statement::propagateFun(fun);
-	if (_lp)
-		_lp->propagateFun(fun);
 }
 
 void Ite::propagateFun(const Function* fun) {
@@ -422,8 +293,6 @@ void While::propagateFun(const Function* fun) {
 
 void CompareAndSwap::propagateFun(const Function* fun) {
 	Statement::propagateFun(fun);
-	if (_lp)
-		_lp->propagateFun(fun);
 }
 
 
@@ -432,6 +301,9 @@ void CompareAndSwap::propagateFun(const Function* fun) {
 void NullExpr::namecheck(const std::map<std::string, Variable*>& name2decl) {}
 
 void VarExpr::namecheck(const std::map<std::string, Variable*>& name2decl) {
+	if (!name2decl.count(_name)) {
+		throw std::logic_error("Undeclared variable: " + _name);
+	}
 	assert(name2decl.count(_name));
 	_decl = name2decl.at(_name);
 }
@@ -461,9 +333,6 @@ void CASCondition::namecheck(const std::map<std::string, Variable*>& name2decl) 
 	_cas->namecheck(name2decl);
 }
 
-void OracleCondition::namecheck(const std::map<std::string, Variable*>& name2decl) {
-}
-
 void NonDetCondition::namecheck(const std::map<std::string, Variable*>& name2decl) {
 }
 
@@ -483,7 +352,6 @@ void Assignment::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	_rhs->namecheck(name2decl);
 	assert(lhs().type() == rhs().type());
 	assert(lhs().type() == POINTER);
-	if (_lp) _lp->namecheck(name2decl);
 }
 
 void NullAssignment::namecheck(const std::map<std::string, Variable*>& name2decl) {
@@ -494,7 +362,6 @@ void NullAssignment::namecheck(const std::map<std::string, Variable*>& name2decl
 void InOutAssignment::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	_ptr->namecheck(name2decl);
 	assert(_ptr->type() == DATA);
-	assert((clazz() == INPUT && function().has_input()) || (clazz() == OUTPUT && function().has_output()));
 
 	if (expr().clazz() == Expr::VAR) {
 		if (!static_cast<const VarExpr&>(expr()).decl().local()) {
@@ -505,30 +372,6 @@ void InOutAssignment::namecheck(const std::map<std::string, Variable*>& name2dec
 
 void Malloc::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	_var->namecheck(name2decl);
-}
-
-void Retire::namecheck(const std::map<std::string, Variable*>& name2decl) {
-	_var->namecheck(name2decl);
-}
-
-void HPset::namecheck(const std::map<std::string, Variable*>& name2decl) {
-	_var->namecheck(name2decl);
-}
-
-void HPrelease::namecheck(const std::map<std::string, Variable*>& name2decl) {
-}
-
-void EnterQ::namecheck(const std::map<std::string, Variable*>& name2decl) {
-}
-
-void LeaveQ::namecheck(const std::map<std::string, Variable*>& name2decl) {
-}
-
-void LinearizationPoint::namecheck(const std::map<std::string, Variable*>& name2decl) {
-	if (_cond)
-		_cond->namecheck(name2decl);
-	if (_var)
-		_var->namecheck(name2decl);
 }
 
 void Ite::namecheck(const std::map<std::string, Variable*>& name2decl) {
@@ -549,25 +392,10 @@ void CompareAndSwap::namecheck(const std::map<std::string, Variable*>& name2decl
 	_dst->namecheck(name2decl);
 	_cmp->namecheck(name2decl);
 	_src->namecheck(name2decl);
-	if (_lp)
-		_lp->namecheck(name2decl);
-	// assert(_cmp->decl().local());
-	// assert(_src->decl().local());
-}
-
-void Oracle::namecheck(const std::map<std::string, Variable*>& name2decl) {
-}
-
-void CheckProphecy::namecheck(const std::map<std::string, Variable*>& name2decl) {
 }
 
 void Killer::namecheck(const std::map<std::string, Variable*>& name2decl) {
-	if (!_confused)
-		_to_kill->namecheck(name2decl);
-}
-
-void EnforceReach::namecheck(const std::map<std::string, Variable*>& name2decl) {
-	_to_check->namecheck(name2decl);
+	_to_kill->namecheck(name2decl);
 }
 
 void Function::namecheck(const std::map<std::string, Variable*>& name2decl) {
@@ -610,15 +438,11 @@ std::size_t While::propagateId(std::size_t id) {
 
 std::size_t Assignment::propagateId(std::size_t id) {
 	id = Statement::propagateId(id);
-	if (_lp)
-		id = _lp->propagateId(id);
 	return id;
 }
 
 std::size_t CompareAndSwap::propagateId(std::size_t id) {
 	id = Statement::propagateId(id);
-	if (_lp)
-		id = _lp->propagateId(id);
 	return id;
 }
 
@@ -644,15 +468,7 @@ void Atomic::propagateNext(const Statement* next, const While* last_while) {
 }
 
 void Assignment::propagateNext(const Statement* next, const While* last_while) {
-	if (_lp) {
-		Statement::propagateNext(_lp.get(), last_while);
-		_lp->propagateNext(next, last_while);
-	} else {
-		Statement::propagateNext(next, last_while);	
-	}
-	// Statement::propagateNext(next, last_while);
-	// if (_lp)
-	//	_lp->propagateNext(_next, last_while);
+	Statement::propagateNext(next, last_while);	
 }
 
 const Statement* Ite::next() const {
@@ -716,7 +532,6 @@ inline void printCAS(std::ostream& os, const CompareAndSwap& cas) {
 	os << "CAS(" << cas.dst() << ", " << cas.cmp() << ", ";
 	if (cas.update_age_fields()) os << "<" << cas.src() << ", " << cas.cmp() << ".age+1>";
 	else os << cas.src();
-	if (cas.fires_lp()) os << " " << cas.lp();
 	os << ")";
 }
 
@@ -770,10 +585,6 @@ void CASCondition::print(std::ostream& os) const {
 	printCAS(os, *_cas);
 }
 
-void OracleCondition::print(std::ostream& os) const {
-	os << "§prophecy == fulfilled";
-}
-
 void NonDetCondition::print(std::ostream& os) const {
 	os << "*";
 }
@@ -814,7 +625,6 @@ void Atomic::print(std::ostream& os, std::size_t indent) const {
 void Assignment::print(std::ostream& os, std::size_t indent) const {
 	printID;
 	os << lhs() << " = " << rhs();
-	if (fires_lp()) os << " " << *_lp;
 	os << ";";
 }
 
@@ -828,60 +638,10 @@ void ReadInputAssignment::print(std::ostream& os, std::size_t indent) const {
 	os << expr() << " = " << "__in__" << ";";
 }
 
-void WriteOutputAssignment::print(std::ostream& os, std::size_t indent) const {
-	printID;
-	os << "__out__ = " << expr() << ";";
-}
-
 
 void Malloc::print(std::ostream& os, std::size_t indent) const {
 	printID;
 	os << "malloc(" << var() << ");";
-}
-
-// void Free::print(std::ostream& os, std::size_t indent) const {
-// 	printID;
-// 	os << "free(" << var() << ");";
-// }
-
-void Retire::print(std::ostream& os, std::size_t indent) const {
-	printID;
-	os << "retire(" << var() << ");";
-}
-
-void HPset::print(std::ostream& os, std::size_t indent) const {
-	printID;
-	os << "guard[" << _hpindex << "](" << var() << ");";
-}
-
-void HPrelease::print(std::ostream& os, std::size_t indent) const {
-	printID;
-	os << "unguard[" << _hpindex << "];";
-}
-
-void EnterQ::print(std::ostream& os, std::size_t indent) const {
-	printID;
-	os << "enterQ;";
-}
-
-void LeaveQ::print(std::ostream& os, std::size_t indent) const {
-	printID;
-	os << "leaveQ;";
-}
-
-void LinearizationPoint::print(std::ostream& os, std::size_t indent) const {
-	printID;
-	os << "*** ";
-	if (has_cond()) os << "[" << cond() << "] ";
-	if (event().has_input()) {
-		os << event().name() << "(__in__) ";
-	} else {
-		os << event().name() << "(";
-		if (has_var()) os << _var->name() << ".data";
-		else os << "empty";
-		os << ") ";
-	}
-	os << "***";
 }
 
 void Ite::print(std::ostream& os, std::size_t indent) const {
@@ -913,25 +673,9 @@ void CompareAndSwap::print(std::ostream& os, std::size_t indent) const {
 	os << ";";
 }
 
-void Oracle::print(std::ostream& os, std::size_t indent) const {
-	printID;
-	os << "oracle(§prophecy);";
-}
-
-void CheckProphecy::print(std::ostream& os, std::size_t indent) const {
-	printID;
-	os << "assume(§prophecy == " << (_cond ? "fulfilled" : "wrong") << ");";
-}
-
 void Killer::print(std::ostream& os, std::size_t indent) const {
 	printID;
-	if (_confused) os << "kill_confused();";
-	else os << "kill(" << var() << ");";
-}
-
-void EnforceReach::print(std::ostream& os, std::size_t indent) const {
-	printID;
-	os << "enforce_shared(" << var() << ");";
+	os << "kill(" << var() << ");";
 }
 
 std::ostream& tmr::operator<<(std::ostream& os, const Function& fun) {
@@ -942,13 +686,7 @@ std::ostream& tmr::operator<<(std::ostream& os, const Function& fun) {
 void Function::print(std::ostream& os, std::size_t indent) const {
 	os << std::endl << std::endl;
 	INDENT(indent);
-	os << "function[";
-	if (has_input()) os << "?";
-	else os << "!";
-	os << "] " << _name << "(";
-	if (has_input()) os << input_name();
-	else os << output_name();
-	os << ") ";
+	os << "function " << _name << "(" << arg_name() << ") ";
 	_stmts->print(os, indent);
 }
 
@@ -976,13 +714,5 @@ void Program::print(std::ostream& os) const {
 		_init()->print(os, 1);
 	}
 	for (const auto& f : _funs) f->print(os, 1);
-	// #if REPLACE_INTERFERENCE_WITH_SUMMARY
-	// 	for (const auto& f : _funs) {
-	// 		os << std::endl << std::endl;
-	// 		INDENT(1);
-	// 		os << "summary(" << f->name() << "): ";
-	// 		f->_summary->print(os, 1);
-	// 	}
-	// #endif
 	os << std::endl << "END" << std::endl;
 }

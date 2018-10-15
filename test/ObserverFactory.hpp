@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdexcept>
 #include <memory>
 #include <assert.h>
 #include "prog.hpp"
@@ -8,321 +9,140 @@
 
 namespace tmr {
 
-	static std::unique_ptr<State> mk_state(std::string name, bool is_initial, bool is_final, bool is_special=false, bool is_marked=false) {
-		return std::make_unique<State>(name, is_initial, is_final, is_special, is_marked);
+	inline const Function& find(const Program& prog, std::string name) {
+		for (std::size_t i = 0; i < prog.size(); i++) {
+			if (prog.at(i).name() == name) {
+				return prog.at(i);
+			}
+		}
+		throw std::logic_error("Invalid function name lookup.");
 	}
 
-	static void add_trans(State& src, const State& dst, const Function& evt, OValue ov = OValue::Empty()) {
-		Guard g({ ov });
-		src.add_transition(std::make_unique<Transition>(evt, g, dst));
+	inline std::unique_ptr<State> mk_state(std::string name, bool initial, bool final) {
+		return std::make_unique<State>(name, initial, final);
 	}
 
-	static void add_trans(State& src, const State& dst, const Function& evt, std::size_t ovid) {
-		Guard g({ Equality(src.observer().mk_var(ovid)) });
-		src.add_transition(std::make_unique<Transition>(evt, g, dst));
+	inline void mk_transition(State& src, const State& dst, Event trigger) {
+		src.add_transition(std::make_unique<Transition>(trigger, dst));
 	}
 
-	static std::unique_ptr<Observer> stack_observer(const Function& in, const Function& out, const Function& free) {
-		// special state names
-		std::string n_sink = "sink";
-		std::string n_make = "output was never input";
-		std::string n_dupl = "duplicate output";
-		std::string n_loss = "value loss";
-		std::string n_lifo = "no lifo";
+	static std::unique_ptr<Observer> ebr_observer(const Program& prog) {
+		throw std::logic_error("not yet implemented (ebr_observer)");
+	}
 
-		// make states
+	static std::unique_ptr<Observer> hp_observer(const Program& prog) {
+		// get functions to react on
+		const auto& f_protect0 = find(prog, "protect0");
+		const auto& f_protect1 = find(prog, "protect1");
+		const auto& f_unprotect0 = find(prog, "unprotect0");
+		const auto& f_unprotect1 = find(prog, "unprotect1");
+		const auto& f_retire = find(prog, "retire");
+		
+		// state names
+		std::string n_freed             = "base:freed";
+		std::string n_retired           = "base:retired";
+		std::string n_dupfree           = "base:double-free";
+		std::string n_dupretire         = "base:double-retire";
+		std::string n_init0             = "hp0:init";
+		std::string n_entered0          = "hp0:entered";
+		std::string n_protected0        = "hp0:exited";
+		std::string n_protectedretired0 = "hp0:retired";
+		std::string n_final0            = "hp0:freedprotected";
+		std::string n_init1             = "hp1:init";
+		std::string n_entered1          = "hp1:entered";
+		std::string n_protected1        = "hp1:exited";
+		std::string n_protectedretired1 = "hp1:retired";
+		std::string n_final1            = "hp1:freedprotected";
+
+		// state vector
 		std::vector<std::unique_ptr<State>> states;
-		states.push_back(mk_state(n_sink, false, false));
 
-		// ObsMake
-		states.push_back(mk_state("u0", true, false));
-		states.push_back(mk_state(n_make, false, true));
+		// base observer states
+		states.push_back(mk_state(n_freed, true, false));
+		states.push_back(mk_state(n_retired, false, false));
+		states.push_back(mk_state(n_dupfree, false, true));
+		states.push_back(mk_state(n_dupretire, false, false));
 
-		// ObsDupl
-		states.push_back(mk_state("u1", true, false));
-		states.push_back(mk_state("u2", false, false));
-		states.push_back(mk_state("u3", false, false));
-		states.push_back(mk_state(n_dupl, false, true));
+		// hp0 observer states
+		states.push_back(mk_state(n_init0, true, false));
+		states.push_back(mk_state(n_entered0, false, false));
+		states.push_back(mk_state(n_protected0, false, false));
+		states.push_back(mk_state(n_protectedretired0, false, false));
+		states.push_back(mk_state(n_final0, false, true));
 
-		// ObsLoss
-		states.push_back(mk_state("u4", true, false));
-		states.push_back(mk_state("u5", false, false));
-		states.push_back(mk_state(n_loss, false, true));
-
-		// ObsLifo
-		states.push_back(mk_state("u6", true, false));
-		states.push_back(mk_state("u7", false, false));
-		states.push_back(mk_state("u8", false, false));
-		states.push_back(mk_state(n_lifo, false, true));
-
+		// hp1 observer states
+		states.push_back(mk_state(n_init0, true, false));
+		states.push_back(mk_state(n_entered0, false, false));
+		states.push_back(mk_state(n_protected0, false, false));
+		states.push_back(mk_state(n_protectedretired0, false, false));
+		states.push_back(mk_state(n_final0, false, true));
 
 		// get hold of the stats
-		const State& sink       = *states[0];  // n_sink
-		      State& u0     	= *states[1];  // u0
-		const State& f_make 	= *states[2];  // n_make
-		      State& u1     	= *states[3];  // u1
-		      State& u2     	= *states[4];  // u2
-		      State& u3     	= *states[5];  // u3
-		const State& f_dupl 	= *states[6];  // n_dupl
-		      State& u4     	= *states[7];  // u4
-		      State& u5     	= *states[8];  // u5
-		const State& f_loss 	= *states[9];  // n_loss
-		      State& u6     	= *states[10]; // u6
-		      State& u7     	= *states[11]; // u7
-		      State& u8     	= *states[12]; // u8
-		const State& f_lifo 	= *states[13]; // n_lifo
+		State& freed             = *states[0];
+		State& retired           = *states[1];
+		State& dupfree           = *states[2];
+		State& dupretire         = *states[3];
+		State& init0             = *states[4];
+		State& entered0          = *states[5];
+		State& exited0           = *states[6];
+		State& protectedretired0 = *states[7];
+		State& final0            = *states[8];
+		State& init1             = *states[9];
+		State& entered1          = *states[10];
+		State& exited1           = *states[11];
+		State& protectedretired1 = *states[12];
+		State& final1            = *states[13];
 
+		// shortcuts
+		auto ADR = DataValue::DATA;
+		auto OTHER = DataValue::OTHER;
 
-		auto result = std::unique_ptr<Observer>(new Observer(std::move(states), 2));
+		// base observer transitions
+		mk_transition(freed, retired, Event::mk_enter(f_retire, 0, ADR));
+		mk_transition(freed, retired, Event::mk_enter(f_retire, 1, ADR));
+		mk_transition(freed, retired, Event::mk_enter(f_retire, 2, ADR));
+		mk_transition(retired, dupretire, Event::mk_enter(f_retire, 0, ADR));
+		mk_transition(retired, dupretire, Event::mk_enter(f_retire, 1, ADR));
+		mk_transition(retired, dupretire, Event::mk_enter(f_retire, 2, ADR));
+		mk_transition(retired, freed, Event::mk_free(ADR));
+		mk_transition(freed, dupfree, Event::mk_free(ADR));
 
+		// hp0 observer transitions
+		mk_transition(init0, entered0, Event::mk_enter(f_protect0, 0, ADR));
+		mk_transition(entered0, exited0, Event::mk_exit(0));
+		mk_transition(exited0, protectedretired0, Event::mk_enter(f_retire, 0, ADR));
+		mk_transition(exited0, protectedretired0, Event::mk_enter(f_retire, 1, ADR));
+		mk_transition(exited0, protectedretired0, Event::mk_enter(f_retire, 2, ADR));
+		mk_transition(protectedretired0, final0, Event::mk_free(ADR));
+		mk_transition(entered0, init0, Event::mk_enter(f_protect0, 0, OTHER));
+		mk_transition(entered0, init0, Event::mk_enter(f_unprotect0, 0, ADR));
+		mk_transition(entered0, init0, Event::mk_enter(f_unprotect0, 0, OTHER));
+		mk_transition(exited0, init0, Event::mk_enter(f_protect0, 0, OTHER));
+		mk_transition(exited0, init0, Event::mk_enter(f_unprotect0, 0, ADR));
+		mk_transition(exited0, init0, Event::mk_enter(f_unprotect0, 0, OTHER));
+		mk_transition(protectedretired0, init0, Event::mk_enter(f_protect0, 0, OTHER));
+		mk_transition(protectedretired0, init0, Event::mk_enter(f_unprotect0, 0, ADR));
+		mk_transition(protectedretired0, init0, Event::mk_enter(f_unprotect0, 0, OTHER));
 
-		// add transitions
+		// hp1 observer transitions
+		mk_transition(init1, entered1, Event::mk_enter(f_protect1, 0, ADR));
+		mk_transition(entered1, exited1, Event::mk_exit(0));
+		mk_transition(exited1, protectedretired1, Event::mk_enter(f_retire, 0, ADR));
+		mk_transition(exited1, protectedretired1, Event::mk_enter(f_retire, 1, ADR));
+		mk_transition(exited1, protectedretired1, Event::mk_enter(f_retire, 2, ADR));
+		mk_transition(protectedretired1, final1, Event::mk_free(ADR));
+		mk_transition(entered1, init1, Event::mk_enter(f_protect1, 0, OTHER));
+		mk_transition(entered1, init1, Event::mk_enter(f_unprotect1, 0, ADR));
+		mk_transition(entered1, init1, Event::mk_enter(f_unprotect1, 0, OTHER));
+		mk_transition(exited1, init1, Event::mk_enter(f_protect1, 0, OTHER));
+		mk_transition(exited1, init1, Event::mk_enter(f_unprotect1, 0, ADR));
+		mk_transition(exited1, init1, Event::mk_enter(f_unprotect1, 0, OTHER));
+		mk_transition(protectedretired1, init1, Event::mk_enter(f_protect1, 0, OTHER));
+		mk_transition(protectedretired1, init1, Event::mk_enter(f_unprotect1, 0, ADR));
+		mk_transition(protectedretired1, init1, Event::mk_enter(f_unprotect1, 0, OTHER));
 
-		// ObsMake a = 0 [u*]
-		add_trans(u0, f_make, out, 0);
-		add_trans(u0, sink, in, 0);
-
-		// ObsDupl a = 0 [u*]
-		add_trans(u1, u2, in, 0);
-		add_trans(u1, sink, out, 0);
-		add_trans(u2, u3, out, 0);
-		add_trans(u2, sink, in, 0);
-		add_trans(u3, f_dupl, out, 0);
-		add_trans(u3, sink, in, 0);
-
-		// ObsLoss a = 0 [u*]
-		add_trans(u4, u5, in, 0);
-		add_trans(u4, sink, out, 0);
-		add_trans(u5, f_loss, out);
-		add_trans(u5, sink, out, 0);
-
-		// ObsLifo a = 0, b = 1
-		add_trans(u6, u7, in, 0);
-		add_trans(u6, sink, in, 1);
-		add_trans(u6, sink, out, 0);
-		add_trans(u6, sink, out, 1);
-		add_trans(u7, u8, in, 1);
-		add_trans(u7, sink, in, 0);
-		add_trans(u7, sink, out, 0);
-		add_trans(u7, sink, out, 1);
-		add_trans(u8, f_lifo, out, 0);
-		add_trans(u8, sink, out, 1);
-		add_trans(u8, sink, in, 0);
-		add_trans(u8, sink, in, 1);
-
-
-		// make observer
-		return result;
-	}
-
-	static std::unique_ptr<Observer> queue_observer(const Function& in, const Function& out, const Function& free) {
-		// special state names
-		std::string n_sink = "sink";
-		std::string n_make = "output was never input";
-		std::string n_dupl = "duplicate output";
-		std::string n_loss = "value loss";
-		std::string n_fifo = "no fifo";
-
-		// make states
-		std::vector<std::unique_ptr<State>> states;
-		states.push_back(mk_state(n_sink, false, false));
-
-		// ObsMake
-		states.push_back(mk_state("u0", true, false));
-		states.push_back(mk_state(n_make, false, true));
-
-		// ObsDupl
-		states.push_back(mk_state("u1", true, false));
-		states.push_back(mk_state("u2", false, false));
-		states.push_back(mk_state("u3", false, false));
-		states.push_back(mk_state(n_dupl, false, true));
-
-		// ObsLoss
-		states.push_back(mk_state("u4", true, false));
-		states.push_back(mk_state("u5", false, false));
-		states.push_back(mk_state(n_loss, false, true));
-
-		// ObsLifo
-		states.push_back(mk_state("u6", true, false));
-		states.push_back(mk_state("u7", false, false));
-		states.push_back(mk_state("u8", false, false));
-		states.push_back(mk_state(n_fifo, false, true));
-
-
-		// get hold of the stats
-		const State& sink       = *states[0];  // n_sink
-		      State& u0     	= *states[1];  // u0
-		const State& f_make 	= *states[2];  // n_make
-		      State& u1     	= *states[3];  // u1
-		      State& u2     	= *states[4];  // u2
-		      State& u3     	= *states[5];  // u3
-		const State& f_dupl 	= *states[6];  // n_dupl
-		      State& u4     	= *states[7];  // u4
-		      State& u5     	= *states[8];  // u5
-		const State& f_loss 	= *states[9];  // n_loss
-		      State& u6     	= *states[10]; // u6
-		      State& u7     	= *states[11]; // u7
-		      State& u8     	= *states[12]; // u8
-		const State& f_fifo 	= *states[13]; // n_fifo
-
-
-		auto result = std::unique_ptr<Observer>(new Observer(std::move(states), 2));
-
-
-		// add transitions
-
-		// ObsMake a = 0 [u*]
-		add_trans(u0, f_make, out, 0);
-		add_trans(u0, sink, in, 0);
-
-		// ObsDupl a = 0 [u*]
-		add_trans(u1, u2, in, 0);
-		add_trans(u1, sink, out, 0);
-		add_trans(u2, u3, out, 0);
-		add_trans(u2, sink, in, 0);
-		add_trans(u3, f_dupl, out, 0);
-		add_trans(u3, sink, in, 0);
-
-		// ObsLoss a = 0 [u*]
-		add_trans(u4, u5, in, 0);
-		add_trans(u4, sink, out, 0);
-		add_trans(u5, f_loss, out);
-		add_trans(u5, sink, out, 0);
-
-		// ObsFifo a = 0, b = 1
-		add_trans(u6, u7, in, 0);
-		add_trans(u6, sink, in, 1);
-		add_trans(u6, sink, out, 0);
-		add_trans(u6, sink, out, 1);
-		add_trans(u7, u8, in, 1);
-		add_trans(u7, sink, in, 0);
-		add_trans(u7, sink, out, 0);
-		add_trans(u7, sink, out, 1);
-		add_trans(u8, f_fifo, out, 1);
-		add_trans(u8, sink, out, 0);
-		add_trans(u8, sink, in, 0);
-		add_trans(u8, sink, in, 1);
-
-
-		// make observer
-		return result;
-	}
-
-	static std::unique_ptr<Observer> smr_observer(const Function& guard, const Function& unguard, const Function& retire, const Function& free) {
-		std::vector<std::unique_ptr<State>> states;
-		
-		states.push_back(mk_state("s0", true, false));
-		states.push_back(mk_state("g", false, false));
-		states.push_back(mk_state("gr", false, false, true));
-		states.push_back(mk_state("r", false, false, true));
-		states.push_back(mk_state("rg", false, false, true));
-		states.push_back(mk_state("f", false, true));
-		#if MERGE_VALID_PTR
-			states.push_back(mk_state("d", false, false, false, true));
-			states.push_back(mk_state("dg", false, false, false, true));
-		#endif
-
-		State& s0 = *states[0];
-		State& sG = *states[1];
-		State& sGR = *states[2];
-		State& sR = *states[3];
-		State& sRG = *states[4];
-		State& sF = *states[5];
-		#if MERGE_VALID_PTR
-			State& sD = *states[6];
-			State& sDG = *states[7];
-		#endif
-
-		add_trans(s0, sG, guard, OValue::Anonymous());
-		add_trans(sG, sGR, retire, OValue::Anonymous());
-		add_trans(sG, sF, free, OValue::Anonymous());
-		add_trans(sGR, sF, free, OValue::Anonymous());
-		add_trans(sG, s0, unguard, OValue::Anonymous());
-		add_trans(sGR, s0, unguard, OValue::Anonymous());
-
-		add_trans(s0, sF, free, OValue::Anonymous());
-		add_trans(s0, sR, retire, OValue::Anonymous());
-		add_trans(sR, sRG, guard, OValue::Anonymous());
-		add_trans(sRG, sR, unguard, OValue::Anonymous());
-
-		#if MERGE_VALID_PTR
-			add_trans(sR, sD, free, OValue::Anonymous());
-			add_trans(sD, sR, retire, OValue::Anonymous());
-			add_trans(sD, sDG, guard, OValue::Anonymous());
-			add_trans(sD, sF, free, OValue::Anonymous());
-			add_trans(sRG, sDG, free, OValue::Anonymous());
-			add_trans(sDG, sGR, retire, OValue::Anonymous());
-			add_trans(sDG, sD, unguard, OValue::Anonymous());
-			add_trans(sDG, sF, free, OValue::Anonymous());
-		#else
-			add_trans(sR, s0, free, OValue::Anonymous());
-			add_trans(sRG, sG, free, OValue::Anonymous());
-		#endif
-
-		auto result = std::unique_ptr<Observer>(new Observer(std::move(states), 0));
-		return result;
-	}
-
-	static std::unique_ptr<Observer> ebr_observer(const Function& enterQ, const Function& leaveQ, const Function& retire, const Function& free) {
-		std::vector<std::unique_ptr<State>> states;
-		
-		states.push_back(mk_state("q1", true, false));
-		states.push_back(mk_state("q2", false, false, true));
-		states.push_back(mk_state("n1", false, false));
-		states.push_back(mk_state("n2", false, false, true));
-		states.push_back(mk_state("t", false, false, true));
-		states.push_back(mk_state("f", false, true));
-
-		State& q1 = *states[0];
-		State& q2 = *states[1];
-		State& n1 = *states[2];
-		State& n2 = *states[3];
-		State& st = *states[4];
-		State& sf = *states[5];
-
-		add_trans(q1, q2, retire, OValue::Anonymous());
-		add_trans(q1, sf, free, OValue::Anonymous());
-		add_trans(q1, n1, enterQ, OValue::Anonymous());
-		
-		add_trans(q2, sf, free, OValue::Anonymous());
-		add_trans(q2, n2, enterQ, OValue::Anonymous());
-
-		add_trans(n1, q1, leaveQ, OValue::Anonymous());
-		add_trans(n1, n2, retire, OValue::Anonymous());
-		add_trans(n1, sf, free, OValue::Anonymous());
-
-		add_trans(n2, n1, free, OValue::Anonymous());
-		add_trans(n2, st, leaveQ, OValue::Anonymous());
-
-		add_trans(st, q1, free, OValue::Anonymous());
-		add_trans(st, n2, enterQ, OValue::Anonymous());
-
-		auto result = std::unique_ptr<Observer>(new Observer(std::move(states), 0));
-		return result;
-	}
-
-	static std::unique_ptr<Observer> no_reclamation_observer(const Function& free) {
-		std::vector<std::unique_ptr<State>> states;
-		
-		states.push_back(mk_state("q1", true, false));
-		states.push_back(mk_state("f", false, true));
-
-		State& s0 = *states[0];
-		State& sf = *states[1];
-
-		add_trans(s0, sf, free, OValue::Anonymous());
-
-		auto result = std::unique_ptr<Observer>(new Observer(std::move(states), 0));
-		return result;
-	}
-
-	static std::unique_ptr<Observer> all_reclamation_observer() {
-		std::vector<std::unique_ptr<State>> states;
-		
-		states.push_back(mk_state("q1", true, false));
-
-		auto result = std::unique_ptr<Observer>(new Observer(std::move(states), 0));
-		return result;
+		// done
+		return std::make_unique<Observer>(std::move(states));
 	}
 
 }

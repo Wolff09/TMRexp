@@ -9,57 +9,6 @@
 
 namespace tmr {
 
-	/*static inline bool is_invalid(const Shape& shape, std::size_t var) {
-		return shape.test(var, shape.index_FREE(), MT);
-	}*/
-
-	static inline bool is_valid_ptr(const Cfg& cfg, std::size_t var) {
-		return cfg.valid_ptr.at(var);
-	}
-
-	static inline bool is_invalid_ptr(const Cfg& cfg, std::size_t var) {
-		return !is_valid_ptr(cfg, var);
-	}
-
-	static inline bool is_valid_next(const Cfg& cfg, std::size_t var) {
-		return cfg.valid_next.at(var);
-	}
-
-	static inline bool is_invalid_next(const Cfg& cfg, std::size_t var) {
-		return !is_valid_next(cfg, var);
-	}
-
-	static inline bool is_invalid(const Cfg& cfg, const Expr& expr, unsigned short tid) {
-		switch(expr.clazz()) {
-			case Expr::NIL:
-				return true;
-			case Expr::VAR:
-				return is_invalid_ptr(cfg, mk_var_index(*cfg.shape, expr, tid));
-			case Expr::SEL:
-				return is_invalid_next(cfg, mk_var_index(*cfg.shape, expr, tid));
-		}
-	}
-
-	static inline void raise_epr(const Cfg& cfg, std::size_t var, std::string msg) {
-		std::cout << std::endl;
-		std::cout << "**************************************" << std::endl;
-		std::cout << "'Almost' Relaxed Pointer Race detected" << std::endl;
-		std::cout << msg << std::endl;
-		std::cout << "for cell-id: " << var << std::endl;
-		std::cout << "in: " << cfg << *cfg.shape << std::endl;
-		throw std::runtime_error("'Almost' Relaxed Pointer Race detected.");
-	}
-
-	static inline void raise_rpr(const Cfg& cfg, std::size_t var, std::string msg) {
-		std::cout << std::endl;
-		std::cout << "*****************************" << std::endl;
-		std::cout << "Relaxed Pointer Race detected" << std::endl;
-		std::cout << msg << std::endl;
-		std::cout << "for cell-id: " << var << std::endl;
-		std::cout << "in: " << cfg << *cfg.shape << std::endl;
-		throw std::runtime_error("Relaxed Pointer Race detected.");
-	}
-
 	static inline void check_ptr_access(const Shape& shape, std::size_t var, const Statement* stmt=NULL) {
 		if (shape.test(var, shape.index_NULL(), EQ)) {
 			std::cout << std::endl << "*******************" << std::endl;
@@ -74,14 +23,6 @@ namespace tmr {
 			else std::cout << *iso << std::endl;
 
 			throw std::runtime_error("Dereferencing NULL while accessing cell term with id=" + std::to_string(var) + ".");
-		}
-		if (shape.test(var, shape.index_UNDEF(), MT)) {
-			std::cout << std::endl << "*********************************" << std::endl;
-			std::cout << "Accessing uninitialized variable!" << std::endl << std::endl;
-			if (stmt != NULL) std::cout << "in statement: " << *stmt << std::endl;
-			std::cout << "while accessing cell term " << var << std::endl;
-			std::cout << "in shape " << std::endl << shape << std::endl;
-			throw std::runtime_error("Accessing uninitialized variable while accessing cell term with id=" + std::to_string(var) + ".");
 		}
 	}
 
