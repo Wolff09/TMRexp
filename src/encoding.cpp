@@ -16,10 +16,8 @@ bool cfg_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 }
 
 bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
-	if (lhs.state0 < rhs.state0) return true;
-	if (rhs.state0 < lhs.state0) return false;
-	if (lhs.state1 < rhs.state1) return true;
-	if (rhs.state1 < lhs.state1) return false;
+	if (lhs.state < rhs.state) return true;
+	if (rhs.state < lhs.state) return false;
 	return false;
 }
 

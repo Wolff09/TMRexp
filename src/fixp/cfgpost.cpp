@@ -41,8 +41,7 @@ inline std::vector<DataValue> get_possible_data_args(const Cfg& cfg, const Funct
 /******************************** EVENT HELPER *********************************/
 
 inline void fire_event(Cfg& cfg, Event evt) {
-	cfg.state0 = cfg.state0.next(evt);
-	cfg.state1 = cfg.state1.next(evt);
+	cfg.state = cfg.state.next(evt);
 }
 
 inline void fire_enter_event(Cfg& cfg, const Function& callee, unsigned short tid, DataValue dval) {

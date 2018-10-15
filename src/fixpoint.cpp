@@ -21,7 +21,6 @@ Cfg mk_init_cfg(const Program& prog, const Observer& obs) {
 	Cfg init(
 		{{ &prog.init(), NULL, NULL }},
 		obs.initial_state(),
-		obs.initial_state(),
 		initial_shape
 	);
 

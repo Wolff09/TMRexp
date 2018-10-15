@@ -39,15 +39,46 @@ namespace tmr {
 	typedef MultiStore<DataValue, 3> MultiInOut;
 
 
-	struct Cfg {
-		MultiPc pc; // program counter for threads
-		MultiState state0; // observer state, index 0 (e.g. hazard pointer 0)
-		MultiState state1; // observer state, index 1 (e.g. hazard pointer 0)
-		MultiInOut arg; // argument (value) of current function
-		std::unique_ptr<Shape> shape;
+	enum class EpochValue { ZERO, ONE, TWO };
+	std::ostream& operator<<(std::ostream& os, const EpochValue& val);
 
-		Cfg(std::array<const Statement*, 3> pc, MultiState state0, MultiState state1, Shape* shape) : pc(pc), state0(state0), state1(state1), shape(shape) {}
-		Cfg(const Cfg& cfg, Shape* shape) : pc(cfg.pc), state0(cfg.state0), state1(cfg.state1), arg(cfg.arg), shape(shape) {}
+
+	template<typename T, T D>
+	class SelectorStore {
+		private:
+			std::vector<T> _values;
+
+		public:
+			SelectorStore(const Shape& shape) : _values(shape.size(), D) {}
+			SelectorStore(const Shape* shape) : _values(shape->size(), D) {}
+			void set(std::size_t index, T value) { _values.at(index) = value; }
+			T at(std::size_t index) const { return _values.at(index); }
+			void print(std::ostream& os) const;
+	};
+
+	template<typename T, T D>
+	static std::ostream& operator<<(std::ostream& os, const SelectorStore<T, D>& store) {
+		store.print(os);
+		return os;
+	}
+
+	typedef SelectorStore<DataValue, DataValue::OTHER> DataStore;
+	typedef SelectorStore<EpochValue, EpochValue::ZERO> EpocheStore;
+	static const MultiInOut DEFAULT_ARG = {{ DataValue::OTHER, DataValue::OTHER, DataValue::OTHER }};
+
+
+	struct Cfg {
+		MultiPc pc; // program counter
+		MultiState state; // observer state
+		MultiInOut arg; // argument (value) of current function, per thread
+		std::unique_ptr<Shape> shape;
+		DataStore datasel;
+		EpocheStore epochesel;
+
+		Cfg(std::array<const Statement*, 3> pc, MultiState state, Shape* shape) : pc(pc), state(state), arg(DEFAULT_ARG), shape(shape), datasel(shape), epochesel(shape) {}
+		Cfg(const Cfg& cfg, Shape* shape) : pc(cfg.pc), state(cfg.state), arg(cfg.arg), shape(shape), datasel(cfg.datasel), epochesel(cfg.epochesel) {
+			assert(cfg.shape->size() == shape->size());
+		}
 		Cfg copy() const;
 	};
 

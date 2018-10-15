@@ -460,7 +460,6 @@ namespace tmr {
 			std::unique_ptr<Function> _init_fun;
 			std::unique_ptr<Function> _init_thread_fun;
 			std::size_t _idSize = 0;
-			Sequence* _init() const { return _init_fun->_stmts.get(); }
 
 		public:
 			Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::unique_ptr<Sequence> init, std::unique_ptr<Sequence> init_thread, std::vector<std::unique_ptr<Function>> funs);

@@ -84,14 +84,17 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
 	// propagate statement ids
 	std::size_t id = 1; // id=0 is reserved for NULL
 	id = _init_fun->propagateId(id);
+	id = _init_thread_fun->propagateId(id);
 	for (const auto& f : _funs)
 		id = f->propagateId(id);
 	_idSize = id;
 
 	// ensure that init does only consist of simple statements
-	const Statement* fi = _init();
+	const Statement* fi = _init_fun->_stmts.get();
 	while (fi != NULL) {
-		assert(!fi->is_conditional());
+		if (fi->is_conditional()) {
+			throw std::logic_error("Initialization function init() must not contain conditionals.");
+		}
 		fi = fi->next();
 	}
 }
@@ -707,12 +710,9 @@ void Program::print(std::ostream& os) const {
 	if (_locals.size() > 0) os << _locals.front()->name();
 	for (std::size_t i = 1; i < _locals.size(); i++) os << ", " << _locals.at(i)->name();
 	os << ";" << std::endl;
+	_init_fun->print(os, 1);
+	_init_thread_fun->print(os, 1);
 	os << std::endl;
-	if (_init()) {
-		INDENT(1);
-		os << "init";
-		_init()->print(os, 1);
-	}
 	for (const auto& f : _funs) f->print(os, 1);
 	os << std::endl << "END" << std::endl;
 }
