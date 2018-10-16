@@ -270,15 +270,22 @@ inline void addtoset(Cfg& cfg, std::size_t setid, DataValue val, unsigned short 
 	}
 }
 
+inline void setsubtract(Cfg& cfg, std::size_t lhsid, std::size_t rhsid, unsigned short tid) {
+	auto& lhs = getsetref(cfg, lhsid);
+	auto& rhs = getsetref(cfg, rhsid);
+	switch (rhs[tid]) {
+		case DataSet::WITH_DATA: lhs[tid] = DataSet::WITHOUT_DATA; break;
+		case DataSet::WITHOUT_DATA: /* leave unchanged */ break;
+	}
+}
+
 std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddArg& stmt, unsigned short tid) {
-	// TODO: check if this works as intended
 	auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
 	addtoset(result.back(), stmt.setid(), cfg.arg[tid], tid);
 	return result;
 }
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddSel& stmt, unsigned short tid) {
-	throw std::logic_error("not yet implemented (SetAddSel)");
 	std::size_t lhs = mk_var_index(*cfg.shape, stmt.selector(), tid);
 	auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
 	addtoset(result.back(), stmt.setid(), cfg.datasel.at(lhs), tid);
@@ -286,5 +293,14 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddSel& stmt, unsigned short
 }
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, const SetMinus& stmt, unsigned short tid) {
-	throw std::logic_error("not yet implemented (SetMinus)");
+	auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
+	setsubtract(result.back(), stmt.lhs(), stmt.rhs(), tid);
+	return result;
+}
+
+std::vector<Cfg> tmr::post(const Cfg& cfg, const SetClear& stmt, unsigned short tid) {
+	auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
+	auto& set = getsetref(result.back(), stmt.setid());
+	set[tid] = DataSet::WITHOUT_DATA;
+	return result;
 }

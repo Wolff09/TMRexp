@@ -248,6 +248,9 @@ std::unique_ptr<SetMinus> tmr::Minus(std::size_t lhs, std::size_t rhs) {
 	return std::make_unique<SetMinus>(lhs, rhs);
 }
 
+std::unique_ptr<SetClear> tmr::Clear(std::size_t lhs) {
+	return std::make_unique<SetClear>(lhs);
+}
 
 
 std::unique_ptr<Function> tmr::Fun(std::string name, std::unique_ptr<Sequence> body) {
@@ -716,6 +719,12 @@ void SetMinus::print(std::ostream& os, std::size_t indent) const {
 	os << " -= ";
 	printSet(rhs());
 	os << ";";
+}
+
+void SetClear::print(std::ostream& os, std::size_t indent) const {
+	printID;
+	printSet(setid());
+	os << " = ∅;";
 }
 
 std::ostream& tmr::operator<<(std::ostream& os, const Function& fun) {

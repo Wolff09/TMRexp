@@ -213,7 +213,7 @@ namespace tmr {
 			const Statement* _next = NULL;
 
 		public:
-			enum Class { SQZ, ASSIGN, MALLOC, ITE, WHILE, BREAK, INPUT, CAS, SETNULL, ATOMIC, KILL, SETADD_ARG, SETADD_SEL, SETMINUS };
+			enum Class { SQZ, ASSIGN, MALLOC, ITE, WHILE, BREAK, INPUT, CAS, SETNULL, ATOMIC, KILL, SETADD_ARG, SETADD_SEL, SETMINUS, SETCLEAR };
 			virtual ~Statement() = default;
 			virtual Class clazz() const = 0;
 			unsigned short id() const { assert(_id != 0); return _id; }
@@ -471,6 +471,13 @@ namespace tmr {
 			std::size_t rhs() const { return _rhs; }
 	};
 
+	class SetClear : public SetOperation {
+		public:
+			SetClear(std::size_t setid) : SetOperation(setid) {}
+			Statement::Class clazz() const { return Statement::SETCLEAR; }
+			void print(std::ostream& os, std::size_t indent) const;
+	};
+
 	/*********************** PROGRAM ***********************/
 
 	class Function {
@@ -559,6 +566,7 @@ namespace tmr {
 	std::unique_ptr<SetAddArg> AddArg(std::size_t lhs);
 	std::unique_ptr<SetAddSel> AddSel(std::size_t lhs, std::unique_ptr<Selector> sel);
 	std::unique_ptr<SetMinus> Minus(std::size_t lhs, std::size_t rhs);
+	std::unique_ptr<SetClear> Clear(std::size_t lhs);
 
 	std::unique_ptr<CompareAndSwap> CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, bool update_age_fields);
 
