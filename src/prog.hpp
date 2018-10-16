@@ -213,7 +213,7 @@ namespace tmr {
 			const Statement* _next = NULL;
 
 		public:
-			enum Class { SQZ, ASSIGN, MALLOC, ITE, WHILE, BREAK, INPUT, CAS, SETNULL, ATOMIC, KILL, SETADD_ARG, SETADD_SEL, SETMINUS, SETCLEAR };
+			enum Class { SQZ, ASSIGN, MALLOC, ITE, WHILE, BREAK, INPUT, CAS, SETNULL, ATOMIC, KILL, SETADD_ARG, SETADD_SEL, SETMINUS, SETCLEAR, FREEALL };
 			virtual ~Statement() = default;
 			virtual Class clazz() const = 0;
 			unsigned short id() const { assert(_id != 0); return _id; }
@@ -525,6 +525,18 @@ namespace tmr {
 			void print(std::ostream& os) const;
 	};
 
+	class FreeAll : public Statement {
+		private:
+			std::size_t _setid;
+
+		public:
+			FreeAll(std::size_t setid) : _setid(setid) { assert(setid <= 2); }
+			Statement::Class clazz() const { return Statement::Class::FREEALL; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl) {}
+			void print(std::ostream& os, std::size_t indent) const;
+			std::size_t setid() const { return _setid; }
+	};
+
 
 	/*********************** PRINTING ***********************/
 
@@ -562,6 +574,7 @@ namespace tmr {
 	std::unique_ptr<Malloc> Mllc(std::string var);
 	std::unique_ptr<Break> Brk();
 	std::unique_ptr<Killer> Kill(std::string var);
+	std::unique_ptr<FreeAll> Free(std::size_t setid);
 
 	std::unique_ptr<SetAddArg> AddArg(std::size_t lhs);
 	std::unique_ptr<SetAddSel> AddSel(std::size_t lhs, std::unique_ptr<Selector> sel);

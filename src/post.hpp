@@ -32,4 +32,5 @@ namespace tmr {
 	std::vector<Cfg> post(const Cfg& cfg, const SetAddSel& stmt, unsigned short tid);
 	std::vector<Cfg> post(const Cfg& cfg, const SetMinus& stmt, unsigned short tid);
 	std::vector<Cfg> post(const Cfg& cfg, const SetClear& stmt, unsigned short tid);
+	std::vector<Cfg> post(const Cfg& cfg, const FreeAll& stmt, unsigned short tid);
 }

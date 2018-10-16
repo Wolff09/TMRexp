@@ -46,8 +46,9 @@ static std::unique_ptr<Program> mk_program() {
 
 	// retire
 	auto retire = Sqz(
-		AddArg(0)
+		AddArg(0),
 		// TODO: if (*) scan();
+		Free(0)
 	);
 
 

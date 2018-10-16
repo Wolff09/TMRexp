@@ -222,6 +222,11 @@ std::unique_ptr<Break> tmr::Brk() {
 	return res;
 }
 
+std::unique_ptr<FreeAll> tmr::Free(std::size_t setid) {
+	std::unique_ptr<FreeAll> res(new FreeAll(setid));
+	return res;
+}
+
 
 std::unique_ptr<Killer> tmr::Kill(std::string var) {
 	std::unique_ptr<Killer> res(new Killer(Var(var)));
@@ -725,6 +730,13 @@ void SetClear::print(std::ostream& os, std::size_t indent) const {
 	printID;
 	printSet(setid());
 	os << " = ∅;";
+}
+
+void FreeAll::print(std::ostream& os, std::size_t indent) const {
+	printID;
+	os << "free_all_nonnull(";
+	printSet(setid());
+	std::cout << ");";
 }
 
 std::ostream& tmr::operator<<(std::ostream& os, const Function& fun) {

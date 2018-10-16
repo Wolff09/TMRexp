@@ -37,6 +37,42 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 
 /******************************** FREE ********************************/
 
+inline DataSet getset(const Cfg& cfg, std::size_t setid, unsigned short tid) {
+	switch (setid) {
+		case 0: return cfg.dataset0[tid];
+		case 1: return cfg.dataset1[tid];
+		case 2: return cfg.dataset2[tid];
+		default: throw std::logic_error("Unsupported dataset id.");
+	}
+}
+
+inline void fire_free_event(Cfg& cfg) {
+	Event evt = Event::mk_free(DataValue::DATA);
+	cfg.state = cfg.state.next(evt);
+
+	// check for final state
+	if (cfg.state.is_final()) {
+		throw std::runtime_error("Specification violation detected");
+	}
+}
+
+std::vector<Cfg> tmr::post(const Cfg& cfg, const FreeAll& stmt, unsigned short tid) {
+	// ignoring free(DataValue::OTHER) due to elision support stating that the observer does not react on it
+	DataSet set = getset(cfg, stmt.setid(), tid);
+
+	switch (set) {
+		case DataSet::WITHOUT_DATA:
+			return mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
+
+		case DataSet::WITH_DATA: {
+			auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
+			fire_free_event(result.back());
+			return result;
+		}
+	}
+	assert(false);
+}
+
 
 // static Shape* extract_shared_unreachable(const Shape& shape, std::size_t var) {
 // 	// extracts a subshape of the given one where var is not globally reachable, not null, and not udef; or null if no such shape exists

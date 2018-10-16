@@ -79,13 +79,52 @@ std::vector<Cfg> tmr::post_assignment_pointer(const Cfg& cfg, const Expr& lhs, c
 std::vector<Cfg> tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	Shape* shape = post_assignment_pointer_shape_var_var(*cfg.shape, lhs, rhs, stmt);
 	auto result = mk_next_config_vec(cfg, shape, tid);
+	Cfg& cf = result.back();
+	cf.datasel.set(lhs, cf.datasel.at(rhs));
+	cf.epochsel.set(lhs, cf.epochsel.at(rhs));
 	return result;
 }
 
 std::vector<Cfg> tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
-	Shape* shape = post_assignment_pointer_shape_var_next(*cfg.shape, lhs, rhs, stmt);
-	auto result = mk_next_config_vec(cfg, shape, tid);
+	Shape* postshape = post_assignment_pointer_shape_var_next(*cfg.shape, lhs, rhs, stmt);
+	auto shapes = disambiguate(*postshape, lhs);
+	delete postshape;
+
+	std::vector<Cfg> result;
+	result.reserve(2*shapes.size());
+
+	for (Shape* s : shapes) {
+		bool lhs_has_equal = false;
+
+		for (std::size_t i = 0; i < s->size(); i++) {
+			if (i == lhs) continue;
+			if (s->test(i, lhs, EQ)) {
+				lhs_has_equal = true;
+
+				result.push_back(mk_next_config(cfg, new Shape(*s), tid));
+				result.back().datasel.set(lhs, result.back().datasel.at(i));
+				result.back().epochsel.set(lhs, result.back().epochsel.at(i));
+			}
+		}
+
+		if (!lhs_has_equal) {
+			for (DataValue dval : { DataValue::DATA, DataValue::OTHER }) {
+				for (EpochValue tval : { EpochValue::ZERO, EpochValue::ONE, EpochValue::TWO }) {
+					result.push_back(mk_next_config(cfg, new Shape(*s), tid));
+					result.back().datasel.set(lhs, dval);
+					result.back().epochsel.set(lhs, tval);
+				}
+			}
+		}
+
+		delete s;
+	}
+
 	return result;
+
+	// Shape* shape = post_assignment_pointer_shape_var_next(*cfg.shape, lhs, rhs, stmt);
+	// auto result = mk_next_config_vec(cfg, shape, tid);
+	// return result;
 
 	// auto tmp = split_on_global_reach(*cfg.shape, rhs);
 	// std::vector<Cfg> result;
@@ -217,12 +256,15 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const NullAssignment& stmt, unsigned 
 		if (le.clazz() == Expr::VAR) {
 			// stmt: var = NULL
 			shape = post_assignment_pointer_shape_var_var(input, lhs, rhs);
+			result.push_back(mk_next_config(cfg, shape, tid));
+			result.back().datasel.set(lhs, result.back().datasel.at(rhs));
+			result.back().epochsel.set(lhs, result.back().epochsel.at(rhs));
 		} else {
 			assert(le.clazz() == Expr::SEL);
 			// stmt: ptr->next = NULL
-			shape = post_assignment_pointer_shape_next_var(input, lhs, rhs, &stmt);			
+			shape = post_assignment_pointer_shape_next_var(input, lhs, rhs, &stmt);	
+			result.push_back(mk_next_config(cfg, shape, tid));		
 		}
-		result.push_back(mk_next_config(cfg, shape, tid));
 
 	} else {
 		assert(le.type() == DATA);
