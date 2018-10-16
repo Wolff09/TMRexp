@@ -13,6 +13,13 @@
 
 namespace tmr {
 
+	enum class EpochValue { ZERO, ONE, TWO };
+	std::ostream& operator<<(std::ostream& os, const EpochValue& val);
+
+	enum class DataSet { WITH_DATA, WITHOUT_DATA };
+	std::ostream& operator<<(std::ostream& os, const DataSet& val);
+
+
 	template<typename T, std::size_t N>
 	class MultiStore {
 		private:
@@ -37,10 +44,7 @@ namespace tmr {
 
 	typedef MultiStore<const Statement*, 3> MultiPc;
 	typedef MultiStore<DataValue, 3> MultiInOut;
-
-
-	enum class EpochValue { ZERO, ONE, TWO };
-	std::ostream& operator<<(std::ostream& os, const EpochValue& val);
+	typedef MultiStore<DataSet, 3> MultiSet;
 
 
 	template<typename T, T D>
@@ -63,8 +67,12 @@ namespace tmr {
 	}
 
 	typedef SelectorStore<DataValue, DataValue::OTHER> DataStore;
-	typedef SelectorStore<EpochValue, EpochValue::ZERO> EpocheStore;
+	typedef SelectorStore<EpochValue, EpochValue::ZERO> EpochStore;
+
+
+	static const EpochValue DEAFLUT_EPOCH = EpochValue::ZERO;
 	static const MultiInOut DEFAULT_ARG = {{ DataValue::OTHER, DataValue::OTHER, DataValue::OTHER }};
+	static const MultiSet DEAFLUT_DATASET = {{ DataSet::WITHOUT_DATA, DataSet::WITHOUT_DATA, DataSet::WITHOUT_DATA }};
 
 
 	struct Cfg {
@@ -72,11 +80,21 @@ namespace tmr {
 		MultiState state; // observer state
 		MultiInOut arg; // argument (value) of current function, per thread
 		std::unique_ptr<Shape> shape;
-		DataStore datasel;
-		EpocheStore epochesel;
+		DataStore datasel; // data selectors for pointers in shape
+		EpochStore epochsel; // epoch selectors for pointers in shape
+		EpochValue globalEpoch;
+		MultiSet dataset0;
+		MultiSet dataset1;
+		MultiSet dataset2;
 
-		Cfg(std::array<const Statement*, 3> pc, MultiState state, Shape* shape) : pc(pc), state(state), arg(DEFAULT_ARG), shape(shape), datasel(shape), epochesel(shape) {}
-		Cfg(const Cfg& cfg, Shape* shape) : pc(cfg.pc), state(cfg.state), arg(cfg.arg), shape(shape), datasel(cfg.datasel), epochesel(cfg.epochesel) {
+		Cfg(std::array<const Statement*, 3> pc, MultiState state, Shape* shape)
+		    : pc(pc), state(state), arg(DEFAULT_ARG), shape(shape), datasel(shape), epochsel(shape), globalEpoch(DEAFLUT_EPOCH),
+		      dataset0(DEAFLUT_DATASET), dataset1(DEAFLUT_DATASET), dataset2(DEAFLUT_DATASET)
+		{}
+		Cfg(const Cfg& cfg, Shape* shape)
+		    : pc(cfg.pc), state(cfg.state), arg(cfg.arg), shape(shape), datasel(cfg.datasel), epochsel(cfg.epochsel),
+		      globalEpoch(cfg.globalEpoch), dataset0(cfg.dataset0), dataset1(cfg.dataset1), dataset2(cfg.dataset2)
+		{
 			assert(cfg.shape->size() == shape->size());
 		}
 		Cfg copy() const;

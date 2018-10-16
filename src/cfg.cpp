@@ -18,9 +18,13 @@ std::ostream& tmr::operator<<(std::ostream& os, const Cfg& cfg) {
 	if (cfg.pc[2]) os << *cfg.pc[2];
 	else os << "NULL";
 	os << ", state=" << cfg.state;
+	os << ", epoch=" << cfg.globalEpoch;
 	os << ", arg=[" << cfg.arg[0] << ", " << cfg.arg[1] << ", " << cfg.arg[2] << "]";
 	os << ", datasel=" << cfg.datasel;
-	os << ", epochesel=" << cfg.epochesel;
+	os << ", epochsel=" << cfg.epochsel;
+	os << ", dataset0=[" << cfg.dataset0[0] << ", " << cfg.dataset0[1] << ", " << cfg.dataset0[2] << "]";
+	os << ", dataset1=[" << cfg.dataset1[0] << ", " << cfg.dataset1[1] << ", " << cfg.dataset1[2] << "]";
+	os << ", dataset2=[" << cfg.dataset2[0] << ", " << cfg.dataset2[1] << ", " << cfg.dataset2[2] << "]";
 	os << ", shape";
 	if (cfg.shape) os << ") with shape=" << "..." /* std::endl << *cfg.shape */ << std::endl;
 	else os << "=NULL)" << std::endl;
@@ -33,6 +37,16 @@ std::ostream& tmr::operator<<(std::ostream& os, const EpochValue& val) {
 		case EpochValue::ZERO: os << "e0"; break;
 		case EpochValue::ONE: os << "e1"; break;
 		case EpochValue::TWO: os << "e2"; break;
+	}
+	os << ">";
+	return os;
+}
+
+std::ostream& tmr::operator<<(std::ostream& os, const DataSet& val) {
+	os << "<";
+	switch (val) {
+		case DataSet::WITH_DATA: os << "{D,?}"; break;
+		case DataSet::WITHOUT_DATA: os << "{?}"; break;
 	}
 	os << ">";
 	return os;

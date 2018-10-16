@@ -210,15 +210,81 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const NullAssignment& stmt, unsigned 
 	std::size_t lhs = mk_var_index(input, stmt.lhs(), tid);
 	std::size_t rhs = input.index_NULL();
 
-	Shape* shape;
-	if (le.clazz() == Expr::VAR) {
-		shape = post_assignment_pointer_shape_var_var(input, lhs, rhs);
+	std::vector<Cfg> result;
+
+	if (le.type() == POINTER) {
+		Shape* shape;
+		if (le.clazz() == Expr::VAR) {
+			// stmt: var = NULL
+			shape = post_assignment_pointer_shape_var_var(input, lhs, rhs);
+		} else {
+			assert(le.clazz() == Expr::SEL);
+			// stmt: ptr->next = NULL
+			shape = post_assignment_pointer_shape_next_var(input, lhs, rhs, &stmt);			
+		}
+		result.push_back(mk_next_config(cfg, shape, tid));
+
 	} else {
-		assert(le.clazz() == Expr::SEL);
-		shape = post_assignment_pointer_shape_next_var(input, lhs, rhs, &stmt);
+		assert(le.type() == DATA);
+		// stmt: ptr->data = NULL
+		// NULL can be anything in terms of our data abstraction
+		auto shapes = disambiguate(*cfg.shape, lhs);
+		result.reserve(2*shapes.size());
+
+		for (Shape* s : shapes) {
+			Cfg cf0 = mk_next_config(cfg, new Shape(*s), tid);
+			Cfg cf1 = mk_next_config(cfg, s, tid);
+
+			for (std::size_t i = 0; i < cf0.shape->size(); i++) {
+				if (cf0.shape->test(i, lhs, EQ)) {
+					cf0.datasel.set(i, DataValue::DATA);
+					cf1.datasel.set(i, DataValue::OTHER);
+				}
+			}
+
+			result.push_back(std::move(cf0));
+			result.push_back(std::move(cf1));
+		}
 	}
 
-	std::vector<Cfg> result;
-	result.push_back(mk_next_config(cfg, shape, tid));
 	return result;
+}
+
+
+/******************************** SET OPERATIONS ********************************/
+
+inline MultiSet& getsetref(Cfg& cfg, std::size_t setid) {
+	switch (setid) {
+		case 0: return cfg.dataset0;
+		case 1: return cfg.dataset1;
+		case 2: return cfg.dataset2;
+		default: throw std::logic_error("Unsupported dataset reference.");
+	}
+}
+
+inline void addtoset(Cfg& cfg, std::size_t setid, DataValue val, unsigned short tid) {
+	auto& dst = getsetref(cfg, setid);
+	switch (val) {
+		case DataValue::DATA: dst[tid] = DataSet::WITH_DATA; break;
+		case DataValue::OTHER: /* leave unchanged */ break;
+	}
+}
+
+std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddArg& stmt, unsigned short tid) {
+	// TODO: check if this works as intended
+	auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
+	addtoset(result.back(), stmt.setid(), cfg.arg[tid], tid);
+	return result;
+}
+
+std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddSel& stmt, unsigned short tid) {
+	throw std::logic_error("not yet implemented (SetAddSel)");
+	std::size_t lhs = mk_var_index(*cfg.shape, stmt.selector(), tid);
+	auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
+	addtoset(result.back(), stmt.setid(), cfg.datasel.at(lhs), tid);
+	return result;
+}
+
+std::vector<Cfg> tmr::post(const Cfg& cfg, const SetMinus& stmt, unsigned short tid) {
+	throw std::logic_error("not yet implemented (SetMinus)");
 }

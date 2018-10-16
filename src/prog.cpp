@@ -12,8 +12,7 @@ using namespace tmr;
 static std::vector<std::unique_ptr<Variable>> mk_vars(bool global, std::vector<std::string> names) {
 	std::vector<std::unique_ptr<Variable>> result(names.size());
 	for (std::size_t i = 0; i < result.size(); i++) {
-		assert(names[i] != "__in__");
-		assert(names[i] != "__out__");
+		assert(names[i] != "__arg__");
 		result[i] = std::make_unique<Variable>(names[i], i, global);
 	}
 	return result;
@@ -53,8 +52,7 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
 		name2decl[v->name()] = v.get();
 	}
 
-	if (name2decl.count("__in__") > 0) throw std::logic_error("Variable name '__in__' is reserved.");
-	if (name2decl.count("__out__") > 0) throw std::logic_error("Variable name '__out__' is reserved.");
+	if (name2decl.count("__arg__") > 0) throw std::logic_error("Variable name '__arg__' is reserved.");
 
 	// init must only access global variables
 	_init_fun->namecheck(name2decl);
@@ -238,6 +236,20 @@ std::unique_ptr<CompareAndSwap> tmr::CAS(std::unique_ptr<Expr> dst, std::unique_
 }
 
 
+std::unique_ptr<SetAddArg> tmr::AddArg(std::size_t lhs) {
+	return std::make_unique<SetAddArg>(lhs);
+}
+
+std::unique_ptr<SetAddSel> tmr::AddSel(std::size_t lhs, std::unique_ptr<Selector> sel) {
+	return std::make_unique<SetAddSel>(lhs, std::move(sel));
+}
+
+std::unique_ptr<SetMinus> tmr::Minus(std::size_t lhs, std::size_t rhs) {
+	return std::make_unique<SetMinus>(lhs, rhs);
+}
+
+
+
 std::unique_ptr<Function> tmr::Fun(std::string name, std::unique_ptr<Sequence> body) {
 	std::unique_ptr<Function> res(new Function(name, std::move(body)));
 	return res;
@@ -359,17 +371,14 @@ void Assignment::namecheck(const std::map<std::string, Variable*>& name2decl) {
 
 void NullAssignment::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	_lhs->namecheck(name2decl);
-	assert(lhs().type() == POINTER);
+	assert(_lhs->clazz() != Expr::VAR || _lhs->type() == POINTER);
 }
 
 void InOutAssignment::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	_ptr->namecheck(name2decl);
 	assert(_ptr->type() == DATA);
-
-	if (expr().clazz() == Expr::VAR) {
-		if (!static_cast<const VarExpr&>(expr()).decl().local()) {
-			throw std::logic_error("Input/Output statements must target local variables.");
-		}
+	if (expr().clazz() != Expr::SEL) {
+		throw std::logic_error("Arguments must be read/written to data selectors.");
 	}
 }
 
@@ -399,6 +408,10 @@ void CompareAndSwap::namecheck(const std::map<std::string, Variable*>& name2decl
 
 void Killer::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	_to_kill->namecheck(name2decl);
+}
+
+void SetAddSel::namecheck(const std::map<std::string, Variable*>& name2decl) {
+	_sel->namecheck(name2decl);
 }
 
 void Function::namecheck(const std::map<std::string, Variable*>& name2decl) {
@@ -559,7 +572,7 @@ void VarExpr::print(std::ostream& os) const {
 }
 
 void Selector::print(std::ostream& os) const {
-	os << _var->name() << (_selection == POINTER ? ".next" : ".data");
+	os << _var->name() << (_selection == POINTER ? "->next" : "->data");
 }
 
 std::ostream& tmr::operator<<(std::ostream& os, const Condition& stmt) {
@@ -638,7 +651,7 @@ void NullAssignment::print(std::ostream& os, std::size_t indent) const {
 
 void ReadInputAssignment::print(std::ostream& os, std::size_t indent) const {
 	printID;
-	os << expr() << " = " << "__in__" << ";";
+	os << expr() << " = " << "__arg__" << ";";
 }
 
 
@@ -679,6 +692,30 @@ void CompareAndSwap::print(std::ostream& os, std::size_t indent) const {
 void Killer::print(std::ostream& os, std::size_t indent) const {
 	printID;
 	os << "kill(" << var() << ");";
+}
+
+#define printSet(x) os << "{{ " << x << " }}";
+
+void SetAddArg::print(std::ostream& os, std::size_t indent) const {
+	printID;
+	printSet(setid());
+	os << " += { __arg__ };";
+}
+
+void SetAddSel::print(std::ostream& os, std::size_t indent) const {
+	printID;
+	printSet(setid());
+	os << " += {";
+	_sel->print(os);
+	os << "};";
+}
+
+void SetMinus::print(std::ostream& os, std::size_t indent) const {
+	printID;
+	printSet(lhs());
+	os << " -= ";
+	printSet(rhs());
+	os << ";";
 }
 
 std::ostream& tmr::operator<<(std::ostream& os, const Function& fun) {

@@ -15,7 +15,7 @@ static std::unique_ptr<Program> mk_program() {
 	auto initthread = Sqz(
 		Mllc("rec0"),
 		Mllc("rec1"),
-		// TODO: set rec0/rec1 data to something (DataValue::OTHER)
+		// TODO: set rec0/rec1 data to NULL
 		Assign(Next("rec0"), Var("rec1")),
 		Loop(Sqz(
 			Assign(Var("top"), Var("HPrecs")),
@@ -30,23 +30,24 @@ static std::unique_ptr<Program> mk_program() {
 
 	// protect
 	auto protect0 = Sqz(
-		// TODO: rec0->ptr = __arg__
+		Read("rec0")
 	);
 	auto protect1 = Sqz(
-		// TODO: rec1->ptr = __arg__
+		Read("rec1")
 	);
 
 	// unprotect
 	auto unprotect0 = Sqz(
-		// TODO: rec0->ptr = NULL // or just empty?
+		SetNull(Data("rec0"))
 	);
 	auto unprotect1 = Sqz(
-		// TODO: rec1->ptr = NULL // or just empty?
+		SetNull(Data("rec1"))
 	);
 
 	// retire
 	auto retire = Sqz(
-		// TODO: rlist.add(__arg__); if (*) scan();
+		AddArg(0)
+		// TODO: if (*) scan();
 	);
 
 

@@ -213,7 +213,7 @@ namespace tmr {
 			const Statement* _next = NULL;
 
 		public:
-			enum Class { SQZ, ASSIGN, MALLOC, ITE, WHILE, BREAK, INPUT, CAS, SETNULL, ATOMIC, KILL };
+			enum Class { SQZ, ASSIGN, MALLOC, ITE, WHILE, BREAK, INPUT, CAS, SETNULL, ATOMIC, KILL, SETADD_ARG, SETADD_SEL, SETMINUS };
 			virtual ~Statement() = default;
 			virtual Class clazz() const = 0;
 			unsigned short id() const { assert(_id != 0); return _id; }
@@ -427,6 +427,50 @@ namespace tmr {
 			const VarExpr& var() const { return *_to_kill; }
 	};
 
+	class SetOperation : public Statement {
+		private:
+			std::size_t _setid;
+
+		public:
+			SetOperation(std::size_t setid) : _setid(setid) { assert(_setid <= 2); }
+			virtual ~SetOperation() = default;
+			virtual Statement::Class clazz() const = 0;
+			virtual void namecheck(const std::map<std::string, Variable*>& name2decl) {}
+			virtual void print(std::ostream& os, std::size_t indent) const = 0;
+			std::size_t setid() const { return _setid; }
+	};
+
+	class SetAddArg : public SetOperation {
+		public:
+			SetAddArg(std::size_t setid) : SetOperation(setid) {}
+			Statement::Class clazz() const { return Statement::SETADD_ARG; }
+			void print(std::ostream& os, std::size_t indent) const;
+	};
+
+	class SetAddSel : public SetOperation {
+		private:
+			std::unique_ptr<Selector> _sel;
+
+		public:
+			SetAddSel(std::size_t setid, std::unique_ptr<Selector> sel) : SetOperation(setid), _sel(std::move(sel)) { assert(_sel->type() == DATA); }
+			Statement::Class clazz() const { return Statement::SETADD_SEL; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os, std::size_t indent) const;
+			const Selector& selector() const { return *_sel; }
+	};
+
+	class SetMinus : public SetOperation {
+		private:
+			std::size_t _rhs;
+
+		public:
+			SetMinus(std::size_t lhs, std::size_t rhs) : SetOperation(lhs), _rhs(rhs) { assert(rhs <= 2); }
+			Statement::Class clazz() const { return Statement::SETMINUS; }
+			void print(std::ostream& os, std::size_t indent) const;
+			std::size_t lhs() const { return setid(); }
+			std::size_t rhs() const { return _rhs; }
+	};
+
 	/*********************** PROGRAM ***********************/
 
 	class Function {
@@ -511,6 +555,10 @@ namespace tmr {
 	std::unique_ptr<Malloc> Mllc(std::string var);
 	std::unique_ptr<Break> Brk();
 	std::unique_ptr<Killer> Kill(std::string var);
+
+	std::unique_ptr<SetAddArg> AddArg(std::size_t lhs);
+	std::unique_ptr<SetAddSel> AddSel(std::size_t lhs, std::unique_ptr<Selector> sel);
+	std::unique_ptr<SetMinus> Minus(std::size_t lhs, std::size_t rhs);
 
 	std::unique_ptr<CompareAndSwap> CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, bool update_age_fields);
 
