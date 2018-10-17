@@ -53,11 +53,17 @@ namespace tmr {
 			std::vector<T> _values;
 
 		public:
-			SelectorStore(const Shape& shape) : _values(shape.size(), D) {}
-			SelectorStore(const Shape* shape) : _values(shape->size(), D) {}
+			SelectorStore(const Shape& shape) : _values(shape.size() + shape.sizeLocals(), D) {}
+			SelectorStore(const Shape* shape) : _values(shape->size() + shape->sizeLocals(), D) {}
 			void set(std::size_t index, T value) { _values.at(index) = value; }
 			T at(std::size_t index) const { return _values.at(index); }
 			void print(std::ostream& os) const;
+			bool operator<(const SelectorStore& other) const {
+				for (std::size_t i = 0; i < _values.size(); i++)
+					if (_values[i] < other._values[i]) return true;
+					else if (other._values[i] < _values[i]) return false;
+				return false;
+			}
 	};
 
 	template<typename T, T D>
@@ -95,7 +101,7 @@ namespace tmr {
 		    : pc(cfg.pc), state(cfg.state), arg(cfg.arg), shape(shape), datasel(cfg.datasel), epochsel(cfg.epochsel),
 		      globalEpoch(cfg.globalEpoch), dataset0(cfg.dataset0), dataset1(cfg.dataset1), dataset2(cfg.dataset2)
 		{
-			assert(cfg.shape->size() == shape->size());
+			// assert(cfg.shape->size() == shape->size());
 		}
 		Cfg copy() const;
 	};

@@ -12,4 +12,6 @@ namespace tmr {
 	 */
 	std::vector<Cfg> mk_all_post(const Cfg& cfg, const Program& prog);
 
+	std::vector<Cfg> mk_all_post(const Cfg& cfg, unsigned short tid, const Program& prog);
+
 }

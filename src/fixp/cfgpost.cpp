@@ -58,9 +58,27 @@ inline void fire_exit_event(Cfg& cfg, unsigned short tid) {
 
 /******************************** POST FOR ONE THREAD ********************************/
 
-// TODO: locals must not be undefified!!!!!
+inline void debug_post(const Cfg& cfg) {
+	// std::cout << std::endl << std::endl << "==============================================================" << std::endl << "posting: " << cfg;
+	// // std::cout << *cfg.shape;
+	// std::cout << std::endl;
+}
+
+inline void debug_add(const Cfg& cfg) {
+	// std::cout << "adding: " << cfg << std::endl;
+	// // std::cout << *cfg.shape << std::endl;
+}
 
 void mk_tid_post(std::vector<Cfg>& result, const Cfg& input, unsigned short tid, const Program& prog) {
+	// DEBUG BEGIN
+	if (tid == 0 && (!input.pc[0] || input.pc[0]->id() >= 18) && input.pc[1] && input.pc[1]->id() < 18) return;
+	if (tid == 1 && input.pc[0] && input.pc[0]->id() < 18) return;
+	// if (tid == 0 && input.pc[0] && input.pc[0]->id() >= 20) return;
+	// if (tid == 1 && input.pc[0] && input.pc[0]->id() < 18) return;
+	// DEBUG END
+
+	debug_post(input);
+
 	if (input.pc[tid] != NULL) {
 		std::vector<Cfg> postcfgs = tmr::post(input, tid);
 		result.reserve(result.size() + postcfgs.size());
@@ -75,6 +93,7 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& input, unsigned short tid,
 				pcf.arg[tid] = DataValue::OTHER;
 			}
 			result.push_back(std::move(pcf));
+			debug_add(result.back());
 		}
 	} else {
 		// invoke function
@@ -88,6 +107,10 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& input, unsigned short tid,
 				cf.arg[tid] = arg;
 				fire_enter_event(cf, fun, tid, arg); // TODO: correct?
 				while (filter_pc(cf, tid)) { /* empty */ }
+				if (cf.state.states().at(0)->name() == "base:double-retire") {
+					result.pop_back();
+				}
+				debug_add(cf);
 			}
 		}
 	}
@@ -100,5 +123,11 @@ std::vector<Cfg> tmr::mk_all_post(const Cfg& cfg, const Program& prog) {
 	std::vector<Cfg> result;
 	mk_tid_post(result, cfg, 0, prog);
 	mk_tid_post(result, cfg, 1, prog);
+	return result;
+}
+
+std::vector<Cfg> tmr::mk_all_post(const Cfg& cfg, unsigned short tid, const Program& prog) {
+	std::vector<Cfg> result;
+	mk_tid_post(result, cfg, tid, prog);
 	return result;
 }

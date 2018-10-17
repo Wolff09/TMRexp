@@ -38,8 +38,6 @@ namespace tmr {
 		switch (stmt.cond().type()) {
 			case Condition::EQNEQ: return eval_cond_eqneq(cfg, static_cast<const EqNeqCondition&>(stmt.cond()), nextY, nextN, tid);
 			case Condition::CASC: return eval_cond_cas(cfg, static_cast<const CASCondition&>(stmt.cond()), nextY, nextN, tid);
-			// case Condition::WAGE: return eval_cond_wage(cfg, static_cast<const EqPtrAgeCondition&>(stmt.cond()), nextY, nextN, tid);
-			case Condition::WAGE: throw std::logic_error("Age compareison not supported.");
 			case Condition::COMPOUND: throw std::logic_error("Compound conditions are not supported here (only in linearization points).");
 			case Condition::ORACLEC: throw std::logic_error("Oracle conditions are not supported here (only in linearization points).");
 			case Condition::NONDET: return eval_cond_nondet(cfg, static_cast<const NonDetCondition&>(stmt.cond()), nextY, nextN, tid);

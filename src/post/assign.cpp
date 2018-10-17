@@ -62,20 +62,6 @@ std::vector<Cfg> tmr::post_assignment_pointer(const Cfg& cfg, const Expr& lhs, c
 ; // this one is actually very useful: it fixes my syntax highlighting :)
 
 
-// static inline std::deque<std::pair<Shape*, bool>> split_on_global_reach(const Shape& shape, std::size_t var) {
-// 	std::deque<std::pair<Shape*, bool>> result;
-// 	auto remaining = std::make_unique<Shape>(shape);
-// 	for (std::size_t i = shape.offset_program_vars(); i < shape.offset_locals(0); i++) {
-// 		Shape* globreach = isolate_partial_concretisation(*remaining, i, var, EQ_MT_GT);
-// 		if (globreach) result.emplace_back(globreach, true);
-// 		remaining.reset(isolate_partial_concretisation(*remaining, i, var, MF_GF_BT));
-// 		if (!remaining) break;
-// 	}
-// 	if (remaining) result.emplace_back(remaining.release(), false);
-// 	return result;
-// }
-
-
 std::vector<Cfg> tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	Shape* shape = post_assignment_pointer_shape_var_var(*cfg.shape, lhs, rhs, stmt);
 	auto result = mk_next_config_vec(cfg, shape, tid);
@@ -86,6 +72,63 @@ std::vector<Cfg> tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std:
 }
 
 std::vector<Cfg> tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
+	// auto preshapes = disambiguate(*cfg.shape, rhs);
+	// std::vector<Cfg> result;
+	// result.reserve(32);
+	// for (Shape* pre : preshapes) {
+	// 	if (!make_concretisation(*pre)) {
+	// 		delete pre;
+	// 		continue;
+	// 	}
+
+	// 	Shape* postshape = post_assignment_pointer_shape_var_next(*pre, lhs, rhs, stmt);
+	// 	auto shapes = disambiguate(*postshape, lhs);
+	// 	delete postshape;
+
+	// 	for (Shape* s : shapes) {
+	// 		bool lhs_has_equal = false;
+	// 		std::size_t some_equal = 0;
+	// 		bool has_data = false;
+	// 		bool has_other = false;
+
+	// 		for (std::size_t i = 0; i < s->size(); i++) {
+	// 			if (i == lhs) continue;
+	// 			if (s->test(i, lhs, EQ)) {
+	// 				lhs_has_equal = true;
+	// 				some_equal = i;
+	// 				switch (cfg.datasel.at(i)) {
+	// 					case DataValue::DATA: has_data = true; break;
+	// 					case DataValue::OTHER: has_other = true; break;
+	// 				}
+	// 			}
+	// 		}
+
+	// 		if (has_other && has_data) {
+	// 			throw std::logic_error("inconsistent");
+	// 			// TODO: do the same for time
+	// 		}
+
+	// 		result.push_back(mk_next_config(cfg, new Shape(*s), tid));
+	// 		result.back().datasel.set(lhs, result.back().datasel.at(some_equal));
+	// 		result.back().epochsel.set(lhs, result.back().epochsel.at(some_equal));
+
+	// 		if (!lhs_has_equal) {
+	// 			// for (DataValue dval : { /* DataValue::DATA , // TODO: reenable*/ DataValue::OTHER }) {
+	// 			for (DataValue dval : { DataValue::DATA, DataValue::OTHER }) {
+	// 				for (EpochValue tval : { EpochValue::ZERO, EpochValue::ONE, EpochValue::TWO }) {
+	// 					result.push_back(mk_next_config(cfg, new Shape(*s), tid));
+	// 					result.back().datasel.set(lhs, dval);
+	// 					result.back().epochsel.set(lhs, tval);
+	// 				}
+	// 			}
+	// 		}
+
+	// 		delete s;
+	// 	}
+	// }
+
+	// return result;
+
 	Shape* postshape = post_assignment_pointer_shape_var_next(*cfg.shape, lhs, rhs, stmt);
 	auto shapes = disambiguate(*postshape, lhs);
 	delete postshape;
@@ -95,19 +138,34 @@ std::vector<Cfg> tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std
 
 	for (Shape* s : shapes) {
 		bool lhs_has_equal = false;
+		std::size_t equal_index = 0;
+		bool has_data = false;
+		bool has_other = false;
 
 		for (std::size_t i = 0; i < s->size(); i++) {
 			if (i == lhs) continue;
 			if (s->test(i, lhs, EQ)) {
 				lhs_has_equal = true;
-
-				result.push_back(mk_next_config(cfg, new Shape(*s), tid));
-				result.back().datasel.set(lhs, result.back().datasel.at(i));
-				result.back().epochsel.set(lhs, result.back().epochsel.at(i));
+				equal_index = i;
+				switch (cfg.datasel.at(i)) {
+					case DataValue::DATA: has_data = true; break;
+					case DataValue::OTHER: has_other = true; break;
+				}
 			}
 		}
 
+		if (lhs_has_equal) {
+			if (has_data && has_other) {
+				throw std::logic_error("Inconsistent selectors detected.");
+			}
+
+			result.push_back(mk_next_config(cfg, new Shape(*s), tid));
+			result.back().datasel.set(lhs, result.back().datasel.at(equal_index));
+			result.back().epochsel.set(lhs, result.back().epochsel.at(equal_index));
+		}
+
 		if (!lhs_has_equal) {
+			// for (DataValue dval : { /* DataValue::DATA , // TODO: reenable*/ DataValue::OTHER }) {
 			for (DataValue dval : { DataValue::DATA, DataValue::OTHER }) {
 				for (EpochValue tval : { EpochValue::ZERO, EpochValue::ONE, EpochValue::TWO }) {
 					result.push_back(mk_next_config(cfg, new Shape(*s), tid));
@@ -121,27 +179,6 @@ std::vector<Cfg> tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std
 	}
 
 	return result;
-
-	// Shape* shape = post_assignment_pointer_shape_var_next(*cfg.shape, lhs, rhs, stmt);
-	// auto result = mk_next_config_vec(cfg, shape, tid);
-	// return result;
-
-	// auto tmp = split_on_global_reach(*cfg.shape, rhs);
-	// std::vector<Cfg> result;
-	// result.reserve(tmp.size());
-
-	// for (std::pair<Shape*, bool> pair : tmp) {
-	// 	Shape* tmpshape = pair.first;
-	// 	bool rhs_shared_reachable = pair.second;
-
-	// 	Shape* shape = post_assignment_pointer_shape_var_next(*tmpshape, lhs, rhs, stmt);
-	// 	delete tmpshape;
-
-	// 	result.push_back(mk_next_config(cfg, shape, tid));
-	// 	Cfg& res = result.back();
-	// }
-
-	// return result;
 }
 
 std::vector<Cfg> tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
@@ -171,6 +208,10 @@ Shape* tmr::post_assignment_pointer_shape_var_var(const Shape& input, const std:
 
 Shape* tmr::post_assignment_pointer_shape_var_next(const Shape& input, const std::size_t lhs, const std::size_t rhs, const Statement* stmt) {
 	check_ptr_access(input, rhs, stmt);
+
+	if (lhs == rhs) {
+		throw std::logic_error("Cannot assign to variable from its own next selector.");
+	}
 
 	Shape* result = new Shape(input);
 
@@ -306,15 +347,18 @@ inline MultiSet& getsetref(Cfg& cfg, std::size_t setid) {
 
 inline void addtoset(Cfg& cfg, std::size_t setid, DataValue val, unsigned short tid) {
 	auto& dst = getsetref(cfg, setid);
+	// std::cout << "add: " << dst[tid] << " --> "; // DEBUG OUTPUT
 	switch (val) {
 		case DataValue::DATA: dst[tid] = DataSet::WITH_DATA; break;
 		case DataValue::OTHER: /* leave unchanged */ break;
 	}
+	// std::cout << dst[tid] << std::endl; // DEBUG OUTPUT
 }
 
 inline void setcombine(Cfg& cfg, std::size_t lhsid, std::size_t rhsid, SetCombine::Type type, unsigned short tid) {
 	auto& lhs = getsetref(cfg, lhsid);
 	auto& rhs = getsetref(cfg, rhsid);
+	// std::cout << "combine: " << lhs[tid] << " --> "; // DEBUG OUTPUT
 	switch (type) {
 		case SetCombine::SETTO:
 			lhs[tid] = rhs[tid];
@@ -330,6 +374,7 @@ inline void setcombine(Cfg& cfg, std::size_t lhsid, std::size_t rhsid, SetCombin
 			}
 			break;
 	}
+	// std::cout << lhs[tid] << std::endl; // DEBUG OUTPUT
 }
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddArg& stmt, unsigned short tid) {
@@ -339,9 +384,16 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddArg& stmt, unsigned short
 }
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddSel& stmt, unsigned short tid) {
+	// std::cout << "========================" << std::endl << "posting: " << cfg << *cfg.shape << std::endl;
+	// std::cout << "set1[0]: " << cfg.dataset1[0] << std::endl;
+	// std::cout << "datasel.6: " << cfg.datasel.at(6) << std::endl;
 	std::size_t lhs = mk_var_index(*cfg.shape, stmt.selector(), tid);
+	// std::cout << "lhs index: " << lhs << std::endl;
 	auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
 	addtoset(result.back(), stmt.setid(), cfg.datasel.at(lhs), tid);
+	// std::cout << "adding: " << result.back() << *result.back().shape;
+	// std::cout << "set1[0] post: " << result.back().dataset1[0] << std::endl;
+	// std::cout << std::endl << std::endl << std::endl;
 	return result;
 }
 

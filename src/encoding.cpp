@@ -7,17 +7,29 @@ using namespace tmr;
 
 /******************************** SORTING ********************************/
 
+#define cmp(x, y) if (x < y) { return true; } if (y < x) { return false; };
+
 bool cfg_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
-	if (lhs.pc < rhs.pc) return true;
-	if (rhs.pc < lhs.pc) return false;
-	if (lhs.arg < rhs.arg) return true;
-	if (rhs.arg < lhs.arg) return false;
+	// if (lhs.pc < rhs.pc) return true;
+	// if (rhs.pc < lhs.pc) return false;
+	// if (lhs.arg < rhs.arg) return true;
+	// if (rhs.arg < lhs.arg) return false;
+	cmp(lhs.pc, rhs.pc);
+	cmp(rhs.arg, lhs.arg);
+	cmp(rhs.datasel, lhs.datasel);
+	cmp(rhs.epochsel, lhs.epochsel);
+	cmp(rhs.dataset0, lhs.dataset0);
+	cmp(rhs.dataset1, lhs.dataset1);
+	cmp(rhs.dataset2, lhs.dataset2);
 	return false;
 }
 
 bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
-	if (lhs.state < rhs.state) return true;
-	if (rhs.state < lhs.state) return false;
+	// if (lhs.state < rhs.state) return true;
+	// if (rhs.state < lhs.state) return false;
+	cmp(lhs.state, rhs.state);
+	cmp(lhs.globalEpoch, rhs.globalEpoch);
+	// TODO: force shared selector equality
 	return false;
 }
 

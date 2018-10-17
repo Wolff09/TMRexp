@@ -107,8 +107,8 @@ Assignment::Assignment(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs) : _
 	assert(_rhs->clazz() != Expr::NIL);
 }
 
-CompareAndSwap::CompareAndSwap(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, bool update_age_fields)
-	: _dst(std::move(dst)), _cmp(std::move(cmp)), _src(std::move(src)), _update_age_fields(update_age_fields) {
+CompareAndSwap::CompareAndSwap(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src)
+	: _dst(std::move(dst)), _cmp(std::move(cmp)), _src(std::move(src)) {
 	assert(_dst->clazz() == Expr::VAR || _dst->clazz() == Expr::SEL);
 	assert(_cmp->clazz() == Expr::VAR || _cmp->clazz() == Expr::NIL);
 	assert(_src->clazz() == Expr::VAR || _src->clazz() == Expr::SEL);
@@ -152,11 +152,6 @@ std::unique_ptr<EqNeqCondition> tmr::NeqCond(std::unique_ptr<Expr> lhs, std::uni
 	return res;
 }
 
-std::unique_ptr<EqPtrAgeCondition> tmr::EqCondWAge(std::unique_ptr<VarExpr> lhs, std::unique_ptr<VarExpr> rhs) {
-	std::unique_ptr<EqPtrAgeCondition> res(new EqPtrAgeCondition(std::move(lhs), std::move(rhs)));
-	return res;
-}
-
 std::unique_ptr<CASCondition> tmr::CasCond(std::unique_ptr<CompareAndSwap> cas) {
 	std::unique_ptr<CASCondition> res(new CASCondition(std::move(cas)));
 	return res;
@@ -165,11 +160,6 @@ std::unique_ptr<CASCondition> tmr::CasCond(std::unique_ptr<CompareAndSwap> cas) 
 std::unique_ptr<NonDetCondition> tmr::NDCond() {
 	std::unique_ptr<NonDetCondition> res(new NonDetCondition());
 	return res;
-}
-
-std::unique_ptr<Condition> tmr::EqCond(std::unique_ptr<VarExpr> lhs, std::unique_ptr<VarExpr> rhs, bool use_age_fields) {
-	if (use_age_fields) return EqCondWAge(std::move(lhs), std::move(rhs));
-	else return EqCond(std::move(lhs), std::move(rhs));
 }
 
 std::unique_ptr<CompoundCondition> tmr::CompCond(std::unique_ptr<Condition> lhs, std::unique_ptr<Condition> rhs) {
@@ -234,9 +224,9 @@ std::unique_ptr<Killer> tmr::Kill(std::string var) {
 }
 
 
-std::unique_ptr<CompareAndSwap> tmr::CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, bool update_age_fields) {
+std::unique_ptr<CompareAndSwap> tmr::CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src) {
 	if (cmp->clazz() != Expr::VAR) throw std::logic_error("Second argument of CAS must be a VarExpr.");
-	std::unique_ptr<CompareAndSwap> res(new CompareAndSwap(std::move(dst), std::move(cmp), std::move(src), update_age_fields));
+	std::unique_ptr<CompareAndSwap> res(new CompareAndSwap(std::move(dst), std::move(cmp), std::move(src)));
 	return res;
 }
 
@@ -276,10 +266,6 @@ std::unique_ptr<Function> tmr::Fun(std::string name, std::unique_ptr<Sequence> b
 
 
 void EqNeqCondition::propagateFun(const Function* fun) {}
-
-void EqPtrAgeCondition::propagateFun(const Function* fun) {
-	_cond->propagateFun(fun);
-}
 
 void CompoundCondition::propagateFun(const Function* fun) {
 	_lhs->propagateFun(fun);
@@ -354,10 +340,6 @@ void EqNeqCondition::namecheck(const std::map<std::string, Variable*>& name2decl
 void CompoundCondition::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	_lhs->namecheck(name2decl);
 	_rhs->namecheck(name2decl);
-}
-
-void EqPtrAgeCondition::namecheck(const std::map<std::string, Variable*>& name2decl) {
-	_cond->namecheck(name2decl);
 }
 
 void CASCondition::namecheck(const std::map<std::string, Variable*>& name2decl) {
@@ -570,10 +552,7 @@ void Break::propagateNext(const Statement* next, const While* last_while) {
 
 inline void printCAS(std::ostream& os, const CompareAndSwap& cas) {
 	printID_(cas.id());
-	os << "CAS(" << cas.dst() << ", " << cas.cmp() << ", ";
-	if (cas.update_age_fields()) os << "<" << cas.src() << ", " << cas.cmp() << ".age+1>";
-	else os << cas.src();
-	os << ")";
+	os << "CAS(" << cas.dst() << ", " << cas.cmp() << ", " << cas.src() << ")";
 }
 
 #define INDENT(i) for(std::size_t j = 0; j < i; j++) os<<"    ";
@@ -616,10 +595,6 @@ void CompoundCondition::print(std::ostream& os) const {
 	_lhs->print(os);
 	os << " && ";
 	_rhs->print(os);
-}
-
-void EqPtrAgeCondition::print(std::ostream& os) const {
-	os << "<" << _cond->lhs() << ", " << _cond->lhs() << ".age> == <" << _cond->rhs() << ", " << _cond->rhs() << ".age>";
 }
 
 void CASCondition::print(std::ostream& os) const {

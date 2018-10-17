@@ -4,8 +4,6 @@ using namespace tmr;
 
 
 static std::unique_ptr<Program> mk_program() {
-	bool use_age_fields = false;
-
 	// init prog
 	auto init = Sqz(
 		SetNull(Var("HPrecs"))
@@ -21,7 +19,7 @@ static std::unique_ptr<Program> mk_program() {
 			Assign(Var("cur"), Var("HPrecs")),
 			Assign(Next("rec1"), Var("cur")),
 			IfThen(
-				CasCond(CAS(Var("HPrecs"), Var("cur"), Var("rec0"), use_age_fields)),
+				CasCond(CAS(Var("HPrecs"), Var("cur"), Var("rec0"))),
 				Sqz(Brk())
 			),
 			Kill("cur")
@@ -58,6 +56,7 @@ static std::unique_ptr<Program> mk_program() {
 			}
 			List<ptr_t> dlist;
 			dlist = rlist - plist;
+			rlist = rlist - dlist
 			free(dlist);
 			rlist = rlist - dlist;
 			plist = empty
@@ -71,14 +70,21 @@ static std::unique_ptr<Program> mk_program() {
 					IfThenElse(
 						EqCond(Var("cur"), Null()),
 						Sqz(Brk()),
-						Sqz(AddSel(1, Data("cur")))
+						Sqz(
+							AddSel(1, Data("cur")),
+							Assign(Var("tmp"), Next("cur")),
+							Assign(Var("cur"), Var("tmp")),
+							Kill("tmp")
+						)
 					)
 				)),
 				SetAssign(2, 0),
 				SetMinus(2, 1),
 				Free(2),
+				SetMinus(0, 2),
 				Clear(1),
-				Clear(2)
+				Clear(2),
+				Kill("cur")
 			)
 		)
 	);
@@ -89,7 +95,7 @@ static std::unique_ptr<Program> mk_program() {
 	auto prog = Prog(
 		name,
 		{"HPrecs"},
-		{"rec0", "rec1", "cur"},
+		{"rec0", "rec1", "cur", "tmp"},
 		std::move(init),
 		std::move(initthread),
 		Fun("protect0", std::move(protect0), true),

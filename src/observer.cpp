@@ -25,11 +25,11 @@ bool Event::operator==(const Event& other) const {
 	return type == other.type && func == other.func && tid == other.tid && dval == other.dval;
 }
 
-Event Event::mk_enter(const Function& func, unsigned int tid, DataValue dval) {
+Event Event::mk_enter(const Function& func, unsigned short tid, DataValue dval) {
 	return Event(ENTER, &func, tid, dval);
 }
 
-Event Event::mk_exit(unsigned int tid) {
+Event Event::mk_exit(unsigned short tid) {
 	return Event(EXIT, nullptr, tid, DataValue::DATA);
 }
 

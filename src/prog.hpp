@@ -117,7 +117,7 @@ namespace tmr {
 	class Condition {
 		public:
 			virtual ~Condition() = default;
-			enum Type { EQNEQ, CASC, TRUEC, WAGE, COMPOUND, ORACLEC, NONDET };
+			enum Type { EQNEQ, CASC, TRUEC, COMPOUND, ORACLEC, NONDET };
 			virtual Type type() const = 0;
 			virtual void namecheck(const std::map<std::string, Variable*>& name2decl) = 0;
 			virtual void print(std::ostream& os) const = 0;
@@ -163,20 +163,6 @@ namespace tmr {
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os) const;
 			void propagateFun(const Function* fun);
-	};
-
-	class EqPtrAgeCondition : public Condition {
-		private:
-			std::unique_ptr<EqNeqCondition> _cond;
-
-		public:
-			EqPtrAgeCondition(std::unique_ptr<VarExpr> lhs, std::unique_ptr<VarExpr> rhs) : _cond(new EqNeqCondition(std::move(lhs), std::move(rhs))) {}
-			virtual ~EqPtrAgeCondition() = default;
-			virtual Type type() const { return Type::WAGE; }
-			virtual void namecheck(const std::map<std::string, Variable*>& name2decl);
-			virtual void print(std::ostream& os) const;
-			virtual void propagateFun(const Function* fun);
-			const EqNeqCondition& cond() const { return *_cond; }
 	};
 
 	class CASCondition : public Condition {
@@ -390,16 +376,11 @@ namespace tmr {
 			const Statement* next_false_branch() const;
 	};
 
-	/**
-	 * @brief CAS(a, b, c) is an atomic statement which (1) checks whether a==b hold, and only if so,
-	 *        (2) sets a=c and (3) a.age = b.age+1
-	 */
 	class CompareAndSwap : public Statement {
 		private:
 			std::unique_ptr<Expr> _dst;
 			std::unique_ptr<Expr> _cmp;
 			std::unique_ptr<Expr> _src;
-			bool _update_age_fields;
 
 		public:
 			Statement::Class clazz() const { return Statement::Class::CAS; }
@@ -408,11 +389,10 @@ namespace tmr {
 			std::size_t propagateId(std::size_t id);
 			void propagateFun(const Function* fun);
 
-			CompareAndSwap(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, bool update_age_fields);
+			CompareAndSwap(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src);
 			const Expr& dst() const { return *_dst; }
 			const Expr& cmp() const { return *_cmp; }
 			const Expr& src() const { return *_src; }
-			bool update_age_fields() const { return _update_age_fields; }
 	};
 
 	class Killer : public Statement {
@@ -565,9 +545,7 @@ namespace tmr {
 
 	std::unique_ptr<EqNeqCondition> EqCond(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs);
 	std::unique_ptr<EqNeqCondition> NeqCond(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs);
-	std::unique_ptr<EqPtrAgeCondition> EqCondWAge(std::unique_ptr<VarExpr> lhs, std::unique_ptr<VarExpr> rhs);
 	std::unique_ptr<CASCondition> CasCond(std::unique_ptr<CompareAndSwap> cas);
-	std::unique_ptr<Condition> EqCond(std::unique_ptr<VarExpr> lhs, std::unique_ptr<VarExpr> rhs, bool use_age_fields);
 	std::unique_ptr<CompoundCondition> CompCond(std::unique_ptr<Condition> lhs, std::unique_ptr<Condition> rhs);
 	std::unique_ptr<NonDetCondition> NDCond();
 
@@ -591,7 +569,7 @@ namespace tmr {
 	std::unique_ptr<SetCombine> SetMinus(std::size_t lhs, std::size_t rhs);
 	std::unique_ptr<SetClear> Clear(std::size_t lhs);
 
-	std::unique_ptr<CompareAndSwap> CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, bool update_age_fields);
+	std::unique_ptr<CompareAndSwap> CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src);
 
 	std::unique_ptr<Function> Fun(std::string name, std::unique_ptr<Sequence> body, bool has_arg);
 

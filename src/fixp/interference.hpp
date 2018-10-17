@@ -13,6 +13,6 @@ namespace tmr {
 	 * @details Depending on the ``msetup`` this computes interference for only Thread 1
 	 *          or for Thread 1 and Thread 2.
 	 */	
-	void mk_all_interference(Encoding& enc, RemainingWork& work);
+	void mk_all_interference(Encoding& enc, RemainingWork& work, const Program& prog);
 
 }

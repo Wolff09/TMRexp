@@ -50,6 +50,7 @@ const Cfg& RemainingWork::pop() {
 }
 
 void RemainingWork::add(Cfg&& cfg) {
+	// std::cout << "adding: " << cfg << std::endl;
 	auto res = _enc.take(std::move(cfg));
 	if (res.first) _work.insert(&res.second);
 }
@@ -74,6 +75,9 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 		// sequential steps
 		while (!work.done()) {
 			const Cfg& topost = work.pop();
+			// std::cout << std::endl << std::endl << "==============================================================" << std::endl << "posting: " << topost; // DEBUG OUTPUT
+			// if (topost.pc[0] && topost.pc[0]->id() == 32) std::cout << *topost.shape << std::endl; // DEBUG OUTPUT
+			// std::cout << std::endl; // DEBUG OUTPUT
 			work.add(tmr::mk_all_post(topost, prog));
 
 			SEQUENTIAL_STEPS++;
@@ -87,7 +91,7 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 		std::cerr << ", #steptotal=" << SEQUENTIAL_STEPS/1000 << "k]" << std::endl;
 
 		// interference steps
-		tmr::mk_all_interference(*enc, work);
+		tmr::mk_all_interference(*enc, work, prog);
 	}
 
 	return enc;

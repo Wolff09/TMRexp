@@ -46,12 +46,21 @@ inline DataSet getset(const Cfg& cfg, std::size_t setid, unsigned short tid) {
 	}
 }
 
-inline void fire_free_event(Cfg& cfg) {
+inline void print_free_debug(const Cfg& cfg, const MultiState old_state, unsigned short tid) {
+	std::cout << "Specification violation detected." << std::endl << std::endl;
+	std::cout << "Freeing thread: " << tid << std::endl;
+	std::cout << "Old state: " << old_state << std::endl;
+	std::cout << "Cfg: " << cfg << *cfg.shape << std::endl;
+}
+
+inline void fire_free_event(Cfg& cfg, unsigned short tid) {
 	Event evt = Event::mk_free(DataValue::DATA);
+	auto old_state = cfg.state;
 	cfg.state = cfg.state.next(evt);
 
 	// check for final state
 	if (cfg.state.is_final()) {
+		print_free_debug(cfg, old_state, tid);
 		throw std::runtime_error("Specification violation detected");
 	}
 }
@@ -66,7 +75,7 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const FreeAll& stmt, unsigned short t
 
 		case DataSet::WITH_DATA: {
 			auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
-			fire_free_event(result.back());
+			fire_free_event(result.back(), tid);
 			return result;
 		}
 	}
