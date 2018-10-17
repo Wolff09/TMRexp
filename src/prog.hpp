@@ -213,7 +213,7 @@ namespace tmr {
 			const Statement* _next = NULL;
 
 		public:
-			enum Class { SQZ, ASSIGN, MALLOC, ITE, WHILE, BREAK, INPUT, CAS, SETNULL, ATOMIC, KILL, SETADD_ARG, SETADD_SEL, SETMINUS, SETCLEAR, FREEALL };
+			enum Class { SQZ, ASSIGN, MALLOC, ITE, WHILE, BREAK, INPUT, CAS, SETNULL, ATOMIC, KILL, SETADD_ARG, SETADD_SEL, SETCOMBINE, SETCLEAR, FREEALL };
 			virtual ~Statement() = default;
 			virtual Class clazz() const = 0;
 			unsigned short id() const { assert(_id != 0); return _id; }
@@ -444,6 +444,7 @@ namespace tmr {
 		public:
 			SetAddArg(std::size_t setid) : SetOperation(setid) {}
 			Statement::Class clazz() const { return Statement::SETADD_ARG; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
 	};
 
@@ -459,16 +460,21 @@ namespace tmr {
 			const Selector& selector() const { return *_sel; }
 	};
 
-	class SetMinus : public SetOperation {
+	class SetCombine : public SetOperation {
+		public:
+			enum Type { UNION, SUBTRACTION, SETTO };
+
 		private:
 			std::size_t _rhs;
+			Type _type;
 
 		public:
-			SetMinus(std::size_t lhs, std::size_t rhs) : SetOperation(lhs), _rhs(rhs) { assert(rhs <= 2); }
-			Statement::Class clazz() const { return Statement::SETMINUS; }
+			SetCombine(std::size_t lhs, std::size_t rhs, SetCombine::Type type) : SetOperation(lhs), _rhs(rhs), _type(type) { assert(rhs <= 2); }
+			Statement::Class clazz() const { return Statement::SETCOMBINE; }
 			void print(std::ostream& os, std::size_t indent) const;
 			std::size_t lhs() const { return setid(); }
 			std::size_t rhs() const { return _rhs; }
+			SetCombine::Type type() const { return _type; }
 	};
 
 	class SetClear : public SetOperation {
@@ -478,6 +484,18 @@ namespace tmr {
 			void print(std::ostream& os, std::size_t indent) const;
 	};
 
+	class FreeAll : public Statement {
+		private:
+			std::size_t _setid;
+
+		public:
+			FreeAll(std::size_t setid) : _setid(setid) { assert(setid <= 2); }
+			Statement::Class clazz() const { return Statement::Class::FREEALL; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl) {}
+			void print(std::ostream& os, std::size_t indent) const;
+			std::size_t setid() const { return _setid; }
+	};
+
 	/*********************** PROGRAM ***********************/
 
 	class Function {
@@ -485,9 +503,10 @@ namespace tmr {
 			std::string _name;
 			std::unique_ptr<Sequence> _stmts;
 			const Program* _prog;
+			bool _has_arg;
 
 		public:
-			Function(std::string name, std::unique_ptr<Sequence> stmts);
+			Function(std::string name, std::unique_ptr<Sequence> stmts, bool has_arg);
 			std::string name() const { return _name; }
 			std::size_t size() const { return _stmts->size(); }
 			const Sequence& body() const { return *_stmts; }
@@ -497,6 +516,7 @@ namespace tmr {
 			void print(std::ostream& os, std::size_t indent=0) const;
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			std::string arg_name() const { return "__arg__"; }
+			bool has_arg() const { return _has_arg; }
 			const Program& prog() const { return *_prog; }
 
 		friend class Program;
@@ -523,18 +543,6 @@ namespace tmr {
 			const Sequence& init() const { return _init_fun->body(); }
 			const Sequence& init_thread() const { return _init_thread_fun->body(); }
 			void print(std::ostream& os) const;
-	};
-
-	class FreeAll : public Statement {
-		private:
-			std::size_t _setid;
-
-		public:
-			FreeAll(std::size_t setid) : _setid(setid) { assert(setid <= 2); }
-			Statement::Class clazz() const { return Statement::Class::FREEALL; }
-			void namecheck(const std::map<std::string, Variable*>& name2decl) {}
-			void print(std::ostream& os, std::size_t indent) const;
-			std::size_t setid() const { return _setid; }
 	};
 
 
@@ -578,12 +586,14 @@ namespace tmr {
 
 	std::unique_ptr<SetAddArg> AddArg(std::size_t lhs);
 	std::unique_ptr<SetAddSel> AddSel(std::size_t lhs, std::unique_ptr<Selector> sel);
-	std::unique_ptr<SetMinus> Minus(std::size_t lhs, std::size_t rhs);
+	std::unique_ptr<SetCombine> Combine(std::size_t lhs, std::size_t rhs, SetCombine::Type comb);
+	std::unique_ptr<SetCombine> SetAssign(std::size_t lhs, std::size_t rhs);
+	std::unique_ptr<SetCombine> SetMinus(std::size_t lhs, std::size_t rhs);
 	std::unique_ptr<SetClear> Clear(std::size_t lhs);
 
 	std::unique_ptr<CompareAndSwap> CAS(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src, bool update_age_fields);
 
-	std::unique_ptr<Function> Fun(std::string name, std::unique_ptr<Sequence> body);
+	std::unique_ptr<Function> Fun(std::string name, std::unique_ptr<Sequence> body, bool has_arg);
 
 	template<typename... Args>
 	static std::unique_ptr<Sequence> Sqz(Args... pack) {

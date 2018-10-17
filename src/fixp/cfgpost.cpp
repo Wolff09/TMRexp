@@ -34,7 +34,8 @@ inline bool filter_pc(Cfg& cfg, const unsigned short& tid) {
 /******************************** OVALUE HELPER ********************************/
 
 inline std::vector<DataValue> get_possible_data_args(const Cfg& cfg, const Function& fun) {
-	return {{ DataValue::DATA, DataValue::OTHER }};
+	if (fun.has_arg()) return {{ DataValue::DATA, DataValue::OTHER }};
+	else return { DataValue::OTHER };
 }
 
 

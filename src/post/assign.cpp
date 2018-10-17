@@ -312,12 +312,23 @@ inline void addtoset(Cfg& cfg, std::size_t setid, DataValue val, unsigned short 
 	}
 }
 
-inline void setsubtract(Cfg& cfg, std::size_t lhsid, std::size_t rhsid, unsigned short tid) {
+inline void setcombine(Cfg& cfg, std::size_t lhsid, std::size_t rhsid, SetCombine::Type type, unsigned short tid) {
 	auto& lhs = getsetref(cfg, lhsid);
 	auto& rhs = getsetref(cfg, rhsid);
-	switch (rhs[tid]) {
-		case DataSet::WITH_DATA: lhs[tid] = DataSet::WITHOUT_DATA; break;
-		case DataSet::WITHOUT_DATA: /* leave unchanged */ break;
+	switch (type) {
+		case SetCombine::SETTO:
+			lhs[tid] = rhs[tid];
+			break;
+		
+		case SetCombine::UNION:
+			throw std::logic_error("Set union not implemented.");
+
+		case SetCombine::SUBTRACTION:
+			switch (rhs[tid]) {
+				case DataSet::WITH_DATA: lhs[tid] = DataSet::WITHOUT_DATA; break;
+				case DataSet::WITHOUT_DATA: /* leave unchanged */ break;
+			}
+			break;
 	}
 }
 
@@ -334,9 +345,9 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddSel& stmt, unsigned short
 	return result;
 }
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const SetMinus& stmt, unsigned short tid) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const SetCombine& stmt, unsigned short tid) {
 	auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
-	setsubtract(result.back(), stmt.lhs(), stmt.rhs(), tid);
+	setcombine(result.back(), stmt.lhs(), stmt.rhs(), stmt.type(), tid);
 	return result;
 }
 

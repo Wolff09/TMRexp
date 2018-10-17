@@ -28,7 +28,7 @@ static std::vector<Cfg> get_post_cfgs(const Cfg& cfg, unsigned short tid) {
 		case Statement::KILL:       return tmr::post(cfg, static_cast<const                Killer&>(stmt), tid);
 		case Statement::SETADD_ARG: return tmr::post(cfg, static_cast<const             SetAddArg&>(stmt), tid);
 		case Statement::SETADD_SEL: return tmr::post(cfg, static_cast<const             SetAddSel&>(stmt), tid);
-		case Statement::SETMINUS:   return tmr::post(cfg, static_cast<const              SetMinus&>(stmt), tid);
+		case Statement::SETCOMBINE: return tmr::post(cfg, static_cast<const            SetCombine&>(stmt), tid);
 		case Statement::SETCLEAR:   return tmr::post(cfg, static_cast<const              SetClear&>(stmt), tid);
 		case Statement::FREEALL:    return tmr::post(cfg, static_cast<const               FreeAll&>(stmt), tid);
 	}

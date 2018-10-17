@@ -38,8 +38,8 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
 	  _globals(mk_vars(true, globals)),
 	  _locals(mk_vars(false, locals)),
 	  _funs(std::move(funs)),
-	  _init_fun(new Function("_init", std::move(init))),
-	  _init_thread_fun(new Function("_threadinit", std::move(init_thread))) {
+	  _init_fun(new Function("__init__", std::move(init), false)),
+	  _init_thread_fun(new Function("__thread_init__", std::move(init_thread), false)) {
 
 	if (uses_reserved_name(_funs)) {
 		throw std::logic_error("Function names must not start with '_'.");
@@ -98,8 +98,8 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
 }
 
 
-Function::Function(std::string name, std::unique_ptr<Sequence> stmts) : _name(name), _stmts(std::move(stmts)) {
-		_stmts->propagateFun(this);
+Function::Function(std::string name, std::unique_ptr<Sequence> stmts, bool has_arg) : _name(name), _stmts(std::move(stmts)), _has_arg(has_arg) {
+	_stmts->propagateFun(this);
 }
 
 Assignment::Assignment(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs) : _lhs(std::move(lhs)), _rhs(std::move(rhs)), _fires_lp(false) {
@@ -249,8 +249,16 @@ std::unique_ptr<SetAddSel> tmr::AddSel(std::size_t lhs, std::unique_ptr<Selector
 	return std::make_unique<SetAddSel>(lhs, std::move(sel));
 }
 
-std::unique_ptr<SetMinus> tmr::Minus(std::size_t lhs, std::size_t rhs) {
-	return std::make_unique<SetMinus>(lhs, rhs);
+std::unique_ptr<SetCombine> tmr::Combine(std::size_t lhs, std::size_t rhs, SetCombine::Type type) {
+	return std::make_unique<SetCombine>(lhs, rhs, type);
+}
+
+std::unique_ptr<SetCombine> tmr::SetAssign(std::size_t lhs, std::size_t rhs) {
+	return Combine(lhs, rhs, SetCombine::SETTO);
+}
+
+std::unique_ptr<SetCombine> tmr::SetMinus(std::size_t lhs, std::size_t rhs) {
+	return Combine(lhs, rhs, SetCombine::SUBTRACTION);
 }
 
 std::unique_ptr<SetClear> tmr::Clear(std::size_t lhs) {
@@ -258,8 +266,8 @@ std::unique_ptr<SetClear> tmr::Clear(std::size_t lhs) {
 }
 
 
-std::unique_ptr<Function> tmr::Fun(std::string name, std::unique_ptr<Sequence> body) {
-	std::unique_ptr<Function> res(new Function(name, std::move(body)));
+std::unique_ptr<Function> tmr::Fun(std::string name, std::unique_ptr<Sequence> body, bool has_arg) {
+	std::unique_ptr<Function> res(new Function(name, std::move(body), has_arg));
 	return res;
 }
 
@@ -388,6 +396,9 @@ void InOutAssignment::namecheck(const std::map<std::string, Variable*>& name2dec
 	if (expr().clazz() != Expr::SEL) {
 		throw std::logic_error("Arguments must be read/written to data selectors.");
 	}
+	if (!function().has_arg()) {
+		throw std::logic_error("Function argument used in function without argument.");
+	}
 }
 
 void Malloc::namecheck(const std::map<std::string, Variable*>& name2decl) {
@@ -416,6 +427,12 @@ void CompareAndSwap::namecheck(const std::map<std::string, Variable*>& name2decl
 
 void Killer::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	_to_kill->namecheck(name2decl);
+}
+
+void SetAddArg::namecheck(const std::map<std::string, Variable*>& name2decl) {
+	if (!function().has_arg()) {
+		throw std::logic_error("Function argument used in function without argument.");
+	}
 }
 
 void SetAddSel::namecheck(const std::map<std::string, Variable*>& name2decl) {
@@ -702,27 +719,30 @@ void Killer::print(std::ostream& os, std::size_t indent) const {
 	os << "kill(" << var() << ");";
 }
 
-#define printSet(x) os << "{{ " << x << " }}";
+#define printSet(x) os << "set" << x;
 
 void SetAddArg::print(std::ostream& os, std::size_t indent) const {
 	printID;
 	printSet(setid());
-	os << " += { __arg__ };";
+	os << ".add(__arg__);";
 }
 
 void SetAddSel::print(std::ostream& os, std::size_t indent) const {
 	printID;
 	printSet(setid());
-	os << " += {";
+	os << ".add(";
 	_sel->print(os);
-	os << "};";
+	os << ");";
 }
 
-void SetMinus::print(std::ostream& os, std::size_t indent) const {
+void SetCombine::print(std::ostream& os, std::size_t indent) const {
 	printID;
 	printSet(lhs());
-	os << " -= ";
-	printSet(rhs());
+	switch (_type) {
+		case Type::SETTO: os << " = "; printSet(rhs()); break;
+		case Type::UNION: os << ".add_all("; printSet(rhs()); os << ")"; break;
+		case Type::SUBTRACTION: os << ".remove_all("; printSet(rhs()); os << ")"; break;
+	}
 	os << ";";
 }
 
@@ -734,7 +754,7 @@ void SetClear::print(std::ostream& os, std::size_t indent) const {
 
 void FreeAll::print(std::ostream& os, std::size_t indent) const {
 	printID;
-	os << "free_all_nonnull(";
+	os << "free_all(";
 	printSet(setid());
 	std::cout << ");";
 }
@@ -745,10 +765,15 @@ std::ostream& tmr::operator<<(std::ostream& os, const Function& fun) {
 }
 
 void Function::print(std::ostream& os, std::size_t indent) const {
-	os << std::endl << std::endl;
+	os << std::endl;
 	INDENT(indent);
-	os << "function " << _name << "(" << arg_name() << ") ";
+	os << "function " << _name << "(";
+	if (_has_arg) {
+		os << "data_t " << arg_name();
+	}
+	os << ") ";
 	_stmts->print(os, indent);
+	os << std::endl;
 }
 
 std::ostream& tmr::operator<<(std::ostream& os, const Program& prog) {
@@ -756,21 +781,60 @@ std::ostream& tmr::operator<<(std::ostream& os, const Program& prog) {
 	return os;
 }
 
+inline void printFreeAllMacro(std::ostream& os) {
+	INDENT(1);
+	os << "macro free_all(Set<data_t> set) {" << std::endl;
+	INDENT(2);
+	os << "for (data_t x : set) {" << std::endl;
+	INDENT(3);
+	os << "if (x != NULL) {" << std::endl;
+	INDENT(4);
+	os << "free(x);" << std::endl;
+	INDENT(3);
+	os << "}" << std::endl;
+	INDENT(2);
+	os << "}" << std::endl;
+	INDENT(1);
+	os << "}" << std::endl;
+}
+
 void Program::print(std::ostream& os) const {
 	os << "PROGRAM " << _name << " BEGIN" << std::endl;
+	// global ptr variables
 	INDENT(1);
-	os << "GLOBALS: ";
+	os << "GLOBALS: " << std::endl;
+	INDENT(2);
+	os << "ptr_t ";
 	if (_globals.size() > 0) os << _globals.front()->name();
 	for (std::size_t i = 1; i < _globals.size(); i++) os << ", " << _globals.at(i)->name();
 	os << ";" << std::endl;
+	// global predefined variables
+	INDENT(2);
+	os << "time_t Epoch;" << std::endl;
+	// local ptr variables
+	std::cout << std::endl;
 	INDENT(1);
-	os << "LOCALS: ";
+	os << "LOCALS: " << std::endl;
+	INDENT(2);
+	os << "ptr_t ";
 	if (_locals.size() > 0) os << _locals.front()->name();
 	for (std::size_t i = 1; i < _locals.size(); i++) os << ", " << _locals.at(i)->name();
 	os << ";" << std::endl;
+	// local predefined variables
+	INDENT(2);
+	os << "Set<data_t> set0, set1, set2;" << std::endl;
+	// free_all macro
+	os << std::endl;
+	printFreeAllMacro(os);
+	// functions
+	os << std::endl << std::endl;
+	INDENT(1);
+	os << "/* initialization */" << std::endl;
 	_init_fun->print(os, 1);
 	_init_thread_fun->print(os, 1);
-	os << std::endl;
+	os << std::endl << std::endl;
+	INDENT(1);
+	os << "/* API */" << std::endl;
 	for (const auto& f : _funs) f->print(os, 1);
-	os << std::endl << "END" << std::endl;
+	os << "END" << std::endl;
 }

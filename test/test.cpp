@@ -18,13 +18,13 @@ static std::unique_ptr<Program> mk_program() {
 		// TODO: set rec0/rec1 data to NULL
 		Assign(Next("rec0"), Var("rec1")),
 		Loop(Sqz(
-			Assign(Var("top"), Var("HPrecs")),
-			Assign(Next("rec1"), Var("top")),
+			Assign(Var("cur"), Var("HPrecs")),
+			Assign(Next("rec1"), Var("cur")),
 			IfThen(
-				CasCond(CAS(Var("HPrecs"), Var("top"), Var("rec0"), use_age_fields)),
+				CasCond(CAS(Var("HPrecs"), Var("cur"), Var("rec0"), use_age_fields)),
 				Sqz(Brk())
 			),
-			Kill("top")
+			Kill("cur")
 		))
 	);
 
@@ -45,10 +45,42 @@ static std::unique_ptr<Program> mk_program() {
 	);
 
 	// retire
+	// {{ 0 }} = retired node list (rlist)
+	// {{ 1 }} = protected node list (plist)
+	// {{ 2 }} = to-delete node list (dlist)
 	auto retire = Sqz(
 		AddArg(0),
-		// TODO: if (*) scan();
-		Free(0)
+		/* if *:
+			List<ptr_t> plist;
+			Node* cur = HPRec;
+			while (cur != NULL) {
+				plist.add(cur->ptr)
+			}
+			List<ptr_t> dlist;
+			dlist = rlist - plist;
+			free(dlist);
+			rlist = rlist - dlist;
+			plist = empty
+			dlist = empty
+		 */
+		IfThen(
+			NDCond(),
+			Sqz(
+				Assign(Var("cur"), Var("HPrecs")),
+				Loop(Sqz(
+					IfThenElse(
+						EqCond(Var("cur"), Null()),
+						Sqz(Brk()),
+						Sqz(AddSel(1, Data("cur")))
+					)
+				)),
+				SetAssign(2, 0),
+				SetMinus(2, 1),
+				Free(2),
+				Clear(1),
+				Clear(2)
+			)
+		)
 	);
 
 
@@ -57,14 +89,14 @@ static std::unique_ptr<Program> mk_program() {
 	auto prog = Prog(
 		name,
 		{"HPrecs"},
-		{"rec0", "rec1", "top"},
+		{"rec0", "rec1", "cur"},
 		std::move(init),
 		std::move(initthread),
-		Fun("protect0", std::move(protect0)),
-		Fun("protect1", std::move(protect1)),
-		Fun("unprotect0", std::move(unprotect0)),
-		Fun("unprotect1", std::move(unprotect1)),
-		Fun("retire", std::move(retire))
+		Fun("protect0", std::move(protect0), true),
+		Fun("protect1", std::move(protect1), true),
+		Fun("unprotect0", std::move(unprotect0), false),
+		Fun("unprotect1", std::move(unprotect1), false),
+		Fun("retire", std::move(retire), true)
 	);
 
 	return prog;
