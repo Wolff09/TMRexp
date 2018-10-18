@@ -18,8 +18,9 @@ namespace tmr {
 		throw std::logic_error("Invalid function name lookup.");
 	}
 
-	inline std::unique_ptr<State> mk_state(std::string name, bool initial=false, bool final=false, bool marked=false) {
-		return std::make_unique<State>(name, initial, final, marked);
+	inline std::unique_ptr<State> mk_state(std::string name, bool initial=false, bool final=false, bool marked=false, std::size_t color=0) {
+		if (color == 0) return std::make_unique<State>(name, initial, final, marked);
+		else return std::make_unique<State>(name, initial, final, marked, color);
 	}
 
 	inline std::unique_ptr<State> mk_state_init(std::string name) {
@@ -34,13 +35,61 @@ namespace tmr {
 		return mk_state(name, false, false, true);
 	}
 
+	inline std::unique_ptr<State> mk_state_colored(std::string name) {
+		return mk_state(name, false, false, false, 1);
+	}
+
 	inline void mk_transition(State& src, const State& dst, Event trigger) {
 		src.add_transition(std::make_unique<Transition>(trigger, dst));
 	}
 
 
 	static std::unique_ptr<Observer> base_observer(const Program& prog) {
-		throw std::logic_error("not yet implemented (base_observer)");
+		// get functions to react on
+		const auto& f_retire = find(prog, "retire");
+		
+		// state names
+		std::string n_freed             = "base:freed";
+		std::string n_retired0          = "base:retired0";
+		std::string n_retired1          = "base:retired1";
+		std::string n_dupfree           = "base:double-free";
+		std::string n_dupretire         = "base:double-retire";
+
+		// state vector
+		std::vector<std::unique_ptr<State>> states;
+
+		// base observer states
+		states.push_back(mk_state_init(n_freed));
+		states.push_back(mk_state(n_retired0));
+		states.push_back(mk_state_colored(n_retired1));
+		states.push_back(mk_state_final(n_dupfree));
+		states.push_back(mk_state_marked(n_dupretire));
+
+		// get hold of the stats
+		State& freed             = *states[0];
+		State& retired0          = *states[1];
+		State& retired1          = *states[2];
+		State& dupfree           = *states[3];
+		State& dupretire         = *states[4];
+
+		// shortcuts
+		auto ADR = DataValue::DATA;
+
+		// observer transitions
+		mk_transition(freed, retired1, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(freed, retired0, Event::mk_enter(f_retire, false, ADR));
+		mk_transition(retired0, dupretire, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(retired0, dupretire, Event::mk_enter(f_retire, false, ADR));
+		mk_transition(retired1, dupretire, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(retired1, dupretire, Event::mk_enter(f_retire, false, ADR));
+		mk_transition(retired0, freed, Event::mk_free(true, ADR));
+		mk_transition(retired0, freed, Event::mk_free(false, ADR));
+		mk_transition(retired1, freed, Event::mk_free(true, ADR));
+		mk_transition(retired1, freed, Event::mk_free(false, ADR));
+		mk_transition(freed, dupfree, Event::mk_free(true, ADR));
+
+		// done
+		return std::make_unique<Observer>(std::move(states));
 	}
 
 
@@ -53,11 +102,6 @@ namespace tmr {
 		const auto& f_retire = find(prog, "retire");
 		
 		// state names
-		std::string n_freed             = "base:freed";
-		std::string n_retired0          = "base:retired0";
-		std::string n_retired1          = "base:retired1";
-		std::string n_dupfree           = "base:double-free";
-		std::string n_dupretire         = "base:double-retire";
 		std::string n_init0             = "hp0:init";
 		std::string n_entered0          = "hp0:entered";
 		std::string n_protected0        = "hp0:exited";
@@ -71,13 +115,6 @@ namespace tmr {
 
 		// state vector
 		std::vector<std::unique_ptr<State>> states;
-
-		// base observer states
-		states.push_back(mk_state_init(n_freed));
-		states.push_back(mk_state(n_retired0));
-		states.push_back(mk_state(n_retired1));
-		states.push_back(mk_state_final(n_dupfree));
-		states.push_back(mk_state_marked(n_dupretire));
 
 		// hp0 observer states
 		states.push_back(mk_state_init(n_init0));
@@ -94,38 +131,20 @@ namespace tmr {
 		states.push_back(mk_state_final(n_final1));
 
 		// get hold of the stats
-		State& freed             = *states[0];
-		State& retired0          = *states[1];
-		State& retired1          = *states[2];
-		State& dupfree           = *states[3];
-		State& dupretire         = *states[4];
-		State& init0             = *states[5];
-		State& entered0          = *states[6];
-		State& exited0           = *states[7];
-		State& protectedretired0 = *states[8];
-		State& final0            = *states[9];
-		State& init1             = *states[10];
-		State& entered1          = *states[11];
-		State& exited1           = *states[12];
-		State& protectedretired1 = *states[13];
-		State& final1            = *states[14];
+		State& init0             = *states[0];
+		State& entered0          = *states[1];
+		State& exited0           = *states[2];
+		State& protectedretired0 = *states[3];
+		State& final0            = *states[4];
+		State& init1             = *states[5];
+		State& entered1          = *states[6];
+		State& exited1           = *states[7];
+		State& protectedretired1 = *states[8];
+		State& final1            = *states[9];
 
 		// shortcuts
 		auto ADR = DataValue::DATA;
 		auto OTHER = DataValue::OTHER;
-
-		// base observer transitions
-		mk_transition(freed, retired1, Event::mk_enter(f_retire, true, ADR));
-		mk_transition(freed, retired0, Event::mk_enter(f_retire, false, ADR));
-		mk_transition(retired0, dupretire, Event::mk_enter(f_retire, true, ADR));
-		mk_transition(retired0, dupretire, Event::mk_enter(f_retire, false, ADR));
-		mk_transition(retired1, dupretire, Event::mk_enter(f_retire, true, ADR));
-		mk_transition(retired1, dupretire, Event::mk_enter(f_retire, false, ADR));
-		mk_transition(retired0, freed, Event::mk_free(true, ADR));
-		mk_transition(retired0, freed, Event::mk_free(false, ADR));
-		mk_transition(retired1, freed, Event::mk_free(true, ADR));
-		mk_transition(retired1, freed, Event::mk_free(false, ADR));
-		mk_transition(freed, dupfree, Event::mk_free(true, ADR));
 
 		// hp0 observer transitions
 		mk_transition(init0, entered0, Event::mk_enter(f_protect0, true, ADR));

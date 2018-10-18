@@ -54,19 +54,22 @@ namespace tmr {
 			bool _is_initial;
 			bool _is_final;
 			bool _is_marked;
+			bool _is_colored;
 			std::size_t _color;
 			std::vector<std::unique_ptr<Transition>> _out;
 
 		public:
-			State(std::string name, bool is_initial, bool is_final) : _name(name), _is_initial(is_initial), _is_final(is_final), _is_marked(false), _color(0) {}
-			State(std::string name, bool is_initial, bool is_final, bool is_marked) : _name(name), _is_initial(is_initial), _is_final(is_final), _is_marked(is_marked), _color(0) {}
+			State(std::string name, bool is_initial, bool is_final)
+			  : _name(name), _is_initial(is_initial), _is_final(is_final), _is_marked(false), _is_colored(false), _color(0) {}
+			State(std::string name, bool is_initial, bool is_final, bool is_marked)
+			  : _name(name), _is_initial(is_initial), _is_final(is_final), _is_marked(is_marked), _is_colored(false), _color(0) {}
 			State(std::string name, bool is_initial, bool is_final, bool is_marked, std::size_t color) 
-			  : _name(name), _is_initial(is_initial), _is_final(is_final), _is_marked(is_marked), _color(color) { assert(color != 0); }
+			  : _name(name), _is_initial(is_initial), _is_final(is_final), _is_marked(is_marked), _is_colored(true), _color(color) {}
 			std::string name() const { return _name; }
 			bool is_initial() const { return _is_initial; }
 			bool is_final() const { return _is_final; }
 			bool is_marked() const { return _is_marked; } // used to mark states which resemble a usage invariant violation
-			bool is_colored() const { return _color != 0; }
+			bool is_colored() const { return _is_colored; }
 			bool color() const { assert(is_colored()); return _color; } // used to prune false-positive interference; states with same color cannot occur in victim and interferer
 			void add_transition(std::unique_ptr<Transition> transition);
 			const State& next(Event evt) const;
