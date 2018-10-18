@@ -10,14 +10,14 @@ using namespace tmr;
 
 bool check_special_relations_constraints(const Shape& shape) {
 	auto null = shape.index_NULL();
-	auto reuse = shape.index_REUSE();
+	auto rec = shape.index_REC();
 	auto undef = shape.index_UNDEF();
 	// ensure that null and undef are unrelated
 	if (shape.at(null, undef).count() != 1 || !shape.at(null, undef).test(BT)) return false;
-	// ensure that null and reuse are unrelated
-	if (shape.at(null, reuse).count() != 1 || !shape.at(null, reuse).test(BT)) return false;
-	// ensure that undef and reuse are unrelated
-	if (shape.at(undef, reuse).count() != 1 || !shape.at(undef, reuse).test(BT)) return false;
+	// ensure that null and rec are unrelated
+	if (shape.at(null, rec).count() != 1 || !shape.at(null, rec).test(BT)) return false;
+	// ensure that undef and rec are unrelated
+	if (shape.at(undef, rec).count() != 1 || !shape.at(undef, rec).test(BT)) return false;
 	for (std::size_t i = shape.offset_vars(); i < shape.size(); i++) {
 		// cell term i may only relate with =, ↦, ⇢ or ⋈ to NULL
 		if (shape.at(i, null).test(MF)) return false;

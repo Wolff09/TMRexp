@@ -13,32 +13,29 @@ using namespace tmr;
 
 
 
-std::vector<Cfg> tmr::post(const Cfg& cfg, const ReadInputAssignment& stmt, unsigned short tid) {
+std::vector<Cfg> tmr::post(const Cfg& cfg, const WriteRecData& stmt, unsigned short tid) {
 	CHECK_STMT;
 
-	const Expr& le = stmt.expr();
-	const Shape& input = *cfg.shape;
-	std::size_t lhs = mk_var_index(input, stmt.expr(), tid);
-	DataValue new_data = cfg.arg[tid];
+	if (!cfg.offender[tid]) {
+		return mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
 
-	if (le.type() != DATA) {
-		throw std::logic_error("Unsupported ReadInputAssignment.");
 	}
 
-	// stmt: ptr->data = arg
-	std::vector<Cfg> result;
-	auto shapes = disambiguate(*cfg.shape, lhs);
-	result.reserve(shapes.size());
-
-	for (Shape* s : shapes) {
-		result.push_back(mk_next_config(cfg, s, tid));
-		Cfg& cf = result.back();
-		for (std::size_t i = 0; i < s->size(); i++) {
-			if (cf.shape->test(i, lhs, EQ)) {
-				cf.datasel.set(i, new_data);
-			}
-		}
+	auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
+	
+	DataValue data;
+	switch (stmt.type()) {
+		case WriteRecData::FROM_ARG: data = cfg.arg[tid]; break;
+		case WriteRecData::FROM_NULL: data = DataValue::OTHER; break; // TODO: also add DataValue::DATA
 	}
 	
+	if (cfg.offender[tid]) {
+		switch (stmt.index()) {
+			case 0: result.back().datasel0 = data; break;
+			case 1: result.back().datasel1 = data; break;
+			default: throw std::logic_error("Unsupported data selector.");
+		}
+	}
+
 	return result;
 }

@@ -11,8 +11,8 @@ using namespace tmr;
 
 /******************************** INITIAL CFG ********************************/
 
-Cfg mk_init_cfg(const Program& prog, const Observer& obs) {
-	std::size_t numThreads = 2;
+void add_init_cfg(const Program& prog, const Observer& obs, RemainingWork& work) {
+	std::size_t numThreads = 1;
 
 	// initial shape
 	Shape* initial_shape = new Shape(prog.numGlobals(), prog.numLocals(), numThreads);
@@ -32,10 +32,14 @@ Cfg mk_init_cfg(const Program& prog, const Observer& obs) {
 
 	// prepare to execute threadinit()
 	init.pc[0] = &prog.init_thread();
-	init.pc[1] = &prog.init_thread();
+	init.offender[0] = false;
+
+	Cfg copy = init.copy();
+	copy.offender[0] = true;
 
 	// done
-	return init;
+	work.add(std::move(init));
+	work.add(std::move(copy));
 }
 
 
@@ -62,10 +66,7 @@ std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& 
 	std::unique_ptr<Encoding> enc = std::make_unique<Encoding>();
 
 	RemainingWork work(*enc);
-
-	// add all seen possibilities -- this saves interference
-	Cfg init = mk_init_cfg(prog, obs);
-	work.add(std::move(init));
+	add_init_cfg(prog, obs, work);
 
 
 	while (!work.done()) {

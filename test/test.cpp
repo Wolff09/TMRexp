@@ -11,35 +11,35 @@ static std::unique_ptr<Program> mk_program() {
 
 	// init thread
 	auto initthread = Sqz(
-		Mllc("rec0"),
-		Mllc("rec1"),
-		// TODO: set rec0/rec1 data to NULL
-		Assign(Next("rec0"), Var("rec1")),
+		Mllc("cur"),
 		Loop(Sqz(
-			Assign(Var("cur"), Var("HPrecs")),
-			Assign(Next("rec1"), Var("cur")),
+			Assign(Var("tmp"), Var("HPrecs")),
+			Assign(Next("cur"), Var("tmp")),
 			IfThen(
-				CasCond(CAS(Var("HPrecs"), Var("cur"), Var("rec0"))),
+				CasCond(CAS(Var("HPrecs"), Var("tmp"), Var("cur"))),
 				Sqz(Brk())
 			),
-			Kill("cur")
-		))
+			Kill("tmp")
+		)),
+		InitRec("cur"),
+		WriteRecNull(0),
+		WriteRecNull(1)
 	);
 
 	// protect
 	auto protect0 = Sqz(
-		Read("rec0")
+		WriteRecArg(0)
 	);
 	auto protect1 = Sqz(
-		Read("rec1")
+		WriteRecArg(1)
 	);
 
 	// unprotect
 	auto unprotect0 = Sqz(
-		SetNull(Data("rec0"))
+		WriteRecNull(0)
 	);
 	auto unprotect1 = Sqz(
-		SetNull(Data("rec1"))
+		WriteRecNull(1)
 	);
 
 	// retire
@@ -71,7 +71,8 @@ static std::unique_ptr<Program> mk_program() {
 						EqCond(Var("cur"), Null()),
 						Sqz(Brk()),
 						Sqz(
-							AddSel(1, Data("cur")),
+							AddSel(1, Data("cur", 0)),
+							AddSel(1, Data("cur", 1)),
 							Assign(Var("tmp"), Next("cur")),
 							Assign(Var("cur"), Var("tmp")),
 							Kill("tmp")
@@ -79,9 +80,9 @@ static std::unique_ptr<Program> mk_program() {
 					)
 				)),
 				SetAssign(2, 0),
-				SetMinus(2, 1),
+				SetMinus(2, 1), // removing this must result in verification failure
 				Free(2),
-				SetMinus(0, 2),
+				SetMinus(0, 2), // removing this must result in verification failure
 				Clear(1),
 				Clear(2),
 				Kill("cur")
@@ -95,7 +96,7 @@ static std::unique_ptr<Program> mk_program() {
 	auto prog = Prog(
 		name,
 		{"HPrecs"},
-		{"rec0", "rec1", "cur", "tmp"},
+		{"cur", "tmp"},
 		std::move(init),
 		std::move(initthread),
 		Fun("protect0", std::move(protect0), true),

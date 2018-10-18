@@ -41,15 +41,14 @@ namespace tmr {
 			// convert cell term to index
 			/* Layout:
 			 *   0:           NULL
-			 *   1:           REUSE
+			 *   1:           REC
 			 *   2:           UNDEF
 			 *   3 - k:       observer variables
 			 *   k+1 - n:     global variables
 			 *   n+1 - ...:   local variables (grouped by thread)
 			 */
 			inline std::size_t index_NULL() const { return 0; }
-			// inline std::size_t index_FREE() const { return 1; }
-			inline std::size_t index_REUSE() const { return 1; } // TODO: delete
+			inline std::size_t index_REC() const { return 1; }
 			inline std::size_t index_UNDEF() const { return 2; }
 			std::size_t index_GlobalVar(const Variable& var) const {
 				assert(var.global());

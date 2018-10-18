@@ -30,8 +30,6 @@ namespace tmr {
 	class Atomic;
 	class Assignment;
 	class NullAssignment;
-	class InOutAssignment;
-	class ReadInputAssignment;
 	class Malloc;
 	class Conditional;
 	class Ite;
@@ -100,6 +98,7 @@ namespace tmr {
 		private:
 			std::unique_ptr<VarExpr> _var;
 			Type _selection;
+			std::size_t _index;
 
 		public:
 			Type type() const { return _selection; }
@@ -107,8 +106,10 @@ namespace tmr {
 			void print(std::ostream& os) const;
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 
-			Selector(std::unique_ptr<VarExpr> var, Type sel) : _var(std::move(var)), _selection(sel) {}
+			Selector(std::unique_ptr<VarExpr> var, Type sel) : _var(std::move(var)), _selection(sel), _index(0) {}
+			Selector(std::unique_ptr<VarExpr> var, Type sel, std::size_t index) : _var(std::move(var)), _selection(sel), _index(index) { assert(sel == DATA); assert(index < 2); }
 			const Variable& decl() const { return _var->decl(); }
+			std::size_t index() const { return _index; }
 	};
 
 
@@ -199,7 +200,7 @@ namespace tmr {
 			const Statement* _next = NULL;
 
 		public:
-			enum Class { SQZ, ASSIGN, MALLOC, ITE, WHILE, BREAK, INPUT, CAS, SETNULL, ATOMIC, KILL, SETADD_ARG, SETADD_SEL, SETCOMBINE, SETCLEAR, FREEALL };
+			enum Class { SQZ, ASSIGN, MALLOC, ITE, WHILE, BREAK, WRITEREC, CAS, SETNULL, ATOMIC, KILL, SETADD_ARG, SETADD_SEL, SETCOMBINE, SETCLEAR, FREEALL, INITREC };
 			virtual ~Statement() = default;
 			virtual Class clazz() const = 0;
 			unsigned short id() const { assert(_id != 0); return _id; }
@@ -284,24 +285,33 @@ namespace tmr {
 			const Expr& lhs() const { return *_lhs; }
 	};
 
-	class InOutAssignment : public Statement {
+	class WriteRecData : public Statement {
+		public:
+			enum Type { FROM_ARG, FROM_NULL };
+
 		private:
-			std::unique_ptr<Expr> _ptr;
+			std::size_t _sel_index;
+			Type _type;
 
 		public:
-			InOutAssignment(std::unique_ptr<Expr> expr) : _ptr(std::move(expr)) {}
-			virtual ~InOutAssignment() = default;
-			virtual Statement::Class clazz() const = 0;
+			WriteRecData(std::size_t index, Type type) : _sel_index(index), _type(type) { assert(_sel_index < 2); }
+			Statement::Class clazz() const { return Statement::Class::WRITEREC; }
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
-			virtual void print(std::ostream& os, std::size_t indent) const = 0;
-			const Expr& expr() const { assert(_ptr.get() != NULL); return *_ptr; }
+			void print(std::ostream& os, std::size_t indent) const;
+			std::size_t index() const { return _sel_index; }
+			Type type() const { return _type; }
 	};
 
-	class ReadInputAssignment : public InOutAssignment {
+	class InitRecPtr : public Statement {
+		private:
+			std::unique_ptr<VarExpr> _rhs;
+
 		public:
-			ReadInputAssignment(std::unique_ptr<Expr> dst) : InOutAssignment(std::move(dst)) {}
-			Statement::Class clazz() const { return Statement::INPUT; }
+			InitRecPtr(std::unique_ptr<VarExpr> rhs) : _rhs(std::move(rhs)) {}
+			Statement::Class clazz() const { return Statement::Class::INITREC; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
+			const VarExpr& rhs() const { return *_rhs; }
 	};
 
 	class Malloc : public Statement {
@@ -540,7 +550,7 @@ namespace tmr {
 
 	std::unique_ptr<VarExpr>  Var (std::string name);
 	std::unique_ptr<Selector> Next(std::string name);
-	std::unique_ptr<Selector> Data(std::string name);
+	std::unique_ptr<Selector> Data(std::string name, std::size_t index);
 	std::unique_ptr<NullExpr> Null();
 
 	std::unique_ptr<EqNeqCondition> EqCond(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs);
@@ -551,7 +561,9 @@ namespace tmr {
 
 	std::unique_ptr<Assignment> Assign (std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs);
 	std::unique_ptr<NullAssignment> SetNull (std::unique_ptr<Expr> lhs);
-	std::unique_ptr<ReadInputAssignment> Read(std::string var);
+	std::unique_ptr<WriteRecData> WriteRecArg(std::size_t index);
+	std::unique_ptr<WriteRecData> WriteRecNull(std::size_t index);
+	std::unique_ptr<InitRecPtr> InitRec(std::string name);
 
 	std::unique_ptr<Ite> IfThen(std::unique_ptr<Condition> cond, std::unique_ptr<Sequence> ifs);
 	std::unique_ptr<Ite> IfThenElse(std::unique_ptr<Condition> cond, std::unique_ptr<Sequence> ifs, std::unique_ptr<Sequence> elses);

@@ -50,6 +50,7 @@ inline void print_free_debug(const Cfg& cfg, const MultiState old_state, unsigne
 	std::cout << "Specification violation detected." << std::endl << std::endl;
 	std::cout << "Freeing thread: " << tid << std::endl;
 	std::cout << "Old state: " << old_state << std::endl;
+	std::cout << "New state: " << cfg.state << std::endl;
 	std::cout << "Cfg: " << cfg << *cfg.shape << std::endl;
 }
 

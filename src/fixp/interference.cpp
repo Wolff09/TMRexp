@@ -13,9 +13,14 @@ using namespace tmr;
 
 static inline bool is_noop(const Statement& pc) {
 	switch (pc.clazz()) {
-		case Statement::SQZ:       return true;
-		case Statement::WHILE:     return true;
-		case Statement::BREAK:     return true;
+		case Statement::SQZ:
+		case Statement::WHILE:
+		case Statement::BREAK:     
+		case Statement::MALLOC:
+		case Statement::SETADD_ARG:
+		case Statement::SETCOMBINE:
+		case Statement::SETCLEAR:
+			return true;
 		#if KILL_IS_NOOP
 			case Statement::KILL:  return true;
 		#endif
@@ -25,7 +30,7 @@ static inline bool is_noop(const Statement& pc) {
 
 static inline bool do_shapes_match(const Cfg& cfg, const Cfg& interferer) {
 	// check if the intersection of shared + thread0 cell terms is non-empty
-	std::size_t end = cfg.shape->offset_locals(1);
+	std::size_t end = cfg.shape->offset_locals(0);
 	for (std::size_t i = 0; i < end; i++) {
 		for (std::size_t j = i+1; j < end; j++) {
 			if (intersection(cfg.shape->at(i, j), interferer.shape->at(i, j)).none())
@@ -36,55 +41,31 @@ static inline bool do_shapes_match(const Cfg& cfg, const Cfg& interferer) {
 }
 
 static inline bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
-	// skipping statements that have no effect
+	// skipping statements that have no effect; retain enter events
 	if (cfg.pc[0] && is_noop(*cfg.pc[0])) return false;
-	if (cfg.pc[1] && is_noop(*cfg.pc[1])) return false;
 	if (interferer.pc[0] && is_noop(*interferer.pc[0])) return false;
-	if (interferer.pc[1] && is_noop(*interferer.pc[1])) return false;
+
+	// there is only one offending thread
+	if (cfg.offender[0] && interferer.offender[0]) {
+		return false;
+	}
 
 	// global info must coincide
 	if (!(cfg.state == interferer.state)) {
 		return false;
 	}
 
-	if (cfg.globalEpoch != interferer.globalEpoch) {
+	if (cfg.datasel0 != interferer.datasel0) {
 		return false;
 	}
 
-	// thread 0 must coincide
-	if (cfg.pc[0] != interferer.pc[0]) {
+	if (cfg.datasel1 != interferer.datasel1) {
 		return false;
 	}
 
-	if (cfg.arg[0] != interferer.arg[0]) {
-		return false;
-	}
-
-	if (cfg.dataset0[0] != interferer.dataset0[0]) {
-		return false;
-	}
-
-	if (cfg.dataset1[0] != interferer.dataset1[0]) {
-		return false;
-	}
-
-	if (cfg.dataset2[0] != interferer.dataset2[0]) {
-		return false;
-	}
-
-	for (std::size_t i = cfg.shape->offset_locals(0); i < cfg.shape->offset_locals(1); i++) {
-		if (cfg.datasel.at(i) != interferer.datasel.at(i)) {
-			return false;
-		}
-		if (cfg.epochsel.at(i) != interferer.epochsel.at(i)) {
-			return false;
-		}
-	}
-
-	// shared + thread 0 shape must match
+	// shared shape must match
 	if (!do_shapes_match(cfg, interferer))
 		return false;
-
 
 	return true;
 }
@@ -230,6 +211,11 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 //		}
 //	}
 
+	bool success = make_concretisation(*input->shape);
+	if (!success) {
+		input.reset(nullptr);
+	}
+
 	return input;
 }
 
@@ -241,7 +227,7 @@ std::unique_ptr<Cfg> extend_cfg(const Cfg& dst, const Cfg& interferer) {
 	shape->extend();
 
 	// 1.1 extend shape: correlate shared information (intersection between victim and interferer shape)
-	std::size_t end = dst.shape->offset_locals(1);
+	std::size_t end = dst.shape->offset_locals(0);
 	for (std::size_t i = 0; i < end; i++) {
 		for (std::size_t j = i+1; j < end; j++) {
 			shape->set(i, j, intersection(dst.shape->at(i, j), interferer.shape->at(i, j)));
@@ -250,25 +236,25 @@ std::unique_ptr<Cfg> extend_cfg(const Cfg& dst, const Cfg& interferer) {
 
 	// 1.2 extend shape: add locals of interfering thread
 	for (std::size_t i = 0; i < interferer.shape->sizeLocals(); i++) {
-		std::size_t src_col = interferer.shape->offset_locals(1) + i;
+		std::size_t src_col = interferer.shape->offset_locals(0) + i;
 		std::size_t dst_col = dst.shape->size() + i;
 		
 		// add extended.locals ~ extended.locals
 		for (std::size_t j = i; j < interferer.shape->sizeLocals(); j++) {
-			std::size_t src_row = interferer.shape->offset_locals(1) + j;
+			std::size_t src_row = interferer.shape->offset_locals(0) + j;
 			std::size_t dst_row = dst.shape->size() + j;
 			shape->set(dst_row, dst_col, interferer.shape->at(src_row, src_col));
 		}
 
 		// add specials/non-locals ~ extended.locals
-		for (std::size_t j = 0; j < shape->offset_locals(1); j++) {
+		for (std::size_t j = 0; j < shape->offset_locals(0); j++) {
 			std::size_t src_row = j;
 			std::size_t dst_row = j;
 			shape->set(dst_row, dst_col, interferer.shape->at(src_row, src_col));
 		}
 
 		// add interferer-tid.locals ~ extended-tid.locals
-		for (std::size_t j = dst.shape->offset_locals(1); j < dst.shape->size(); j++) {
+		for (std::size_t j = dst.shape->offset_locals(0); j < dst.shape->size(); j++) {
 			std::size_t dst_row = j;
 			shape->set(dst_row, dst_col, PRED);
 		}
@@ -282,88 +268,86 @@ std::unique_ptr<Cfg> extend_cfg(const Cfg& dst, const Cfg& interferer) {
 	Cfg& res = *result;
 
 	// 3. copy interferer thread info
-	res.pc[2] = interferer.pc[1];
-	res.arg[2] = interferer.arg[1];
-	res.dataset0[2] = interferer.dataset0[1];
-	res.dataset1[2] = interferer.dataset1[1];
-	res.dataset2[2] = interferer.dataset2[1];
-	res.datasel.set(2, interferer.datasel.at(1));
-	res.epochsel.set(2, interferer.epochsel.at(1));
+	res.pc[1] = interferer.pc[0];
+	res.arg[1] = interferer.arg[0];
+	res.offender[1] = interferer.offender[0];
+	res.dataset0[1] = interferer.dataset0[0];
+	res.dataset1[1] = interferer.dataset1[0];
+	res.dataset2[1] = interferer.dataset2[0];
 
 	// prune shape (1.3, 1.4)
 	return prune_local_relations(std::move(result));
 }
 
 
-// /******************************** PROJECTION ********************************/
-// 
-// static inline void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
-// 	// reset own, valid, smr states to default value
-// 	for (std::size_t i = cfg.shape->offset_locals(extended_thread_tid); i < cfg.shape->size(); i++) {
-// 		cfg.own.set(i, true);
-// 		cfg.valid_ptr.set(i, false);
-// 		cfg.valid_next.set(i, false);
-// 		cfg.guard0state.set(i, nullptr);
-// 		cfg.guard1state.set(i, nullptr);
-// 	}
-// 
-// 	// remove extended thread from cfg
-// 	cfg.shape->shrink();
-// 	cfg.pc[extended_thread_tid] = NULL;
-// 	cfg.inout[extended_thread_tid] = OValue();
-// 	cfg.oracle[extended_thread_tid] = false;
-// 	// seen does not need to be changed
-// }
+/******************************** PROJECTION ********************************/
+
+static inline void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
+	// remove extended thread from cfg
+	cfg.shape->shrink();
+	cfg.pc[extended_thread_tid] = NULL;
+	cfg.arg[extended_thread_tid] = DEFAULT_DATA_VALUE;
+	cfg.offender[extended_thread_tid] = false;
+	cfg.dataset0[extended_thread_tid] = DEFAULT_DATA_SET;
+	cfg.dataset1[extended_thread_tid] = DEFAULT_DATA_SET;
+	cfg.dataset2[extended_thread_tid] = DEFAULT_DATA_SET;
+}
 
 
 /******************************** INTERFERENCE ********************************/
 
-// template<typename T>
-// static inline bool lhs_is_local(const T& stmt) {
-// 	return stmt.lhs().clazz() == Expr::VAR && static_cast<const VarExpr&>(stmt.lhs()).decl().local();
-// }
+template<typename T>
+static inline bool lhs_is_local(const T& stmt) {
+	return stmt.lhs().clazz() == Expr::VAR && static_cast<const VarExpr&>(stmt.lhs()).decl().local();
+}
 
-// static inline bool can_skip_interference(const Cfg& victim, const Cfg& interferer) {
-// 	const auto& vpc = *victim.pc[0];
-// 	const auto& ipc = *interferer.pc[0];
+static inline bool can_skip_interference(const Cfg& victim, const Cfg& interferer) {
+	if (!victim.pc[0] || !interferer.pc[0]) {
+		return false;
+	}
 
-// 	// skip interferer if its action has a pure local effect
-// 	switch (ipc.clazz()) {
-// 		case Statement::ITE:
-// 			if (static_cast<const Ite&>(ipc).cond().type() != Condition::CASC) return true; // only local updates
-// 			break;
-// 		case Statement::INPUT:
-// 			if (interferer.inout[0].type() != OValue::OBSERVABLE) return true; // non-observable input
-// 			break;
-// 		case Statement::ASSIGN:
-// 			if (lhs_is_local(static_cast<const Assignment&>(ipc))) return true; // assignment to local variable
-// 			break;
-// 		case Statement::SETNULL:
-// 			if (lhs_is_local(static_cast<const NullAssignment&>(ipc))) return true; // assignment to local variable
-// 			break;
-// 		default:
-// 			break;
-// 	}
+	const auto& vpc = *victim.pc[0];
+	const auto& ipc = *interferer.pc[0];
 
-// 	// skip victim if its actions cannot be influenced
-// 	switch (vpc.clazz()) {
-// 		case Statement::INPUT:
-// 			if (victim.inout[0].type() != OValue::OBSERVABLE) return true; // non-observable input
-// 			break;
-// 		case Statement::SETNULL:
-// 			if (lhs_is_local(static_cast<const NullAssignment&>(vpc))) return true; // set local variable to null
-// 			break;
-// 		default:
-// 			break;
-// 	}
+	// skip interferer if its action has a pure local effect
+	switch (ipc.clazz()) {
+		case Statement::ITE:
+			if (static_cast<const Ite&>(ipc).cond().type() != Condition::CASC) return true; // only local updates
+			break;
+		case Statement::INITREC:
+		case Statement::WRITEREC:
+			if (!interferer.offender[0]) return true; // has no effect
+			break;
+		case Statement::ASSIGN:
+			if (lhs_is_local(static_cast<const Assignment&>(ipc))) return true; // assignment to local variable
+			break;
+		case Statement::SETNULL:
+			if (lhs_is_local(static_cast<const NullAssignment&>(ipc))) return true; // assignment to local variable
+			break;
+		default:
+			break;
+	}
 
-// 	return false;
-// }
+	// skip victim if its actions cannot be influenced
+	switch (vpc.clazz()) {
+		case Statement::INITREC:
+		case Statement::WRITEREC:
+			if (!victim.offender[0]) return true; // has no effect
+			break;
+		case Statement::SETNULL:
+			if (lhs_is_local(static_cast<const NullAssignment&>(vpc))) return true; // set local variable to null
+			break;
+		default:
+			break;
+	}
+
+	return false;
+}
 
 std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2, const Program& prog) {
 
-//	// more thorough, non-symmetric check than before
-//	if (can_skip_interference(c1, c2)) return {}; // TODO: include?
+	// more thorough, non-symmetric check than before
+	if (can_skip_interference(c1, c2)) return {}; // TODO: include?
 
 	// make combined cfg for c1 and c2
 	auto extended = extend_cfg(c1, c2);
@@ -373,17 +357,14 @@ std::vector<Cfg> mk_one_interference(const Cfg& c1, const Cfg& c2, const Program
 	INTERFERENCE_STEPS++;
 
 	// do a post step for the extended thread
-	std::vector<Cfg> postcfgs = tmr::mk_all_post(tmp, 2, prog);
-	throw std::logic_error(" --- marker --- ");
+	std::vector<Cfg> postcfgs = tmr::mk_all_post(tmp, 1, prog);
 	
-//	// the resulting cfgs need to be projected to 1 threads, then push them to result vector
-//	for (Cfg& pcfg : postcfgs) {
-//		project_away(pcfg, 1);
-//	}
-//
-//	return postcfgs;
+	// the resulting cfgs need to be projected to 1 threads, then push them to result vector
+	for (Cfg& pcfg : postcfgs) {
+		project_away(pcfg, 1);
+	}
 
-	throw std::logic_error("not yet implemented (mk_one_interference)");
+	return postcfgs;
 }
 
 
@@ -405,7 +386,7 @@ void mk_regional_interference(RemainingWork& work, Encoding::__sub__store__& reg
 	}
 }
 
-void tmr::mk_all_interference(Encoding& enc, RemainingWork& work, const Program& prog) {	
+void tmr::mk_all_interference(Encoding& enc, RemainingWork& work, const Program& prog) {
 	std::cerr << "interference...   [" << enc.bucket_count() << " buckets" << "][#bucketsize]";
 	std::size_t counter = 0;
 

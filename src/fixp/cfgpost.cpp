@@ -8,7 +8,7 @@ using namespace tmr;
 
 /******************************** FILTER HELPER ********************************/
 
-inline bool filter_pc(Cfg& cfg, const unsigned short& tid) {
+inline bool filter_pc(Cfg& cfg, const unsigned short tid) {
 	/* Some Statements do not modify the cfg => the post-image just copies the current cfg
 	 * Filter them out after the post image
 	 * 
@@ -30,12 +30,16 @@ inline bool filter_pc(Cfg& cfg, const unsigned short& tid) {
 	return false;
 }
 
+inline void prune_noops(Cfg& cfg, unsigned short tid) {
+	while (filter_pc(cfg, tid)) { /* empty */ }
+}
+
 
 /******************************** OVALUE HELPER ********************************/
 
 inline std::vector<DataValue> get_possible_data_args(const Cfg& cfg, const Function& fun) {
 	if (fun.has_arg()) return {{ DataValue::DATA, DataValue::OTHER }};
-	else return { DataValue::OTHER };
+	else return { DEFAULT_DATA_VALUE };
 }
 
 
@@ -46,71 +50,88 @@ inline void fire_event(Cfg& cfg, Event evt) {
 }
 
 inline void fire_enter_event(Cfg& cfg, const Function& callee, unsigned short tid, DataValue dval) {
-	auto event = Event::mk_enter(callee, tid, dval);
+	auto event = Event::mk_enter(callee, cfg.offender[tid], dval);
 	fire_event(cfg, event);
 }
 
 inline void fire_exit_event(Cfg& cfg, unsigned short tid) {
-	auto event = Event::mk_exit(tid);
+	auto event = Event::mk_exit(cfg.offender[tid]);
 	fire_event(cfg, event);
+}
+
+
+/******************************** ENTER/EXIT HELPER *********************************/
+
+inline void handle_exit(Cfg& cfg, unsigned short tid) {
+	if (cfg.pc[tid] == NULL) {
+		// currently called function exited
+		fire_exit_event(cfg, tid);
+		cfg.arg[tid] = DEFAULT_DATA_VALUE;
+	}
+}
+
+inline void handle_enter(Cfg& cfg, const Function& callee, DataValue arg, unsigned short tid) {
+	cfg.pc[tid] = &callee.body();
+	cfg.arg[tid] = arg;
+	fire_enter_event(cfg, callee, tid, arg);
+	prune_noops(cfg, tid);
+}
+
+inline bool drop_enter_cfg(const Cfg& cfg, unsigned short tid) {
+	//	if (cf.state.states().at(0)->name() == "base:double-retire") {
+	//		return true
+	//	}
+	return false;
 }
 
 
 /******************************** POST FOR ONE THREAD ********************************/
 
-inline void debug_post(const Cfg& cfg) {
+inline void debug_post_input(const Cfg& cfg) {
 	// std::cout << std::endl << std::endl << "==============================================================" << std::endl << "posting: " << cfg;
 	// // std::cout << *cfg.shape;
 	// std::cout << std::endl;
 }
 
-inline void debug_add(const Cfg& cfg) {
+inline void debug_post_output(const Cfg& cfg) {
 	// std::cout << "adding: " << cfg << std::endl;
 	// // std::cout << *cfg.shape << std::endl;
 }
 
 void mk_tid_post(std::vector<Cfg>& result, const Cfg& input, unsigned short tid, const Program& prog) {
-	// DEBUG BEGIN
-	if (tid == 0 && (!input.pc[0] || input.pc[0]->id() >= 18) && input.pc[1] && input.pc[1]->id() < 18) return;
-	if (tid == 1 && input.pc[0] && input.pc[0]->id() < 18) return;
-	// if (tid == 0 && input.pc[0] && input.pc[0]->id() >= 20) return;
-	// if (tid == 1 && input.pc[0] && input.pc[0]->id() < 18) return;
-	// DEBUG END
-
-	debug_post(input);
+	debug_post_input(input);
 
 	if (input.pc[tid] != NULL) {
+		// make post image
 		std::vector<Cfg> postcfgs = tmr::post(input, tid);
-		result.reserve(result.size() + postcfgs.size());
+
+		// post process post images
 		for (Cfg& pcf : postcfgs) {
-			// if the pcf.pc[tid] is at an statement that is a noop (post image just copies the cfg), filter it out
-			// to do so we advance the pc to next non-noop statement
-			// this must be done before handling returning fuctions as the pc might be set to NULL
-			while (filter_pc(pcf, tid)) { /* empty */ }
-			if (pcf.pc[tid] == NULL) {
-				// currently called function returned
-				fire_exit_event(pcf, tid); // TODO: correct?
-				pcf.arg[tid] = DataValue::OTHER;
-			}
-			result.push_back(std::move(pcf));
-			debug_add(result.back());
+			prune_noops(pcf, tid);
+			handle_exit(pcf, tid);
+
+			debug_post_output(pcf);
 		}
+
+		// add to result
+		result.reserve(result.size() + postcfgs.size());
+		result.insert(result.end(), std::make_move_iterator(postcfgs.begin()), std::make_move_iterator(postcfgs.end()));
+		// std::move(postcfgs.begin(), postcfgs.end(), std::back_inserter(result));
+
 	} else {
 		// invoke function
+		result.reserve(result.size() + 2*prog.size());
 		for (std::size_t i = 0; i < prog.size(); i++) {
 			const Function& fun = prog.at(i);
 			auto dvals = get_possible_data_args(input, fun);
 			for (DataValue arg : dvals) {
 				result.push_back(input.copy());
-				Cfg& cf = result.back();
-				cf.pc[tid] = &fun.body();
-				cf.arg[tid] = arg;
-				fire_enter_event(cf, fun, tid, arg); // TODO: correct?
-				while (filter_pc(cf, tid)) { /* empty */ }
-				if (cf.state.states().at(0)->name() == "base:double-retire") {
+				handle_enter(result.back(), fun, arg, tid);
+				if (drop_enter_cfg(result.back(), tid)) {
 					result.pop_back();
 				}
-				debug_add(cf);
+
+				debug_post_output(result.back());
 			}
 		}
 	}
@@ -119,15 +140,12 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& input, unsigned short tid,
 
 /******************************** POST FOR ALL THREADS ********************************/
 
-std::vector<Cfg> tmr::mk_all_post(const Cfg& cfg, const Program& prog) {
-	std::vector<Cfg> result;
-	mk_tid_post(result, cfg, 0, prog);
-	mk_tid_post(result, cfg, 1, prog);
-	return result;
-}
-
 std::vector<Cfg> tmr::mk_all_post(const Cfg& cfg, unsigned short tid, const Program& prog) {
 	std::vector<Cfg> result;
 	mk_tid_post(result, cfg, tid, prog);
 	return result;
+}
+
+std::vector<Cfg> tmr::mk_all_post(const Cfg& cfg, const Program& prog) {
+	return mk_all_post(cfg, 0, prog);
 }

@@ -30,7 +30,7 @@ namespace tmr {
 	static const constexpr RelSet EQ_MT_GT_BT    = RelSet(43); // contains: =, ↦, ⇢, ⋈
 	static const constexpr RelSet EQ_MT_MF_GT_GF = RelSet(31); // contains: =, ↦, ↤, ⇢, ⇠
 	static const constexpr RelSet EQ_GT_MF_GF_BT = RelSet(61); // contains: =, ↤, ⇢, ⇠, ⋈
-	static const constexpr RelSet MT_GT_MF_GF_BT = RelSet(62); // contains: =, ↤, ⇢, ⇠, ⋈
+	static const constexpr RelSet MT_GT_MF_GF_BT = RelSet(62); // contains: ↤, ⇢, ⇠, ⋈
 	static const constexpr RelSet PRED           = RelSet(63); // contains: =, ↦, ↤, ⇢, ⇠, ⋈
 
 	static std::size_t mk_var_index(const Shape& shape, const Variable& var, const unsigned short tid) {

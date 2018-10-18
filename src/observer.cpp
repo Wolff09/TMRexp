@@ -22,15 +22,15 @@ std::ostream& tmr::operator<<(std::ostream& os, const DataValue& val) {
 /************************ VALUES ************************/
 
 bool Event::operator==(const Event& other) const {
-	return type == other.type && func == other.func && tid == other.tid && dval == other.dval;
+	return type == other.type && func == other.func && from_offender == other.from_offender && dval == other.dval;
 }
 
-Event Event::mk_enter(const Function& func, unsigned short tid, DataValue dval) {
-	return Event(ENTER, &func, tid, dval);
+Event Event::mk_enter(const Function& func, bool from_offender, DataValue dval) {
+	return Event(ENTER, &func, from_offender, dval);
 }
 
-Event Event::mk_exit(unsigned short tid) {
-	return Event(EXIT, nullptr, tid, DataValue::DATA);
+Event Event::mk_exit(bool from_offender) {
+	return Event(EXIT, nullptr, from_offender, DataValue::DATA);
 }
 
 Event Event::mk_free(DataValue dval) {

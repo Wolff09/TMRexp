@@ -20,7 +20,8 @@ static std::vector<Cfg> get_post_cfgs(const Cfg& cfg, unsigned short tid) {
 		case Statement::CAS:        return tmr::post(cfg, static_cast<const        CompareAndSwap&>(stmt), tid);
 		case Statement::ASSIGN:     return tmr::post(cfg, static_cast<const            Assignment&>(stmt), tid);
 		case Statement::SETNULL:    return tmr::post(cfg, static_cast<const        NullAssignment&>(stmt), tid);
-		case Statement::INPUT:      return tmr::post(cfg, static_cast<const   ReadInputAssignment&>(stmt), tid);
+		case Statement::WRITEREC:   return tmr::post(cfg, static_cast<const          WriteRecData&>(stmt), tid);
+		case Statement::INITREC:    return tmr::post(cfg, static_cast<const            InitRecPtr&>(stmt), tid);
 		case Statement::MALLOC:     return tmr::post(cfg, static_cast<const                Malloc&>(stmt), tid);
 		case Statement::BREAK:      return tmr::post(cfg, static_cast<const                 Break&>(stmt), tid);
 		case Statement::ITE:        return tmr::post(cfg, static_cast<const                   Ite&>(stmt), tid);

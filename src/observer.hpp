@@ -23,16 +23,16 @@ namespace tmr {
 			enum Type { ENTER, EXIT, FREE};
 			const Type type;
 			const Function* func;
-			const unsigned short tid;
+			const bool from_offender;
 			const DataValue dval;
 			bool operator==(const Event& other) const;
-			static Event mk_enter(const Function& func, unsigned short tid, DataValue dval);
-			static Event mk_exit(unsigned short tid);
+			static Event mk_enter(const Function& func, bool from_offender, DataValue dval);
+			static Event mk_exit(bool from_offender);
 			static Event mk_free(DataValue dval);
 			Event(Event& evt) = default;
 			Event(const Event& evt) = default;
 		private:
-			Event(Type t, const Function* f, unsigned short i, DataValue d) : type(t), func(f), tid(i), dval(d) {}
+			Event(Type t, const Function* f, bool o, DataValue d) : type(t), func(f), from_offender(o), dval(d) {}
 	};
 
 	class State;

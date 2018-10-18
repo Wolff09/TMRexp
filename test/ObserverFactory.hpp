@@ -76,29 +76,26 @@ namespace tmr {
 		auto OTHER = DataValue::OTHER;
 
 		// base observer transitions
-		mk_transition(freed, retired, Event::mk_enter(f_retire, 0, ADR));
-		mk_transition(freed, retired, Event::mk_enter(f_retire, 1, ADR));
-		mk_transition(freed, retired, Event::mk_enter(f_retire, 2, ADR));
-		mk_transition(retired, dupretire, Event::mk_enter(f_retire, 0, ADR));
-		mk_transition(retired, dupretire, Event::mk_enter(f_retire, 1, ADR));
-		mk_transition(retired, dupretire, Event::mk_enter(f_retire, 2, ADR));
+		mk_transition(freed, retired, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(freed, retired, Event::mk_enter(f_retire, false, ADR));
+		mk_transition(retired, dupretire, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(retired, dupretire, Event::mk_enter(f_retire, false, ADR));
 		mk_transition(retired, freed, Event::mk_free(ADR));
 		mk_transition(freed, dupfree, Event::mk_free(ADR));
 
 		// hp0 observer transitions
-		mk_transition(init, leavingQ, Event::mk_enter(f_leaveQ, 0, ADR));
-		mk_transition(init, leavingQ, Event::mk_enter(f_leaveQ, 0, OTHER));
-		mk_transition(leavingQ, leftQ, Event::mk_exit(0));
-		mk_transition(leftQ, leftretired, Event::mk_enter(f_retire, 0, ADR));
-		mk_transition(leftQ, leftretired, Event::mk_enter(f_retire, 1, ADR));
-		mk_transition(leftQ, leftretired, Event::mk_enter(f_retire, 2, ADR));
+		mk_transition(init, leavingQ, Event::mk_enter(f_leaveQ, true, ADR));
+		mk_transition(init, leavingQ, Event::mk_enter(f_leaveQ, true, OTHER));
+		mk_transition(leavingQ, leftQ, Event::mk_exit(true));
+		mk_transition(leftQ, leftretired, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(leftQ, leftretired, Event::mk_enter(f_retire, false, ADR));
 		mk_transition(leftretired, final, Event::mk_free(ADR));
-		mk_transition(leavingQ, init, Event::mk_enter(f_enterQ, 0, ADR));
-		mk_transition(leavingQ, init, Event::mk_enter(f_enterQ, 0, OTHER));
-		mk_transition(leftQ, init, Event::mk_enter(f_enterQ, 0, ADR));
-		mk_transition(leftQ, init, Event::mk_enter(f_enterQ, 0, OTHER));
-		mk_transition(leftretired, init, Event::mk_enter(f_enterQ, 0, ADR));
-		mk_transition(leftretired, init, Event::mk_enter(f_enterQ, 0, OTHER));
+		mk_transition(leavingQ, init, Event::mk_enter(f_enterQ, true, ADR));
+		mk_transition(leavingQ, init, Event::mk_enter(f_enterQ, true, OTHER));
+		mk_transition(leftQ, init, Event::mk_enter(f_enterQ, true, ADR));
+		mk_transition(leftQ, init, Event::mk_enter(f_enterQ, true, OTHER));
+		mk_transition(leftretired, init, Event::mk_enter(f_enterQ, true, ADR));
+		mk_transition(leftretired, init, Event::mk_enter(f_enterQ, true, OTHER));
 
 		// done
 		return std::make_unique<Observer>(std::move(states));
@@ -173,48 +170,44 @@ namespace tmr {
 		auto OTHER = DataValue::OTHER;
 
 		// base observer transitions
-		mk_transition(freed, retired, Event::mk_enter(f_retire, 0, ADR));
-		mk_transition(freed, retired, Event::mk_enter(f_retire, 1, ADR));
-		mk_transition(freed, retired, Event::mk_enter(f_retire, 2, ADR));
-		mk_transition(retired, dupretire, Event::mk_enter(f_retire, 0, ADR));
-		mk_transition(retired, dupretire, Event::mk_enter(f_retire, 1, ADR));
-		mk_transition(retired, dupretire, Event::mk_enter(f_retire, 2, ADR));
+		mk_transition(freed, retired, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(freed, retired, Event::mk_enter(f_retire, false, ADR));
+		mk_transition(retired, dupretire, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(retired, dupretire, Event::mk_enter(f_retire, false, ADR));
 		mk_transition(retired, freed, Event::mk_free(ADR));
 		mk_transition(freed, dupfree, Event::mk_free(ADR));
 
 		// hp0 observer transitions
-		mk_transition(init0, entered0, Event::mk_enter(f_protect0, 0, ADR));
-		mk_transition(entered0, exited0, Event::mk_exit(0));
-		mk_transition(exited0, protectedretired0, Event::mk_enter(f_retire, 0, ADR));
-		mk_transition(exited0, protectedretired0, Event::mk_enter(f_retire, 1, ADR));
-		mk_transition(exited0, protectedretired0, Event::mk_enter(f_retire, 2, ADR));
+		mk_transition(init0, entered0, Event::mk_enter(f_protect0, true, ADR));
+		mk_transition(entered0, exited0, Event::mk_exit(true));
+		mk_transition(exited0, protectedretired0, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(exited0, protectedretired0, Event::mk_enter(f_retire, false, ADR));
 		mk_transition(protectedretired0, final0, Event::mk_free(ADR));
-		mk_transition(entered0, init0, Event::mk_enter(f_protect0, 0, OTHER));
-		mk_transition(entered0, init0, Event::mk_enter(f_unprotect0, 0, ADR));
-		mk_transition(entered0, init0, Event::mk_enter(f_unprotect0, 0, OTHER));
-		mk_transition(exited0, init0, Event::mk_enter(f_protect0, 0, OTHER));
-		mk_transition(exited0, init0, Event::mk_enter(f_unprotect0, 0, ADR));
-		mk_transition(exited0, init0, Event::mk_enter(f_unprotect0, 0, OTHER));
-		mk_transition(protectedretired0, init0, Event::mk_enter(f_protect0, 0, OTHER));
-		mk_transition(protectedretired0, init0, Event::mk_enter(f_unprotect0, 0, ADR));
-		mk_transition(protectedretired0, init0, Event::mk_enter(f_unprotect0, 0, OTHER));
+		mk_transition(entered0, init0, Event::mk_enter(f_protect0, true, OTHER));
+		mk_transition(entered0, init0, Event::mk_enter(f_unprotect0, true, ADR));
+		mk_transition(entered0, init0, Event::mk_enter(f_unprotect0, true, OTHER));
+		mk_transition(exited0, init0, Event::mk_enter(f_protect0, true, OTHER));
+		mk_transition(exited0, init0, Event::mk_enter(f_unprotect0, true, ADR));
+		mk_transition(exited0, init0, Event::mk_enter(f_unprotect0, true, OTHER));
+		mk_transition(protectedretired0, init0, Event::mk_enter(f_protect0, true, OTHER));
+		mk_transition(protectedretired0, init0, Event::mk_enter(f_unprotect0, true, ADR));
+		mk_transition(protectedretired0, init0, Event::mk_enter(f_unprotect0, true, OTHER));
 
 		// hp1 observer transitions
-		mk_transition(init1, entered1, Event::mk_enter(f_protect1, 0, ADR));
-		mk_transition(entered1, exited1, Event::mk_exit(0));
-		mk_transition(exited1, protectedretired1, Event::mk_enter(f_retire, 0, ADR));
-		mk_transition(exited1, protectedretired1, Event::mk_enter(f_retire, 1, ADR));
-		mk_transition(exited1, protectedretired1, Event::mk_enter(f_retire, 2, ADR));
+		mk_transition(init1, entered1, Event::mk_enter(f_protect1, true, ADR));
+		mk_transition(entered1, exited1, Event::mk_exit(true));
+		mk_transition(exited1, protectedretired1, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(exited1, protectedretired1, Event::mk_enter(f_retire, false, ADR));
 		mk_transition(protectedretired1, final1, Event::mk_free(ADR));
-		mk_transition(entered1, init1, Event::mk_enter(f_protect1, 0, OTHER));
-		mk_transition(entered1, init1, Event::mk_enter(f_unprotect1, 0, ADR));
-		mk_transition(entered1, init1, Event::mk_enter(f_unprotect1, 0, OTHER));
-		mk_transition(exited1, init1, Event::mk_enter(f_protect1, 0, OTHER));
-		mk_transition(exited1, init1, Event::mk_enter(f_unprotect1, 0, ADR));
-		mk_transition(exited1, init1, Event::mk_enter(f_unprotect1, 0, OTHER));
-		mk_transition(protectedretired1, init1, Event::mk_enter(f_protect1, 0, OTHER));
-		mk_transition(protectedretired1, init1, Event::mk_enter(f_unprotect1, 0, ADR));
-		mk_transition(protectedretired1, init1, Event::mk_enter(f_unprotect1, 0, OTHER));
+		mk_transition(entered1, init1, Event::mk_enter(f_protect1, true, OTHER));
+		mk_transition(entered1, init1, Event::mk_enter(f_unprotect1, true, ADR));
+		mk_transition(entered1, init1, Event::mk_enter(f_unprotect1, true, OTHER));
+		mk_transition(exited1, init1, Event::mk_enter(f_protect1, true, OTHER));
+		mk_transition(exited1, init1, Event::mk_enter(f_unprotect1, true, ADR));
+		mk_transition(exited1, init1, Event::mk_enter(f_unprotect1, true, OTHER));
+		mk_transition(protectedretired1, init1, Event::mk_enter(f_protect1, true, OTHER));
+		mk_transition(protectedretired1, init1, Event::mk_enter(f_unprotect1, true, ADR));
+		mk_transition(protectedretired1, init1, Event::mk_enter(f_unprotect1, true, OTHER));
 
 		// done
 		return std::make_unique<Observer>(std::move(states));

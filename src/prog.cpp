@@ -53,6 +53,8 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
 	}
 
 	if (name2decl.count("__arg__") > 0) throw std::logic_error("Variable name '__arg__' is reserved.");
+	if (name2decl.count("__rec__") > 0) throw std::logic_error("Variable name '__rec__' is reserved.");
+	if (name2decl.count("NULL") > 0) throw std::logic_error("Variable name 'NULL' is reserved.");
 
 	// init must only access global variables
 	_init_fun->namecheck(name2decl);
@@ -131,8 +133,8 @@ std::unique_ptr<Selector> tmr::Next(std::string name) {
 	return res;
 }
 
-std::unique_ptr<Selector> tmr::Data(std::string name) {
-	std::unique_ptr<Selector> res(new Selector(Var(name), DATA));
+std::unique_ptr<Selector> tmr::Data(std::string name, std::size_t index) {
+	std::unique_ptr<Selector> res(new Selector(Var(name), DATA, index));
 	return res;
 }
 
@@ -181,11 +183,20 @@ std::unique_ptr<NullAssignment> tmr::SetNull (std::unique_ptr<Expr> lhs) {
 	return res;
 }
 
-std::unique_ptr<ReadInputAssignment> tmr::Read(std::string var) {
-	std::unique_ptr<ReadInputAssignment> res(new ReadInputAssignment(Data(var)));
+std::unique_ptr<WriteRecData> tmr::WriteRecArg(std::size_t index) {
+	std::unique_ptr<WriteRecData> res(new WriteRecData(index, WriteRecData::FROM_ARG));
 	return res;
 }
 
+std::unique_ptr<WriteRecData> tmr::WriteRecNull(std::size_t index) {
+	std::unique_ptr<WriteRecData> res(new WriteRecData(index, WriteRecData::FROM_NULL));
+	return res;
+}
+
+std::unique_ptr<InitRecPtr> tmr::InitRec(std::string name) {
+	std::unique_ptr<InitRecPtr> res(new InitRecPtr(Var(name)));
+	return res;
+}
 
 std::unique_ptr<Ite> tmr::IfThen(std::unique_ptr<Condition> cond, std::unique_ptr<Sequence> ifs) {
 	std::unique_ptr<Ite> res(new Ite(std::move(cond), std::move(ifs), Sqz()));
@@ -372,14 +383,13 @@ void NullAssignment::namecheck(const std::map<std::string, Variable*>& name2decl
 	assert(_lhs->clazz() != Expr::VAR || _lhs->type() == POINTER);
 }
 
-void InOutAssignment::namecheck(const std::map<std::string, Variable*>& name2decl) {
-	_ptr->namecheck(name2decl);
-	assert(_ptr->type() == DATA);
-	if (expr().clazz() != Expr::SEL) {
-		throw std::logic_error("Arguments must be read/written to data selectors.");
-	}
-	if (!function().has_arg()) {
-		throw std::logic_error("Function argument used in function without argument.");
+void WriteRecData::namecheck(const std::map<std::string, Variable*>& name2decl) {
+}
+
+void InitRecPtr::namecheck(const std::map<std::string, Variable*>& name2decl) {
+	_rhs->namecheck(name2decl);
+	if (rhs().type() != POINTER) {
+		throw std::logic_error("__rec__ must be initialized from pointer variables");
 	}
 }
 
@@ -576,7 +586,12 @@ void VarExpr::print(std::ostream& os) const {
 }
 
 void Selector::print(std::ostream& os) const {
-	os << _var->name() << (_selection == POINTER ? "->next" : "->data");
+	os << _var->name();
+	if  (_selection == POINTER) {
+		os << "->next";
+	} else {
+		os << "->data" << _index;
+	}
 }
 
 std::ostream& tmr::operator<<(std::ostream& os, const Condition& stmt) {
@@ -649,9 +664,18 @@ void NullAssignment::print(std::ostream& os, std::size_t indent) const {
 	os << lhs() << " = NULL;";
 }
 
-void ReadInputAssignment::print(std::ostream& os, std::size_t indent) const {
+void WriteRecData::print(std::ostream& os, std::size_t indent) const {
 	printID;
-	os << expr() << " = " << "__arg__" << ";";
+	os << "__rec__->data" << _sel_index << " = ";
+	switch (_type) {
+		case FROM_ARG: os << "__arg__" << ";"; break;
+		case FROM_NULL: os << "NULL" << ";"; break;
+	}
+}
+
+void InitRecPtr::print(std::ostream& os, std::size_t indent) const {
+	printID;
+	os << "__rec__ = " << rhs() << ":";
 }
 
 
@@ -783,9 +807,6 @@ void Program::print(std::ostream& os) const {
 	if (_globals.size() > 0) os << _globals.front()->name();
 	for (std::size_t i = 1; i < _globals.size(); i++) os << ", " << _globals.at(i)->name();
 	os << ";" << std::endl;
-	// global predefined variables
-	INDENT(2);
-	os << "time_t Epoch;" << std::endl;
 	// local ptr variables
 	std::cout << std::endl;
 	INDENT(1);
@@ -796,6 +817,8 @@ void Program::print(std::ostream& os) const {
 	for (std::size_t i = 1; i < _locals.size(); i++) os << ", " << _locals.at(i)->name();
 	os << ";" << std::endl;
 	// local predefined variables
+	INDENT(2);
+	os << "ptr_t __rec__;" << std::endl;
 	INDENT(2);
 	os << "Set<data_t> set0, set1, set2;" << std::endl;
 	// free_all macro

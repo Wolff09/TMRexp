@@ -64,127 +64,17 @@ std::vector<Cfg> tmr::post_assignment_pointer(const Cfg& cfg, const Expr& lhs, c
 
 std::vector<Cfg> tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	Shape* shape = post_assignment_pointer_shape_var_var(*cfg.shape, lhs, rhs, stmt);
-	auto result = mk_next_config_vec(cfg, shape, tid);
-	Cfg& cf = result.back();
-	cf.datasel.set(lhs, cf.datasel.at(rhs));
-	cf.epochsel.set(lhs, cf.epochsel.at(rhs));
-	return result;
+	return mk_next_config_vec(cfg, shape, tid);
 }
 
 std::vector<Cfg> tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
-	// auto preshapes = disambiguate(*cfg.shape, rhs);
-	// std::vector<Cfg> result;
-	// result.reserve(32);
-	// for (Shape* pre : preshapes) {
-	// 	if (!make_concretisation(*pre)) {
-	// 		delete pre;
-	// 		continue;
-	// 	}
-
-	// 	Shape* postshape = post_assignment_pointer_shape_var_next(*pre, lhs, rhs, stmt);
-	// 	auto shapes = disambiguate(*postshape, lhs);
-	// 	delete postshape;
-
-	// 	for (Shape* s : shapes) {
-	// 		bool lhs_has_equal = false;
-	// 		std::size_t some_equal = 0;
-	// 		bool has_data = false;
-	// 		bool has_other = false;
-
-	// 		for (std::size_t i = 0; i < s->size(); i++) {
-	// 			if (i == lhs) continue;
-	// 			if (s->test(i, lhs, EQ)) {
-	// 				lhs_has_equal = true;
-	// 				some_equal = i;
-	// 				switch (cfg.datasel.at(i)) {
-	// 					case DataValue::DATA: has_data = true; break;
-	// 					case DataValue::OTHER: has_other = true; break;
-	// 				}
-	// 			}
-	// 		}
-
-	// 		if (has_other && has_data) {
-	// 			throw std::logic_error("inconsistent");
-	// 			// TODO: do the same for time
-	// 		}
-
-	// 		result.push_back(mk_next_config(cfg, new Shape(*s), tid));
-	// 		result.back().datasel.set(lhs, result.back().datasel.at(some_equal));
-	// 		result.back().epochsel.set(lhs, result.back().epochsel.at(some_equal));
-
-	// 		if (!lhs_has_equal) {
-	// 			// for (DataValue dval : { /* DataValue::DATA , // TODO: reenable*/ DataValue::OTHER }) {
-	// 			for (DataValue dval : { DataValue::DATA, DataValue::OTHER }) {
-	// 				for (EpochValue tval : { EpochValue::ZERO, EpochValue::ONE, EpochValue::TWO }) {
-	// 					result.push_back(mk_next_config(cfg, new Shape(*s), tid));
-	// 					result.back().datasel.set(lhs, dval);
-	// 					result.back().epochsel.set(lhs, tval);
-	// 				}
-	// 			}
-	// 		}
-
-	// 		delete s;
-	// 	}
-	// }
-
-	// return result;
-
-	Shape* postshape = post_assignment_pointer_shape_var_next(*cfg.shape, lhs, rhs, stmt);
-	auto shapes = disambiguate(*postshape, lhs);
-	delete postshape;
-
-	std::vector<Cfg> result;
-	result.reserve(2*shapes.size());
-
-	for (Shape* s : shapes) {
-		bool lhs_has_equal = false;
-		std::size_t equal_index = 0;
-		bool has_data = false;
-		bool has_other = false;
-
-		for (std::size_t i = 0; i < s->size(); i++) {
-			if (i == lhs) continue;
-			if (s->test(i, lhs, EQ)) {
-				lhs_has_equal = true;
-				equal_index = i;
-				switch (cfg.datasel.at(i)) {
-					case DataValue::DATA: has_data = true; break;
-					case DataValue::OTHER: has_other = true; break;
-				}
-			}
-		}
-
-		if (lhs_has_equal) {
-			if (has_data && has_other) {
-				throw std::logic_error("Inconsistent selectors detected.");
-			}
-
-			result.push_back(mk_next_config(cfg, new Shape(*s), tid));
-			result.back().datasel.set(lhs, result.back().datasel.at(equal_index));
-			result.back().epochsel.set(lhs, result.back().epochsel.at(equal_index));
-		}
-
-		if (!lhs_has_equal) {
-			// for (DataValue dval : { /* DataValue::DATA , // TODO: reenable*/ DataValue::OTHER }) {
-			for (DataValue dval : { DataValue::DATA, DataValue::OTHER }) {
-				for (EpochValue tval : { EpochValue::ZERO, EpochValue::ONE, EpochValue::TWO }) {
-					result.push_back(mk_next_config(cfg, new Shape(*s), tid));
-					result.back().datasel.set(lhs, dval);
-					result.back().epochsel.set(lhs, tval);
-				}
-			}
-		}
-
-		delete s;
-	}
-
-	return result;
+	Shape* shape = post_assignment_pointer_shape_var_next(*cfg.shape, lhs, rhs, stmt);
+	return mk_next_config_vec(cfg, shape, tid);
 }
 
 std::vector<Cfg> tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	Shape* shape = post_assignment_pointer_shape_next_var(*cfg.shape, lhs, rhs, stmt);
-	auto result = mk_next_config_vec(cfg, shape, tid);
-	return result;
+	return mk_next_config_vec(cfg, shape, tid);
 }
 
 std::vector<Cfg> tmr::post_assignment_pointer_next_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
@@ -221,7 +111,7 @@ Shape* tmr::post_assignment_pointer_shape_var_next(const Shape& input, const std
 	for (std::size_t i = result->offset_vars(); i < result->size(); i++)
 		result->set(lhs, i, PRED);
 	result->set(rhs, lhs, MT_);
-	result->set(lhs, result->index_REUSE(), PRED);
+	result->set(lhs, result->index_REC(), PRED);
 
 	bool needs_iterating;
 	do {
@@ -290,47 +180,23 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const NullAssignment& stmt, unsigned 
 	std::size_t lhs = mk_var_index(input, stmt.lhs(), tid);
 	std::size_t rhs = input.index_NULL();
 
-	std::vector<Cfg> result;
-
-	if (le.type() == POINTER) {
-		Shape* shape;
-		if (le.clazz() == Expr::VAR) {
-			// stmt: var = NULL
-			shape = post_assignment_pointer_shape_var_var(input, lhs, rhs);
-			result.push_back(mk_next_config(cfg, shape, tid));
-			result.back().datasel.set(lhs, result.back().datasel.at(rhs));
-			result.back().epochsel.set(lhs, result.back().epochsel.at(rhs));
-		} else {
-			assert(le.clazz() == Expr::SEL);
-			// stmt: ptr->next = NULL
-			shape = post_assignment_pointer_shape_next_var(input, lhs, rhs, &stmt);	
-			result.push_back(mk_next_config(cfg, shape, tid));		
-		}
-
-	} else {
-		assert(le.type() == DATA);
-		// stmt: ptr->data = NULL
-		// NULL can be anything in terms of our data abstraction
-		auto shapes = disambiguate(*cfg.shape, lhs);
-		result.reserve(2*shapes.size());
-
-		for (Shape* s : shapes) {
-			Cfg cf0 = mk_next_config(cfg, new Shape(*s), tid);
-			Cfg cf1 = mk_next_config(cfg, s, tid);
-
-			for (std::size_t i = 0; i < cf0.shape->size(); i++) {
-				if (cf0.shape->test(i, lhs, EQ)) {
-					cf0.datasel.set(i, DataValue::DATA);
-					cf1.datasel.set(i, DataValue::OTHER);
-				}
-			}
-
-			result.push_back(std::move(cf0));
-			result.push_back(std::move(cf1));
-		}
+	if (le.type() != POINTER) {
+		throw std::logic_error("NullAssignment to data not supported");
 	}
 
-	return result;
+	Shape* shape;
+
+	if (le.clazz() == Expr::VAR) {
+		// stmt: var = NULL
+		shape = post_assignment_pointer_shape_var_var(input, lhs, rhs);
+
+	} else {
+		assert(le.clazz() == Expr::SEL);
+		// stmt: ptr->next = NULL
+		shape = post_assignment_pointer_shape_next_var(input, lhs, rhs, &stmt);	
+	}
+
+	return mk_next_config_vec(cfg, shape, tid);
 }
 
 
@@ -345,20 +211,27 @@ inline MultiSet& getsetref(Cfg& cfg, std::size_t setid) {
 	}
 }
 
+inline DataValue getdatasel(const Cfg& cfg, std::size_t selid) {
+	switch (selid) {
+		case 0: return cfg.datasel0;
+		case 1: return cfg.datasel1;
+		default: throw std::logic_error("Unsupported data selector.");
+	}
+}
+
 inline void addtoset(Cfg& cfg, std::size_t setid, DataValue val, unsigned short tid) {
 	auto& dst = getsetref(cfg, setid);
-	// std::cout << "add: " << dst[tid] << " --> "; // DEBUG OUTPUT
+
 	switch (val) {
 		case DataValue::DATA: dst[tid] = DataSet::WITH_DATA; break;
 		case DataValue::OTHER: /* leave unchanged */ break;
 	}
-	// std::cout << dst[tid] << std::endl; // DEBUG OUTPUT
 }
 
 inline void setcombine(Cfg& cfg, std::size_t lhsid, std::size_t rhsid, SetCombine::Type type, unsigned short tid) {
 	auto& lhs = getsetref(cfg, lhsid);
 	auto& rhs = getsetref(cfg, rhsid);
-	// std::cout << "combine: " << lhs[tid] << " --> "; // DEBUG OUTPUT
+
 	switch (type) {
 		case SetCombine::SETTO:
 			lhs[tid] = rhs[tid];
@@ -374,27 +247,6 @@ inline void setcombine(Cfg& cfg, std::size_t lhsid, std::size_t rhsid, SetCombin
 			}
 			break;
 	}
-	// std::cout << lhs[tid] << std::endl; // DEBUG OUTPUT
-}
-
-std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddArg& stmt, unsigned short tid) {
-	auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
-	addtoset(result.back(), stmt.setid(), cfg.arg[tid], tid);
-	return result;
-}
-
-std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddSel& stmt, unsigned short tid) {
-	// std::cout << "========================" << std::endl << "posting: " << cfg << *cfg.shape << std::endl;
-	// std::cout << "set1[0]: " << cfg.dataset1[0] << std::endl;
-	// std::cout << "datasel.6: " << cfg.datasel.at(6) << std::endl;
-	std::size_t lhs = mk_var_index(*cfg.shape, stmt.selector(), tid);
-	// std::cout << "lhs index: " << lhs << std::endl;
-	auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
-	addtoset(result.back(), stmt.setid(), cfg.datasel.at(lhs), tid);
-	// std::cout << "adding: " << result.back() << *result.back().shape;
-	// std::cout << "set1[0] post: " << result.back().dataset1[0] << std::endl;
-	// std::cout << std::endl << std::endl << std::endl;
-	return result;
 }
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, const SetCombine& stmt, unsigned short tid) {
@@ -408,4 +260,50 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const SetClear& stmt, unsigned short 
 	auto& set = getsetref(result.back(), stmt.setid());
 	set[tid] = DataSet::WITHOUT_DATA;
 	return result;
+}
+
+std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddArg& stmt, unsigned short tid) {
+	auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
+	addtoset(result.back(), stmt.setid(), cfg.arg[tid], tid);
+	return result;
+}
+
+std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddSel& stmt, unsigned short tid) {
+	// TODO: sel id
+	std::size_t lhs = mk_var_index(*cfg.shape, stmt.selector(), tid);
+
+	Shape* eqsplit = isolate_partial_concretisation(*cfg.shape, lhs, cfg.shape->index_REC(), EQ_);
+	Shape* neqsplit = isolate_partial_concretisation(*cfg.shape, lhs, cfg.shape->index_REC(), MT_GT_MF_GF_BT);
+
+	std::vector<Cfg> result;
+	result.reserve(3);
+
+	if (eqsplit) {
+		result.push_back(mk_next_config(cfg, eqsplit, tid));
+		addtoset(result.back(), stmt.setid(), getdatasel(cfg, stmt.selector().index()), tid);
+	}
+
+	if (neqsplit) {
+		result.push_back(mk_next_config(cfg, new Shape(*neqsplit), tid));
+		addtoset(result.back(), stmt.setid(), DataValue::DATA, tid);
+		result.push_back(mk_next_config(cfg, neqsplit, tid));
+		addtoset(result.back(), stmt.setid(), DataValue::OTHER, tid);
+	}
+
+	return result;
+}
+
+/******************************** REC INIT ********************************/
+
+std::vector<Cfg> tmr::post(const Cfg& cfg, const InitRecPtr& stmt, unsigned short tid) {
+	Shape* shape;
+	if (cfg.offender[tid]) {
+		// shape->REC() holds offending threads record
+		auto rhs = mk_var_index(*cfg.shape, stmt.rhs(), tid);
+		shape = post_assignment_pointer_shape_var_var(*cfg.shape, cfg.shape->index_REC(), rhs, &stmt);
+	} else {
+		// we ignore non-offending threads records
+		shape = new Shape(*cfg.shape);
+	}
+	return mk_next_config_vec(cfg, shape, tid);
 }
