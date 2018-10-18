@@ -23,16 +23,16 @@ namespace tmr {
 			enum Type { ENTER, EXIT, FREE};
 			const Type type;
 			const Function* func;
-			const bool from_offender;
+			const bool thread;
 			const DataValue dval;
 			bool operator==(const Event& other) const;
-			static Event mk_enter(const Function& func, bool from_offender, DataValue dval);
-			static Event mk_exit(bool from_offender);
-			static Event mk_free(DataValue dval);
+			static Event mk_enter(const Function& func, bool thread, DataValue dval);
+			static Event mk_exit(bool thread);
+			static Event mk_free(bool thread, DataValue dval);
 			Event(Event& evt) = default;
 			Event(const Event& evt) = default;
 		private:
-			Event(Type t, const Function* f, bool o, DataValue d) : type(t), func(f), from_offender(o), dval(d) {}
+			Event(Type t, const Function* f, bool b, DataValue d) : type(t), func(f), thread(b), dval(d) {}
 	};
 
 	class State;
@@ -53,13 +53,21 @@ namespace tmr {
 			std::string _name;
 			bool _is_initial;
 			bool _is_final;
+			bool _is_marked;
+			std::size_t _color;
 			std::vector<std::unique_ptr<Transition>> _out;
 
 		public:
-			State(std::string name, bool is_initial, bool is_final) : _name(name), _is_initial(is_initial), _is_final(is_final) {}
+			State(std::string name, bool is_initial, bool is_final) : _name(name), _is_initial(is_initial), _is_final(is_final), _is_marked(false), _color(0) {}
+			State(std::string name, bool is_initial, bool is_final, bool is_marked) : _name(name), _is_initial(is_initial), _is_final(is_final), _is_marked(is_marked), _color(0) {}
+			State(std::string name, bool is_initial, bool is_final, bool is_marked, std::size_t color) 
+			  : _name(name), _is_initial(is_initial), _is_final(is_final), _is_marked(is_marked), _color(color) { assert(color != 0); }
 			std::string name() const { return _name; }
 			bool is_initial() const { return _is_initial; }
 			bool is_final() const { return _is_final; }
+			bool is_marked() const { return _is_marked; } // used to mark states which resemble a usage invariant violation
+			bool is_colored() const { return _color != 0; }
+			bool color() const { assert(is_colored()); return _color; } // used to prune false-positive interference; states with same color cannot occur in victim and interferer
 			void add_transition(std::unique_ptr<Transition> transition);
 			const State& next(Event evt) const;
 	};
@@ -74,6 +82,9 @@ namespace tmr {
 			const std::vector<const State*>& states() const { return _states; }
 			void print(std::ostream& os) const;
 			bool is_final() const; // returns true if one state is final
+			bool is_marked() const; // returns true if one state is marked
+			bool is_colored() const; // returns true if one state is colored
+			bool colors_intersect(const MultiState& other) const;
 			const State& find_final() const;
 			MultiState next(Event evt) const;
 

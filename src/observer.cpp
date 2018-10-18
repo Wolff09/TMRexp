@@ -22,19 +22,19 @@ std::ostream& tmr::operator<<(std::ostream& os, const DataValue& val) {
 /************************ VALUES ************************/
 
 bool Event::operator==(const Event& other) const {
-	return type == other.type && func == other.func && from_offender == other.from_offender && dval == other.dval;
+	return type == other.type && func == other.func && thread == other.thread && dval == other.dval;
 }
 
-Event Event::mk_enter(const Function& func, bool from_offender, DataValue dval) {
-	return Event(ENTER, &func, from_offender, dval);
+Event Event::mk_enter(const Function& func, bool thread, DataValue dval) {
+	return Event(ENTER, &func, thread, dval);
 }
 
-Event Event::mk_exit(bool from_offender) {
-	return Event(EXIT, nullptr, from_offender, DataValue::DATA);
+Event Event::mk_exit(bool thread) {
+	return Event(EXIT, nullptr, thread, DataValue::DATA);
 }
 
-Event Event::mk_free(DataValue dval) {
-	return Event(FREE, nullptr, 0, dval);
+Event Event::mk_free(bool thread, DataValue dval) {
+	return Event(FREE, nullptr, thread, dval);
 }
 
 
@@ -82,6 +82,35 @@ bool MultiState::is_final() const {
 	for (const State* s : _states) {
 		if (s->is_final()) {
 			return true;
+		}
+	}
+	return false;
+}
+
+bool MultiState::is_marked() const {
+	for (const State* s : _states) {
+		if (s->is_marked()) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool MultiState::is_colored() const {
+	for (const State* s : _states) {
+		if (s->is_colored()) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool MultiState::colors_intersect(const MultiState& other) const {
+	for (const State* my_state : _states) {
+		for (const State* other_state : other._states) {
+			if (my_state->is_colored() && other_state->is_colored() && my_state->color() == other_state->color()) {
+				return true;
+			}
 		}
 	}
 	return false;

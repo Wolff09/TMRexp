@@ -51,7 +51,7 @@ static inline bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
 	}
 
 	// global info must coincide
-	if (!(cfg.state == interferer.state)) {
+	if (!(cfg.smrstate == interferer.smrstate)) {
 		return false;
 	}
 
@@ -60,6 +60,15 @@ static inline bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
 	}
 
 	if (cfg.datasel1 != interferer.datasel1) {
+		return false;
+	}
+
+	// certain state combinations may be excluded
+	if (cfg.threadstate[0].colors_intersect(interferer.threadstate[0])) {
+		return false;
+	}
+
+	if (cfg.smrstate.colors_intersect(interferer.smrstate)) {
 		return false;
 	}
 
@@ -274,6 +283,7 @@ std::unique_ptr<Cfg> extend_cfg(const Cfg& dst, const Cfg& interferer) {
 	res.dataset0[1] = interferer.dataset0[0];
 	res.dataset1[1] = interferer.dataset1[0];
 	res.dataset2[1] = interferer.dataset2[0];
+	res.threadstate[1] = interferer.threadstate[0];
 
 	// prune shape (1.3, 1.4)
 	return prune_local_relations(std::move(result));
@@ -291,6 +301,7 @@ static inline void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
 	cfg.dataset0[extended_thread_tid] = DEFAULT_DATA_SET;
 	cfg.dataset1[extended_thread_tid] = DEFAULT_DATA_SET;
 	cfg.dataset2[extended_thread_tid] = DEFAULT_DATA_SET;
+	cfg.threadstate[1] = cfg.threadstate[2]; // TODO: ignore?
 }
 
 

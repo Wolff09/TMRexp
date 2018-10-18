@@ -18,9 +18,9 @@ namespace tmr {
 		CCResult(std::string reason) : conformance(false), reason(reason) {}
 	};
 
-	CCResult check_conformance(const Program& program, const Observer& observer) {
+	CCResult check_conformance(const Program& program, const Observer& smrobs, const Observer& threadobs) {
 		try {
-			auto fp = fixed_point(program, observer);
+			auto fp = fixed_point(program, smrobs, threadobs);
 			return CCResult(std::move(fp));
 		} catch (std::runtime_error& e) {
 			return CCResult(e.what());

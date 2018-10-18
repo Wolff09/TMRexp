@@ -45,6 +45,7 @@ namespace tmr {
 	typedef MultiStore<DataValue, 3> MultiInOut;
 	typedef MultiStore<DataSet, 3> MultiSet;
 	typedef MultiStore<bool, 3> MultiBool;
+	typedef MultiStore<MultiState, 3> MultiMultiState;
 
 	static const DataValue DEFAULT_DATA_VALUE = DataValue::OTHER;
 	static const DataSet DEFAULT_DATA_SET = DataSet::WITHOUT_DATA;
@@ -52,7 +53,8 @@ namespace tmr {
 
 	struct Cfg {
 		MultiPc pc;
-		MultiState state; // observer state
+		MultiState smrstate; // observer state; observed thread is offender
+		MultiMultiState threadstate; // observer state; observed thread is self (tid)
 		MultiInOut arg; // argument (value) of current function
 		MultiBool offender;
 		std::unique_ptr<Shape> shape;
@@ -62,14 +64,14 @@ namespace tmr {
 		MultiSet dataset1;
 		MultiSet dataset2;
 
-		Cfg(std::array<const Statement*, 3> pc, MultiState state, Shape* shape)
-		    : pc(pc), state(state), arg(DEFAULT_DATA_VALUE), offender(false), shape(shape),
+		Cfg(std::array<const Statement*, 3> pc, MultiState smrstate, MultiMultiState threadstate, Shape* shape)
+		    : pc(pc), smrstate(smrstate), threadstate(threadstate), arg(DEFAULT_DATA_VALUE), offender(false), shape(shape),
 		      datasel0(DEFAULT_DATA_VALUE), datasel1(DEFAULT_DATA_VALUE),
 		      dataset0(DEFAULT_DATA_SET), dataset1(DEFAULT_DATA_SET), dataset2(DEFAULT_DATA_SET)
 		{}
 		Cfg(const Cfg& cfg, Shape* shape)
-		    : pc(cfg.pc), state(cfg.state), arg(cfg.arg), offender(cfg.offender), shape(shape), datasel0(cfg.datasel0),
-		      datasel1(cfg.datasel1), dataset0(cfg.dataset0), dataset1(cfg.dataset1), dataset2(cfg.dataset2)
+		    : pc(cfg.pc), smrstate(cfg.smrstate), threadstate(cfg.threadstate), arg(cfg.arg), offender(cfg.offender), shape(shape),
+		      datasel0(cfg.datasel0), datasel1(cfg.datasel1), dataset0(cfg.dataset0), dataset1(cfg.dataset1), dataset2(cfg.dataset2)
 		{}
 		Cfg copy() const;
 	};

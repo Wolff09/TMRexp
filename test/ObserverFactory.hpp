@@ -18,8 +18,20 @@ namespace tmr {
 		throw std::logic_error("Invalid function name lookup.");
 	}
 
-	inline std::unique_ptr<State> mk_state(std::string name, bool initial, bool final) {
-		return std::make_unique<State>(name, initial, final);
+	inline std::unique_ptr<State> mk_state(std::string name, bool initial=false, bool final=false, bool marked=false) {
+		return std::make_unique<State>(name, initial, final, marked);
+	}
+
+	inline std::unique_ptr<State> mk_state_init(std::string name) {
+		return mk_state(name, true, false, false);
+	}
+
+	inline std::unique_ptr<State> mk_state_final(std::string name) {
+		return mk_state(name, false, true, false);
+	}
+
+	inline std::unique_ptr<State> mk_state_marked(std::string name) {
+		return mk_state(name, false, false, true);
 	}
 
 	inline void mk_transition(State& src, const State& dst, Event trigger) {
@@ -27,78 +39,8 @@ namespace tmr {
 	}
 
 
-	static std::unique_ptr<Observer> ebr_observer(const Program& prog) {
-		// get functions to react on
-		const auto& f_enterQ = find(prog, "enterQ");
-		const auto& f_leaveQ = find(prog, "leaveQ");
-		const auto& f_retire = find(prog, "retire");
-		
-		// state names
-		std::string n_freed       = "base:freed";
-		std::string n_retired     = "base:retired";
-		std::string n_dupfree     = "base:double-free";
-		std::string n_dupretire   = "base:double-retire";
-		std::string n_init        = "ebr:init";
-		std::string n_leavingQ    = "ebr:leavingQ";
-		std::string n_leftQ       = "ebr:leftQ";
-		std::string n_leftretired = "ebr:retired";
-		std::string n_final       = "ebr:freedprotected";
-
-		// state vector
-		std::vector<std::unique_ptr<State>> states;
-
-		// base observer states
-		states.push_back(mk_state(n_freed, true, false));
-		states.push_back(mk_state(n_retired, false, false));
-		states.push_back(mk_state(n_dupfree, false, true));
-		states.push_back(mk_state(n_dupretire, false, false));
-
-		// hp0 observer states
-		states.push_back(mk_state(n_init, true, false));
-		states.push_back(mk_state(n_leavingQ, false, false));
-		states.push_back(mk_state(n_leftQ, false, false));
-		states.push_back(mk_state(n_leftretired, false, false));
-		states.push_back(mk_state(n_final, false, true));
-
-		// get hold of the stats
-		State& freed       = *states[0];
-		State& retired     = *states[1];
-		State& dupfree     = *states[2];
-		State& dupretire   = *states[3];
-		State& init        = *states[4];
-		State& leavingQ    = *states[5];
-		State& leftQ       = *states[6];
-		State& leftretired = *states[7];
-		State& final       = *states[8];
-
-		// shortcuts
-		auto ADR = DataValue::DATA;
-		auto OTHER = DataValue::OTHER;
-
-		// base observer transitions
-		mk_transition(freed, retired, Event::mk_enter(f_retire, true, ADR));
-		mk_transition(freed, retired, Event::mk_enter(f_retire, false, ADR));
-		mk_transition(retired, dupretire, Event::mk_enter(f_retire, true, ADR));
-		mk_transition(retired, dupretire, Event::mk_enter(f_retire, false, ADR));
-		mk_transition(retired, freed, Event::mk_free(ADR));
-		mk_transition(freed, dupfree, Event::mk_free(ADR));
-
-		// hp0 observer transitions
-		mk_transition(init, leavingQ, Event::mk_enter(f_leaveQ, true, ADR));
-		mk_transition(init, leavingQ, Event::mk_enter(f_leaveQ, true, OTHER));
-		mk_transition(leavingQ, leftQ, Event::mk_exit(true));
-		mk_transition(leftQ, leftretired, Event::mk_enter(f_retire, true, ADR));
-		mk_transition(leftQ, leftretired, Event::mk_enter(f_retire, false, ADR));
-		mk_transition(leftretired, final, Event::mk_free(ADR));
-		mk_transition(leavingQ, init, Event::mk_enter(f_enterQ, true, ADR));
-		mk_transition(leavingQ, init, Event::mk_enter(f_enterQ, true, OTHER));
-		mk_transition(leftQ, init, Event::mk_enter(f_enterQ, true, ADR));
-		mk_transition(leftQ, init, Event::mk_enter(f_enterQ, true, OTHER));
-		mk_transition(leftretired, init, Event::mk_enter(f_enterQ, true, ADR));
-		mk_transition(leftretired, init, Event::mk_enter(f_enterQ, true, OTHER));
-
-		// done
-		return std::make_unique<Observer>(std::move(states));
+	static std::unique_ptr<Observer> base_observer(const Program& prog) {
+		throw std::logic_error("not yet implemented (base_observer)");
 	}
 
 
@@ -112,7 +54,8 @@ namespace tmr {
 		
 		// state names
 		std::string n_freed             = "base:freed";
-		std::string n_retired           = "base:retired";
+		std::string n_retired0          = "base:retired0";
+		std::string n_retired1          = "base:retired1";
 		std::string n_dupfree           = "base:double-free";
 		std::string n_dupretire         = "base:double-retire";
 		std::string n_init0             = "hp0:init";
@@ -130,59 +73,67 @@ namespace tmr {
 		std::vector<std::unique_ptr<State>> states;
 
 		// base observer states
-		states.push_back(mk_state(n_freed, true, false));
-		states.push_back(mk_state(n_retired, false, false));
-		states.push_back(mk_state(n_dupfree, false, true));
-		states.push_back(mk_state(n_dupretire, false, false));
+		states.push_back(mk_state_init(n_freed));
+		states.push_back(mk_state(n_retired0));
+		states.push_back(mk_state(n_retired1));
+		states.push_back(mk_state_final(n_dupfree));
+		states.push_back(mk_state_marked(n_dupretire));
 
 		// hp0 observer states
-		states.push_back(mk_state(n_init0, true, false));
-		states.push_back(mk_state(n_entered0, false, false));
-		states.push_back(mk_state(n_protected0, false, false));
-		states.push_back(mk_state(n_protectedretired0, false, false));
-		states.push_back(mk_state(n_final0, false, true));
+		states.push_back(mk_state_init(n_init0));
+		states.push_back(mk_state(n_entered0));
+		states.push_back(mk_state(n_protected0));
+		states.push_back(mk_state(n_protectedretired0));
+		states.push_back(mk_state_final(n_final0));
 
 		// hp1 observer states
-		states.push_back(mk_state(n_init1, true, false));
-		states.push_back(mk_state(n_entered1, false, false));
-		states.push_back(mk_state(n_protected1, false, false));
-		states.push_back(mk_state(n_protectedretired1, false, false));
-		states.push_back(mk_state(n_final1, false, true));
+		states.push_back(mk_state_init(n_init1));
+		states.push_back(mk_state(n_entered1));
+		states.push_back(mk_state(n_protected1));
+		states.push_back(mk_state(n_protectedretired1));
+		states.push_back(mk_state_final(n_final1));
 
 		// get hold of the stats
 		State& freed             = *states[0];
-		State& retired           = *states[1];
-		State& dupfree           = *states[2];
-		State& dupretire         = *states[3];
-		State& init0             = *states[4];
-		State& entered0          = *states[5];
-		State& exited0           = *states[6];
-		State& protectedretired0 = *states[7];
-		State& final0            = *states[8];
-		State& init1             = *states[9];
-		State& entered1          = *states[10];
-		State& exited1           = *states[11];
-		State& protectedretired1 = *states[12];
-		State& final1            = *states[13];
+		State& retired0          = *states[1];
+		State& retired1          = *states[2];
+		State& dupfree           = *states[3];
+		State& dupretire         = *states[4];
+		State& init0             = *states[5];
+		State& entered0          = *states[6];
+		State& exited0           = *states[7];
+		State& protectedretired0 = *states[8];
+		State& final0            = *states[9];
+		State& init1             = *states[10];
+		State& entered1          = *states[11];
+		State& exited1           = *states[12];
+		State& protectedretired1 = *states[13];
+		State& final1            = *states[14];
 
 		// shortcuts
 		auto ADR = DataValue::DATA;
 		auto OTHER = DataValue::OTHER;
 
 		// base observer transitions
-		mk_transition(freed, retired, Event::mk_enter(f_retire, true, ADR));
-		mk_transition(freed, retired, Event::mk_enter(f_retire, false, ADR));
-		mk_transition(retired, dupretire, Event::mk_enter(f_retire, true, ADR));
-		mk_transition(retired, dupretire, Event::mk_enter(f_retire, false, ADR));
-		mk_transition(retired, freed, Event::mk_free(ADR));
-		mk_transition(freed, dupfree, Event::mk_free(ADR));
+		mk_transition(freed, retired1, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(freed, retired0, Event::mk_enter(f_retire, false, ADR));
+		mk_transition(retired0, dupretire, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(retired0, dupretire, Event::mk_enter(f_retire, false, ADR));
+		mk_transition(retired1, dupretire, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(retired1, dupretire, Event::mk_enter(f_retire, false, ADR));
+		mk_transition(retired0, freed, Event::mk_free(true, ADR));
+		mk_transition(retired0, freed, Event::mk_free(false, ADR));
+		mk_transition(retired1, freed, Event::mk_free(true, ADR));
+		mk_transition(retired1, freed, Event::mk_free(false, ADR));
+		mk_transition(freed, dupfree, Event::mk_free(true, ADR));
 
 		// hp0 observer transitions
 		mk_transition(init0, entered0, Event::mk_enter(f_protect0, true, ADR));
 		mk_transition(entered0, exited0, Event::mk_exit(true));
 		mk_transition(exited0, protectedretired0, Event::mk_enter(f_retire, true, ADR));
 		mk_transition(exited0, protectedretired0, Event::mk_enter(f_retire, false, ADR));
-		mk_transition(protectedretired0, final0, Event::mk_free(ADR));
+		mk_transition(protectedretired0, final0, Event::mk_free(true, ADR));
+		mk_transition(protectedretired0, final0, Event::mk_free(false, ADR));
 		mk_transition(entered0, init0, Event::mk_enter(f_protect0, true, OTHER));
 		mk_transition(entered0, init0, Event::mk_enter(f_unprotect0, true, ADR));
 		mk_transition(entered0, init0, Event::mk_enter(f_unprotect0, true, OTHER));
@@ -198,7 +149,8 @@ namespace tmr {
 		mk_transition(entered1, exited1, Event::mk_exit(true));
 		mk_transition(exited1, protectedretired1, Event::mk_enter(f_retire, true, ADR));
 		mk_transition(exited1, protectedretired1, Event::mk_enter(f_retire, false, ADR));
-		mk_transition(protectedretired1, final1, Event::mk_free(ADR));
+		mk_transition(protectedretired1, final1, Event::mk_free(true, ADR));
+		mk_transition(protectedretired1, final1, Event::mk_free(false, ADR));
 		mk_transition(entered1, init1, Event::mk_enter(f_protect1, true, OTHER));
 		mk_transition(entered1, init1, Event::mk_enter(f_unprotect1, true, ADR));
 		mk_transition(entered1, init1, Event::mk_enter(f_unprotect1, true, OTHER));
@@ -211,6 +163,83 @@ namespace tmr {
 
 		// done
 		return std::make_unique<Observer>(std::move(states));
+	}
+
+
+	static std::unique_ptr<Observer> ebr_observer(const Program& prog) {
+		throw new std::logic_error("not yet implemented (ebr_observer");
+
+//		// get functions to react on
+//		const auto& f_enterQ = find(prog, "enterQ");
+//		const auto& f_leaveQ = find(prog, "leaveQ");
+//		const auto& f_retire = find(prog, "retire");
+//		
+//		// state names
+//		std::string n_freed       = "base:freed";
+//		std::string n_retired     = "base:retired";
+//		std::string n_dupfree     = "base:double-free";
+//		std::string n_dupretire   = "base:double-retire";
+//		std::string n_init        = "ebr:init";
+//		std::string n_leavingQ    = "ebr:leavingQ";
+//		std::string n_leftQ       = "ebr:leftQ";
+//		std::string n_leftretired = "ebr:retired";
+//		std::string n_final       = "ebr:freedprotected";
+//
+//		// state vector
+//		std::vector<std::unique_ptr<State>> states;
+//
+//		// base observer states
+//		states.push_back(mk_state_init(n_freed));
+//		states.push_back(mk_state(n_retired));
+//		states.push_back(mk_state_final(n_dupfree));
+//		states.push_back(mk_state(n_dupretire));
+//
+//		// hp0 observer states
+//		states.push_back(mk_state_init(n_init));
+//		states.push_back(mk_state(n_leavingQ));
+//		states.push_back(mk_state(n_leftQ));
+//		states.push_back(mk_state(n_leftretired));
+//		states.push_back(mk_state_final(n_final));
+//
+//		// get hold of the stats
+//		State& freed       = *states[0];
+//		State& retired     = *states[1];
+//		State& dupfree     = *states[2];
+//		State& dupretire   = *states[3];
+//		State& init        = *states[4];
+//		State& leavingQ    = *states[5];
+//		State& leftQ       = *states[6];
+//		State& leftretired = *states[7];
+//		State& final       = *states[8];
+//
+//		// shortcuts
+//		auto ADR = DataValue::DATA;
+//		auto OTHER = DataValue::OTHER;
+//
+//		// base observer transitions
+//		mk_transition(freed, retired, Event::mk_enter(f_retire, true, ADR));
+//		mk_transition(freed, retired, Event::mk_enter(f_retire, false, ADR));
+//		mk_transition(retired, dupretire, Event::mk_enter(f_retire, true, ADR));
+//		mk_transition(retired, dupretire, Event::mk_enter(f_retire, false, ADR));
+//		mk_transition(retired, freed, Event::mk_free(ADR));
+//		mk_transition(freed, dupfree, Event::mk_free(ADR));
+//
+//		// hp0 observer transitions
+//		mk_transition(init, leavingQ, Event::mk_enter(f_leaveQ, true, ADR));
+//		mk_transition(init, leavingQ, Event::mk_enter(f_leaveQ, true, OTHER));
+//		mk_transition(leavingQ, leftQ, Event::mk_exit(true));
+//		mk_transition(leftQ, leftretired, Event::mk_enter(f_retire, true, ADR));
+//		mk_transition(leftQ, leftretired, Event::mk_enter(f_retire, false, ADR));
+//		mk_transition(leftretired, final, Event::mk_free(ADR));
+//		mk_transition(leavingQ, init, Event::mk_enter(f_enterQ, true, ADR));
+//		mk_transition(leavingQ, init, Event::mk_enter(f_enterQ, true, OTHER));
+//		mk_transition(leftQ, init, Event::mk_enter(f_enterQ, true, ADR));
+//		mk_transition(leftQ, init, Event::mk_enter(f_enterQ, true, OTHER));
+//		mk_transition(leftretired, init, Event::mk_enter(f_enterQ, true, ADR));
+//		mk_transition(leftretired, init, Event::mk_enter(f_enterQ, true, OTHER));
+//
+//		// done
+//		return std::make_unique<Observer>(std::move(states));
 	}
 
 }

@@ -13,7 +13,7 @@
 
 namespace tmr {
 
-	int run(const Program& program, const Observer& observer, bool expect_success=true) {
+	int run(const Program& program, const Observer& smrobs, const Observer& threadobs, bool expect_success=true) {
 		// print setup
 		std::cout << "***********************************************************" << std::endl;
 		std::cout << "**                         SETUP                         **" << std::endl;
@@ -23,7 +23,7 @@ namespace tmr {
 
 		// execute conformance check
 		auto t_start = std::chrono::high_resolution_clock::now();
-		CCResult result = check_conformance(program, observer);
+		CCResult result = check_conformance(program, smrobs, threadobs);
 		auto t_end = std::chrono::high_resolution_clock::now();
 		std::string answer = result.conformance ?  "CORRECT" : "INCORRECT";
 
@@ -63,13 +63,15 @@ namespace tmr {
 	}
 
 	int run_ebr(const Program& program, bool expect_success=true) {
-		auto obs = ebr_observer(program);
-		return run(program, *obs, expect_success);
+		auto smrobs = ebr_observer(program);
+		auto threadobs = base_observer(program);
+		return run(program, *smrobs, *threadobs, expect_success);
 	}
 
 	int run_hp(const Program& program, bool expect_success=true) {
-		auto obs = hp_observer(program);
-		return run(program, *obs, expect_success);
+		auto smrobs = hp_observer(program);
+		auto threadobs = base_observer(program);
+		return run(program, *smrobs, *threadobs, expect_success);
 	}
 
 }

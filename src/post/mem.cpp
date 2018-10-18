@@ -46,24 +46,38 @@ inline DataSet getset(const Cfg& cfg, std::size_t setid, unsigned short tid) {
 	}
 }
 
-inline void print_free_debug(const Cfg& cfg, const MultiState old_state, unsigned short tid) {
-	std::cout << "Specification violation detected." << std::endl << std::endl;
-	std::cout << "Freeing thread: " << tid << std::endl;
-	std::cout << "Old state: " << old_state << std::endl;
-	std::cout << "New state: " << cfg.state << std::endl;
-	std::cout << "Cfg: " << cfg << *cfg.shape << std::endl;
+inline void check_state(const Cfg& cfg, const MultiState new_state, unsigned short tid) {
+	if (new_state.is_final()) {
+		std::cout << "Specification violation detected." << std::endl << std::endl;
+		std::cout << "Freeing thread: " << tid << std::endl;
+		std::cout << "Old state: " << cfg.smrstate << std::endl;
+		std::cout << "New state: " << new_state << std::endl;
+		std::cout << "Cfg: " << cfg << *cfg.shape << std::endl;
+
+		throw std::runtime_error("Specification violation detected");
+	}
 }
 
 inline void fire_free_event(Cfg& cfg, unsigned short tid) {
-	Event evt = Event::mk_free(DataValue::DATA);
-	auto old_state = cfg.state;
-	cfg.state = cfg.state.next(evt);
+	// fire smrstate event
+	auto new_smrstate = cfg.smrstate.next(Event::mk_free(cfg.offender[tid], DataValue::DATA));
+	check_state(cfg, new_smrstate, tid);
 
-	// check for final state
-	if (cfg.state.is_final()) {
-		print_free_debug(cfg, old_state, tid);
-		throw std::runtime_error("Specification violation detected");
+	// fire threadstate event for thread 0
+	auto new_threadstate0 = cfg.threadstate[0].next(Event::mk_free(tid == 0, DataValue::DATA));
+	check_state(cfg, new_threadstate0, tid);
+
+	// fire threadstate event for thread 1; thread 1 is only present if tid == 1
+	auto new_threadstate1 = cfg.threadstate[1];
+	if (tid == 1) {
+		new_threadstate1 = cfg.threadstate[1].next(Event::mk_free(tid == 1, DataValue::DATA));
+		check_state(cfg, new_threadstate1, tid);
 	}
+
+	// update states last to avoid broken debug output
+	cfg.smrstate = new_smrstate;
+	cfg.threadstate[0] = new_threadstate0;
+	cfg.threadstate[1] = new_threadstate1;
 }
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, const FreeAll& stmt, unsigned short tid) {

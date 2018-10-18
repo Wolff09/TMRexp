@@ -45,18 +45,32 @@ inline std::vector<DataValue> get_possible_data_args(const Cfg& cfg, const Funct
 
 /******************************** EVENT HELPER *********************************/
 
-inline void fire_event(Cfg& cfg, Event evt) {
-	cfg.state = cfg.state.next(evt);
+inline void fire_smr_event(Cfg& cfg, Event evt) {
+	cfg.smrstate = cfg.smrstate.next(evt);
+}
+
+inline void fire_thread_event(Cfg& cfg, std::size_t index, Event evt) {
+	switch (index) {
+		case 0: cfg.threadstate[0] = cfg.threadstate[0].next(evt); break;
+		case 1: cfg.threadstate[1] = cfg.threadstate[1].next(evt); break;
+		default: throw std::logic_error("Unsupported threadstate index.");
+	}
 }
 
 inline void fire_enter_event(Cfg& cfg, const Function& callee, unsigned short tid, DataValue dval) {
-	auto event = Event::mk_enter(callee, cfg.offender[tid], dval);
-	fire_event(cfg, event);
+	fire_smr_event(cfg, Event::mk_enter(callee, cfg.offender[tid], dval));
+	fire_thread_event(cfg, 0, Event::mk_enter(callee, tid == 0, dval));
+	if (tid == 1) { // threadstate[1] only present when tid == 1
+		fire_thread_event(cfg, 1, Event::mk_enter(callee, true, dval));
+	}
 }
 
 inline void fire_exit_event(Cfg& cfg, unsigned short tid) {
-	auto event = Event::mk_exit(cfg.offender[tid]);
-	fire_event(cfg, event);
+	fire_smr_event(cfg, Event::mk_exit(cfg.offender[tid]));
+	fire_thread_event(cfg, 0, Event::mk_exit(tid == 0));
+	if (tid == 1) { // threadstate[1] only present when tid == 1
+		fire_thread_event(cfg, 1, Event::mk_exit(true));
+	}
 }
 
 
@@ -81,7 +95,8 @@ inline bool drop_enter_cfg(const Cfg& cfg, unsigned short tid) {
 	//	if (cf.state.states().at(0)->name() == "base:double-retire") {
 	//		return true
 	//	}
-	return false;
+	// return false;
+	return cfg.smrstate.is_marked() || cfg.threadstate[0].is_marked() || cfg.threadstate[1].is_marked();
 }
 
 

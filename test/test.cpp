@@ -10,7 +10,7 @@ static std::unique_ptr<Program> mk_program() {
 	);
 
 	// init thread
-	auto initthread = Sqz(
+	auto initthread = Sqz(AtomicSqz(
 		Mllc("cur"),
 		Loop(Sqz(
 			Assign(Var("tmp"), Var("HPrecs")),
@@ -24,7 +24,7 @@ static std::unique_ptr<Program> mk_program() {
 		InitRec("cur"),
 		WriteRecNull(0),
 		WriteRecNull(1)
-	);
+	));
 
 	// protect
 	auto protect0 = Sqz(
@@ -62,9 +62,9 @@ static std::unique_ptr<Program> mk_program() {
 			plist = empty
 			dlist = empty
 		 */
-		IfThen(
-			NDCond(),
-			Sqz(
+//		IfThen(
+//			NDCond(),
+//			Sqz(
 				Assign(Var("cur"), Var("HPrecs")),
 				Loop(Sqz(
 					IfThenElse(
@@ -86,8 +86,8 @@ static std::unique_ptr<Program> mk_program() {
 				Clear(1),
 				Clear(2),
 				Kill("cur")
-			)
-		)
+//			)
+//		)
 	);
 
 

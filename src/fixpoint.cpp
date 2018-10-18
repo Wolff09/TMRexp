@@ -11,7 +11,7 @@ using namespace tmr;
 
 /******************************** INITIAL CFG ********************************/
 
-void add_init_cfg(const Program& prog, const Observer& obs, RemainingWork& work) {
+void add_init_cfg(const Program& prog, const Observer& smrobs, const Observer& threadobs, RemainingWork& work) {
 	std::size_t numThreads = 1;
 
 	// initial shape
@@ -20,7 +20,8 @@ void add_init_cfg(const Program& prog, const Observer& obs, RemainingWork& work)
 	// initial cfg
 	Cfg init(
 		{{ &prog.init(), NULL, NULL }},
-		obs.initial_state(),
+		smrobs.initial_state(),
+		threadobs.initial_state(),
 		initial_shape
 	);
 
@@ -54,6 +55,10 @@ const Cfg& RemainingWork::pop() {
 }
 
 void RemainingWork::add(Cfg&& cfg) {
+	if (cfg.smrstate.is_marked() || cfg.threadstate[0].is_marked() || cfg.threadstate[1].is_marked()) {
+		return;
+	}
+
 	// std::cout << "adding: " << cfg << std::endl;
 	auto res = _enc.take(std::move(cfg));
 	if (res.first) _work.insert(&res.second);
@@ -62,11 +67,11 @@ void RemainingWork::add(Cfg&& cfg) {
 
 /******************************** FIXED POINT ********************************/
 
-std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& obs) {
+std::unique_ptr<Encoding> tmr::fixed_point(const Program& prog, const Observer& smrobs, const Observer& threadobs) {
 	std::unique_ptr<Encoding> enc = std::make_unique<Encoding>();
 
 	RemainingWork work(*enc);
-	add_init_cfg(prog, obs, work);
+	add_init_cfg(prog, smrobs, threadobs, work);
 
 
 	while (!work.done()) {

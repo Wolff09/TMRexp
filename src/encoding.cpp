@@ -16,11 +16,12 @@ bool cfg_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	cmp(rhs.dataset0, lhs.dataset0);
 	cmp(rhs.dataset1, lhs.dataset1);
 	cmp(rhs.dataset2, lhs.dataset2);
+	cmp(lhs.threadstate[0], rhs.threadstate[0]);
 	return false;
 }
 
 bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
-	cmp(lhs.state, rhs.state);
+	cmp(lhs.smrstate, rhs.smrstate);
 	cmp(rhs.datasel0, lhs.datasel0);
 	cmp(rhs.datasel1, lhs.datasel1);
 	return false;

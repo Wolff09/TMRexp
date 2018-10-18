@@ -17,7 +17,8 @@ std::ostream& tmr::operator<<(std::ostream& os, const Cfg& cfg) {
 	os << ", pc2=";
 	if (cfg.pc[2]) os << *cfg.pc[2];
 	else os << "NULL";
-	os << ", state=" << cfg.state;
+	os << ", smrstate=" << cfg.smrstate;
+	os << ", threadstate=[" << cfg.threadstate[0] << ", " << cfg.threadstate[1] << ", " << cfg.threadstate[2] << "]";
 	os << ", arg=[" << cfg.arg[0] << ", " << cfg.arg[1] << ", " << cfg.arg[2] << "]";
 	os << ", offender=[" << cfg.offender[0] << ", " << cfg.offender[1] << ", " << cfg.offender[2] << "]";
 	os << ", datasel0=" << cfg.datasel0;
