@@ -301,7 +301,7 @@ static inline void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
 	cfg.dataset0[extended_thread_tid] = DEFAULT_DATA_SET;
 	cfg.dataset1[extended_thread_tid] = DEFAULT_DATA_SET;
 	cfg.dataset2[extended_thread_tid] = DEFAULT_DATA_SET;
-	cfg.threadstate[1] = cfg.threadstate[2]; // TODO: ignore?
+	// cfg.threadstate[1] = cfg.threadstate[2]; // TODO: ignore?
 }
 
 

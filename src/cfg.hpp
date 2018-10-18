@@ -41,11 +41,11 @@ namespace tmr {
 			// TODO: operator<<
 	};
 
-	typedef MultiStore<const Statement*, 3> MultiPc;
-	typedef MultiStore<DataValue, 3> MultiInOut;
-	typedef MultiStore<DataSet, 3> MultiSet;
-	typedef MultiStore<bool, 3> MultiBool;
-	typedef MultiStore<MultiState, 3> MultiMultiState;
+	typedef MultiStore<const Statement*, 2> MultiPc;
+	typedef MultiStore<DataValue, 2> MultiInOut;
+	typedef MultiStore<DataSet, 2> MultiSet;
+	typedef MultiStore<bool, 2> MultiBool;
+	typedef MultiStore<MultiState, 2> MultiMultiState;
 
 	static const DataValue DEFAULT_DATA_VALUE = DataValue::OTHER;
 	static const DataSet DEFAULT_DATA_SET = DataSet::WITHOUT_DATA;
@@ -64,7 +64,7 @@ namespace tmr {
 		MultiSet dataset1;
 		MultiSet dataset2;
 
-		Cfg(std::array<const Statement*, 3> pc, MultiState smrstate, MultiMultiState threadstate, Shape* shape)
+		Cfg(std::array<const Statement*, 2> pc, MultiState smrstate, MultiMultiState threadstate, Shape* shape)
 		    : pc(pc), smrstate(smrstate), threadstate(threadstate), arg(DEFAULT_DATA_VALUE), offender(false), shape(shape),
 		      datasel0(DEFAULT_DATA_VALUE), datasel1(DEFAULT_DATA_VALUE),
 		      dataset0(DEFAULT_DATA_SET), dataset1(DEFAULT_DATA_SET), dataset2(DEFAULT_DATA_SET)

@@ -19,7 +19,7 @@ void add_init_cfg(const Program& prog, const Observer& smrobs, const Observer& t
 
 	// initial cfg
 	Cfg init(
-		{{ &prog.init(), NULL, NULL }},
+		{{ &prog.init(), NULL }},
 		smrobs.initial_state(),
 		threadobs.initial_state(),
 		initial_shape
