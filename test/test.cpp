@@ -23,7 +23,9 @@ static std::unique_ptr<Program> mk_program() {
 			Kill("tmp")
 		)),
 		WriteRecNull(0),
-		WriteRecNull(1)
+		WriteRecNull(1),
+		Kill("cur"),
+		Kill("tmp")
 	);
 
 	// protect

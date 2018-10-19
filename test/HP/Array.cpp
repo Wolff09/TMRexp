@@ -10,21 +10,15 @@ static std::unique_ptr<Program> mk_program() {
 	);
 
 	// init thread
-	auto initthread = Sqz(
+	auto initthread = Sqz(AtomicSqz(
 		Mllc("cur"),
 		InitRec("cur"),
-		Loop(Sqz(
-			Assign(Var("tmp"), Var("HPrecs")),
-			Assign(Next("cur"), Var("tmp")),
-			IfThen(
-				CasCond(CAS(Var("HPrecs"), Var("tmp"), Var("cur"))),
-				Sqz(Brk())
-			),
-			Kill("tmp")
-		)),
+		Assign(Next("cur"), Var("HPrecs")),
+		Assign(Var("HPrecs"), Var("cur")),
 		WriteRecNull(0),
-		WriteRecNull(1)
-	);
+		WriteRecNull(1),
+		Kill("cur")
+	));
 
 	// protect
 	auto protect0 = Sqz(
