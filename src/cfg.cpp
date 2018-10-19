@@ -28,7 +28,7 @@ std::ostream& tmr::operator<<(std::ostream& os, const Cfg& cfg) {
 	if (cfg.shape) {
 		os << ") with shape=";
 		os << "...";
-		os << std::endl << *cfg.shape;
+		// os << std::endl << *cfg.shape;
 		os << std::endl;
 	}
 	else os << "=NULL)" << std::endl;

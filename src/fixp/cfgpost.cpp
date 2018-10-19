@@ -102,15 +102,29 @@ inline bool drop_enter_cfg(const Cfg& cfg, unsigned short tid) {
 
 /******************************** POST FOR ONE THREAD ********************************/
 
+#define DEBUG_POST_WITH_SHAPE false
+#define DEBUG_POST_WITHOUT_SHAPE false
+
 inline void debug_post_input(const Cfg& cfg) {
-	// std::cout << std::endl << std::endl << "==============================================================" << std::endl << "posting: " << cfg;
-	// // std::cout << *cfg.shape;
-	// std::cout << std::endl;
+	#if DEBUG_POST_WITH_SHAPE || DEBUG_POST_WITHOUT_SHAPE
+		std::cout << std::endl << std::endl;
+		std::cout << "==============================================================" << std::endl;
+		std::cout << "posting: " << cfg;
+		#if DEBUG_POST_WITH_SHAPE
+			std::cout << *cfg.shape;
+		#endif
+		std::cout << std::endl;
+	#endif
 }
 
 inline void debug_post_output(const Cfg& cfg) {
-	// std::cout << "adding: " << cfg << std::endl;
-	// // std::cout << *cfg.shape << std::endl;
+	#if DEBUG_POST_WITH_SHAPE || DEBUG_POST_WITHOUT_SHAPE
+		std::cout << "adding: " << cfg << std::endl;
+		#if DEBUG_POST_WITH_SHAPE
+			std::cout << *cfg.shape;
+		#endif
+		std::cout << std::endl;
+	#endif
 }
 
 void mk_tid_post(std::vector<Cfg>& result, const Cfg& input, unsigned short tid, const Program& prog) {
@@ -130,8 +144,7 @@ void mk_tid_post(std::vector<Cfg>& result, const Cfg& input, unsigned short tid,
 
 		// add to result
 		result.reserve(result.size() + postcfgs.size());
-		result.insert(result.end(), std::make_move_iterator(postcfgs.begin()), std::make_move_iterator(postcfgs.end()));
-		// std::move(postcfgs.begin(), postcfgs.end(), std::back_inserter(result));
+		std::move(postcfgs.begin(), postcfgs.end(), std::back_inserter(result));
 
 	} else {
 		// invoke function

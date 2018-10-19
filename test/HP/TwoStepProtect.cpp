@@ -28,9 +28,11 @@ static std::unique_ptr<Program> mk_program() {
 
 	// protect
 	auto protect0 = Sqz(
+		WriteRecNull(0),
 		WriteRecArg(0)
 	);
 	auto protect1 = Sqz(
+		WriteRecNull(1),
 		WriteRecArg(1)
 	);
 
@@ -43,25 +45,8 @@ static std::unique_ptr<Program> mk_program() {
 	);
 
 	// retire
-	// {{ 0 }} = retired node list (rlist)
-	// {{ 1 }} = protected node list (plist)
-	// {{ 2 }} = to-delete node list (dlist)
 	auto retire = Sqz(
 		AddArg(0),
-		/* if *:
-			List<ptr_t> plist;
-			Node* cur = HPRec;
-			while (cur != NULL) {
-				plist.add(cur->ptr)
-			}
-			List<ptr_t> dlist;
-			dlist = rlist - plist;
-			rlist = rlist - dlist
-			free(dlist);
-			rlist = rlist - dlist;
-			plist = empty
-			dlist = empty
-		 */
 		IfThen(
 			NDCond(),
 			Sqz(
@@ -80,9 +65,9 @@ static std::unique_ptr<Program> mk_program() {
 					)
 				)),
 				SetAssign(2, 0),
-				SetMinus(2, 1), // removing this must result in verification failure
+				SetMinus(2, 1),
 				Free(2),
-				SetMinus(0, 2), // removing this must result in verification failure
+				SetMinus(0, 2),
 				Clear(1),
 				Clear(2),
 				Kill("cur")
@@ -91,7 +76,7 @@ static std::unique_ptr<Program> mk_program() {
 	);
 
 
-	std::string name = "HazardPointerImpl";
+	std::string name = "HazardPointerImpl_TwoStepProtect";
 
 	auto prog = Prog(
 		name,
@@ -113,5 +98,5 @@ static std::unique_ptr<Program> mk_program() {
 int main(int argc, char *argv[]) {
 	// make program and observer
 	std::unique_ptr<Program> program = mk_program();
-	return run_hp(*program);
+	return run_hp(*program, false);
 }

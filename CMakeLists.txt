@@ -10,8 +10,6 @@ set(CMAKE_VERBOSE_MAKEFILE OFF)
 set(CMAKE_BUILD_TYPE RelWithDebInfo)
 # set(CMAKE_BUILD_TYPE Release)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
 # use c++11
 if(CMAKE_COMPILER_IS_GNUCXX)
 	add_definitions(-fno-strict-aliasing)
@@ -38,6 +36,10 @@ INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
 
 # adds test target
 enable_testing()
+
+# dedicated folder for binaries
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(BIN_PATH ${CMAKE_BINARY_DIR}/bin)
 
 
 # includes

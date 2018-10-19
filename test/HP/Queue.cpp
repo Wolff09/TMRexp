@@ -6,24 +6,41 @@ using namespace tmr;
 static std::unique_ptr<Program> mk_program() {
 	// init prog
 	auto init = Sqz(
-		SetNull(Var("HPrecs"))
+		Mllc("HPrecs"),
+		SetNull(Next("HPrecs")),
+		Assign(Var("Tail"), Var("HPrecs"))
 	);
 
 	// init thread
 	auto initthread = Sqz(
 		Mllc("cur"),
+		SetNull(Next("cur")),
 		Loop(Sqz(
-			Assign(Var("tmp"), Var("HPrecs")),
-			Assign(Next("cur"), Var("tmp")),
-			IfThen(
-				CasCond(CAS(Var("HPrecs"), Var("tmp"), Var("cur"))),
-				Sqz(Brk())
+			Assign(Var("tmp"), Var("Tail")),
+			Assign(Var("next"), Next("tmp")),
+			IfThenElse(
+				EqCond(Var("next"), Null()),
+				Sqz(
+					IfThen(
+						CasCond(CAS(Next("Tail"), Var("next"), Var("cur"))),
+						Sqz(
+							CAS(Var("Tail"), Var("tmp"), Var("cur")),
+							Brk()
+						)
+					)
+				),
+				Sqz(
+					CAS(Var("Tail"), Var("tmp"), Var("next"))
+				)
 			),
-			Kill("tmp")
+			Kill("tmp"),
+			Kill("next")
 		)),
 		InitRec("cur"),
 		WriteRecNull(0),
-		WriteRecNull(1)
+		WriteRecNull(1),
+		Kill("tmp"),
+		Kill("next")
 	);
 
 	// protect
@@ -43,29 +60,12 @@ static std::unique_ptr<Program> mk_program() {
 	);
 
 	// retire
-	// {{ 0 }} = retired node list (rlist)
-	// {{ 1 }} = protected node list (plist)
-	// {{ 2 }} = to-delete node list (dlist)
 	auto retire = Sqz(
 		AddArg(0),
-		/* if *:
-			List<ptr_t> plist;
-			Node* cur = HPRec;
-			while (cur != NULL) {
-				plist.add(cur->ptr)
-			}
-			List<ptr_t> dlist;
-			dlist = rlist - plist;
-			rlist = rlist - dlist
-			free(dlist);
-			rlist = rlist - dlist;
-			plist = empty
-			dlist = empty
-		 */
 		IfThen(
 			NDCond(),
 			Sqz(
-				Assign(Var("cur"), Var("HPrecs")),
+				Assign(Var("cur"), Next("HPrecs")),
 				Loop(Sqz(
 					IfThenElse(
 						EqCond(Var("cur"), Null()),
@@ -80,9 +80,9 @@ static std::unique_ptr<Program> mk_program() {
 					)
 				)),
 				SetAssign(2, 0),
-				SetMinus(2, 1), // removing this must result in verification failure
+				SetMinus(2, 1),
 				Free(2),
-				SetMinus(0, 2), // removing this must result in verification failure
+				SetMinus(0, 2),
 				Clear(1),
 				Clear(2),
 				Kill("cur")
@@ -91,12 +91,12 @@ static std::unique_ptr<Program> mk_program() {
 	);
 
 
-	std::string name = "HazardPointerImpl";
+	std::string name = "HazardPointerImpl_Queue";
 
 	auto prog = Prog(
 		name,
-		{"HPrecs"},
-		{"cur", "tmp"},
+		{"HPrecs", "Tail"},
+		{"cur", "tmp", "next"},
 		std::move(init),
 		std::move(initthread),
 		Fun("protect0", std::move(protect0), true),
