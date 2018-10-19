@@ -45,5 +45,9 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Killer& stmt, unsigned short ti
 	shape->set(var_index, var_index, EQ_);
 	shape->set(var_index, shape->index_UNDEF(), MT_);
 
-	return mk_next_config_vec(cfg, shape, tid);
+	auto result = mk_next_config_vec(cfg, shape, tid);
+	if (var_index == shape->offset_locals(tid) && shape->sizeLocals() > 0) {
+		result.back().owned[tid] = false;
+	}
+	return result;
 }

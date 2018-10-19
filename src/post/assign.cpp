@@ -61,20 +61,30 @@ std::vector<Cfg> tmr::post_assignment_pointer(const Cfg& cfg, const Expr& lhs, c
 #define SHARED_VAR(x) (x >= cfg.shape->offset_program_vars() && x < cfg.shape->offset_locals(0))
 ; // this one is actually very useful: it fixes my syntax highlighting :)
 
+inline void remove_ownership(Cfg& cfg, std::size_t index, unsigned short tid) {
+	if (index == cfg.shape->offset_locals(tid) && cfg.shape->sizeLocals() > 0) {
+		cfg.owned[tid] = false;
+	}
+}
 
 std::vector<Cfg> tmr::post_assignment_pointer_var_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	Shape* shape = post_assignment_pointer_shape_var_var(*cfg.shape, lhs, rhs, stmt);
-	return mk_next_config_vec(cfg, shape, tid);
+	auto result = mk_next_config_vec(cfg, shape, tid);
+	remove_ownership(result.back(), rhs, tid);
+	return result;
 }
 
 std::vector<Cfg> tmr::post_assignment_pointer_var_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	Shape* shape = post_assignment_pointer_shape_var_next(*cfg.shape, lhs, rhs, stmt);
-	return mk_next_config_vec(cfg, shape, tid);
+	auto result = mk_next_config_vec(cfg, shape, tid);
+	return result;
 }
 
 std::vector<Cfg> tmr::post_assignment_pointer_next_var(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {
 	Shape* shape = post_assignment_pointer_shape_next_var(*cfg.shape, lhs, rhs, stmt);
-	return mk_next_config_vec(cfg, shape, tid);
+	auto result = mk_next_config_vec(cfg, shape, tid);
+	remove_ownership(result.back(), rhs, tid);
+	return result;
 }
 
 std::vector<Cfg> tmr::post_assignment_pointer_next_next(const Cfg& cfg, const std::size_t lhs, const std::size_t rhs, unsigned short tid, const Statement* stmt) {

@@ -63,15 +63,18 @@ namespace tmr {
 		MultiSet dataset0;
 		MultiSet dataset1;
 		MultiSet dataset2;
+		mutable MultiBool owned; // ownership of first thread-local pointer
 
 		Cfg(std::array<const Statement*, 2> pc, MultiState smrstate, MultiMultiState threadstate, Shape* shape)
 		    : pc(pc), smrstate(smrstate), threadstate(threadstate), arg(DEFAULT_DATA_VALUE), offender(false), shape(shape),
 		      datasel0(DEFAULT_DATA_VALUE), datasel1(DEFAULT_DATA_VALUE),
-		      dataset0(DEFAULT_DATA_SET), dataset1(DEFAULT_DATA_SET), dataset2(DEFAULT_DATA_SET)
+		      dataset0(DEFAULT_DATA_SET), dataset1(DEFAULT_DATA_SET), dataset2(DEFAULT_DATA_SET),
+		      owned(false)
 		{}
 		Cfg(const Cfg& cfg, Shape* shape)
 		    : pc(cfg.pc), smrstate(cfg.smrstate), threadstate(cfg.threadstate), arg(cfg.arg), offender(cfg.offender), shape(shape),
-		      datasel0(cfg.datasel0), datasel1(cfg.datasel1), dataset0(cfg.dataset0), dataset1(cfg.dataset1), dataset2(cfg.dataset2)
+		      datasel0(cfg.datasel0), datasel1(cfg.datasel1), dataset0(cfg.dataset0), dataset1(cfg.dataset1), dataset2(cfg.dataset2),
+		      owned(cfg.owned)
 		{}
 		Cfg copy() const;
 	};

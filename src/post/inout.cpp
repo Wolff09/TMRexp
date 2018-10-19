@@ -18,21 +18,25 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const WriteRecData& stmt, unsigned sh
 
 	if (!cfg.offender[tid]) {
 		return mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
-
 	}
 
-	auto result = mk_next_config_vec(cfg, new Shape(*cfg.shape), tid);
-	
-	DataValue data;
+	std::vector<DataValue> dvals;
 	switch (stmt.type()) {
-		case WriteRecData::FROM_ARG: data = cfg.arg[tid]; break;
-		case WriteRecData::FROM_NULL: data = DataValue::OTHER; break; // TODO: also add DataValue::DATA
+		case WriteRecData::FROM_ARG: dvals = { cfg.arg[tid] }; break;
+		case WriteRecData::FROM_NULL: dvals = { DataValue::DATA, DataValue::OTHER }; break;
 	}
 
-	switch (stmt.index()) {
-		case 0: result.back().datasel0 = data; break;
-		case 1: result.back().datasel1 = data; break;
-		default: throw std::logic_error("Unsupported data selector.");
+	std::vector<Cfg> result;
+	result.reserve(dvals.size());
+
+	for (DataValue data : dvals) {
+		result.push_back(mk_next_config(cfg, new Shape(*cfg.shape), tid));
+
+		switch (stmt.index()) {
+			case 0: result.back().datasel0 = data; break;
+			case 1: result.back().datasel1 = data; break;
+			default: throw std::logic_error("Unsupported data selector.");
+		}
 	}
 
 	return result;

@@ -14,6 +14,7 @@ std::ostream& tmr::operator<<(std::ostream& os, const Cfg& cfg) {
 	os << ", pc1=";
 	if (cfg.pc[1]) os << *cfg.pc[1];
 	else os << "NULL";
+	os << ", owned=[" << cfg.owned[0] << ", " << cfg.owned[1] << "]";
 	os << ", smrstate=" << cfg.smrstate;
 	os << ", threadstate=[" << cfg.threadstate[0] << ", " << cfg.threadstate[1] << "]";
 	os << ", arg=[" << cfg.arg[0] << ", " << cfg.arg[1] << "]";
@@ -24,7 +25,12 @@ std::ostream& tmr::operator<<(std::ostream& os, const Cfg& cfg) {
 	os << ", dataset1=[" << cfg.dataset1[0] << ", " << cfg.dataset1[1] << "]";
 	os << ", dataset2=[" << cfg.dataset2[0] << ", " << cfg.dataset2[1] << "]";
 	os << ", shape";
-	if (cfg.shape) os << ") with shape=" << "..." /* std::endl << *cfg.shape */ << std::endl;
+	if (cfg.shape) {
+		os << ") with shape=";
+		os << "...";
+		os << std::endl << *cfg.shape;
+		os << std::endl;
+	}
 	else os << "=NULL)" << std::endl;
 	return os;
 }

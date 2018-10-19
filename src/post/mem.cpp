@@ -31,7 +31,11 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const Malloc& stmt, unsigned short ti
 	auto shape2 = post_assignment_pointer_shape_next_var(*shape1, var_index, input.index_NULL(), &stmt); // null init
 	delete shape1;
 
-	return mk_next_config_vec(cfg, shape2, tid);
+	auto result = mk_next_config_vec(cfg, shape2, tid);
+	if (var_index == input.offset_locals(tid) && input.sizeLocals() > 0) {
+		result.back().owned[tid] = true;
+	}
+	return result;
 }
 
 

@@ -83,146 +83,38 @@ static inline bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
 /******************************** EXTENSION ********************************/
 
 static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> input) {
-//	const Cfg& cfg = *input;
-//	Shape& shape = *(input->shape);
-//
-//	bool iterate = true;
-//	for (std::size_t iteration = 0; iteration < MAX_PRUNE_ITERATIONS && iterate; iteration++) {
-//		iterate = false;
-//
-//		for (std::size_t row = shape.offset_locals(0); row < shape.offset_locals(1); row++) {
-//			for (std::size_t col = shape.offset_locals(1); col < shape.size(); col++) {
-//				bool is_row_owned = cfg.own.at(row);
-//				bool is_col_owned = cfg.own.at(col);
-//
-//				bool is_row_valid = cfg.valid_ptr.at(row);
-//				bool is_col_valid = cfg.valid_ptr.at(col);
-//
-//				bool is_row_valid_next = cfg.valid_next.at(row);
-//				bool is_col_valid_next = cfg.valid_next.at(col);
-//
-//				bool is_row_retired = (cfg.guard0state.at(row) && cfg.guard0state.at(row)->is_special())
-//				                   || (cfg.guard1state.at(row) && cfg.guard1state.at(row)->is_special());
-//				bool is_col_retired = (cfg.guard0state.at(col) && cfg.guard0state.at(col)->is_special())
-//				                   || (cfg.guard1state.at(col) && cfg.guard1state.at(col)->is_special());
-//
-//				bool is_row_reuse = shape.test(row, shape.index_REUSE(), EQ);
-//				bool is_col_reuse = shape.test(col, shape.index_REUSE(), EQ);
-//				bool is_no_reuse = !is_row_reuse || !is_col_reuse;
-//
-//				RelSet prune;
-//
-//				if (is_row_owned && is_col_valid) {
-//					prune |= EQ_MF_GF;
-//				}
-//				if (is_row_valid && is_col_owned) {
-//					prune |= EQ_MT_GT;
-//				}
-//				if (is_row_owned && is_col_owned) {
-//					prune |= EQ_MT_MF_GT_GF; // consequence of previous?
-//				}
-//				if (is_row_retired ^ is_col_retired) {
-//					prune.set(EQ);
-//				}
-//				if ((is_row_valid ^ is_col_valid) && is_no_reuse) {
-//					prune.set(EQ);
-//				}
-//				if ((is_row_owned ^ !is_col_valid) && is_no_reuse) {
-//					prune.set(EQ); // consequence of previous?
-//				}
-//				if ((!is_row_valid ^ is_col_owned) && is_no_reuse) {
-//					prune.set(EQ); // consequence of previous?
-//				}
-//
-//				if (!is_row_valid && (!is_row_reuse || cfg.freed)) {
-//					prune |= MT_GT;
-//				}
-//				if (!is_col_valid && (!is_col_reuse || cfg.freed)) {
-//					prune |= MF_GF;
-//				}
-//
-//				// TODO: owned and !reuse => only BT possible ?
-//
-//				if (is_row_owned && !is_row_reuse) {
-//					prune |= EQ_MT_MF_GT_GF;
-//				}
-//				if (is_col_owned && !is_col_reuse) {
-//					prune |= EQ_MT_MF_GT_GF;
-//				}
-//
-//
-//				// TODO: check again
-//
-//				if (!is_row_valid && !is_row_reuse) {
-//					prune |= MT_GT;
-//				}
-//				if (!is_col_valid && !is_col_reuse) {
-//					prune |= MF_GF;
-//				}
-//
-//				if (!is_row_valid_next && is_col_valid && !is_col_reuse) {
-//					prune |= MT_GT;
-//				}
-//				if (!is_col_valid_next && is_row_valid && !is_row_reuse) {
-//					prune |= MF_GF;
-//				}
-//
-//
-//
-//				bool is_row_freed = (cfg.guard0state.at(row) && cfg.guard0state.at(row)->is_marked())
-//				                 || (cfg.guard1state.at(row) && cfg.guard1state.at(row)->is_marked());
-//				bool is_col_freed = (cfg.guard0state.at(col) && cfg.guard0state.at(col)->is_marked())
-//				                 || (cfg.guard1state.at(col) && cfg.guard1state.at(col)->is_marked());
-//
-//				if (is_row_freed || is_col_freed) {
-//					// more aggressive pruning if explicit knowledge of freeness is available
-//					// TODO: check again
-//
-//					if (is_row_valid && is_col_freed && is_no_reuse) {
-//						prune.set(EQ);
-//					}
-//					if (is_row_freed && is_col_valid && is_no_reuse) {
-//						prune.set(EQ);
-//					}
-//					if (is_row_owned && is_col_freed && is_no_reuse) {
-//						prune.set(EQ); // consequence of previous?
-//					}
-//					if (is_row_freed && is_col_owned && is_no_reuse) {
-//						prune.set(EQ); // consequence of previous?
-//					}
-//					if (is_row_valid_next && is_col_freed /*&& !is_col_reuse*/) {
-//						prune.set(MT);
-//					}
-//					if (is_row_freed && is_col_valid_next /*&& !is_row_reuse*/) {
-//						prune.set(MF);
-//					}
-//					if (is_row_freed ^ is_col_freed) {
-//						prune.set(EQ);
-//					}
-//
-//
-//					// if (is_row_freed) prune |= MT_GT;
-//					// if (is_col_freed) prune |= MF_GF;
-//				}
-//
-//
-//
-//				RelSet new_cell = shape.at(row, col) & prune.flip();
-//				if (new_cell != shape.at(row, col)) iterate = true;
-//				shape.set(row, col, new_cell);
-//			}
-//		}
-//
-//		bool success = make_concretisation(shape);
-//		if (!success) {
-//			input.reset(nullptr);
-//			break;
-//		}
-//	}
+	const Cfg& cfg = *input;
+	Shape& shape = *(input->shape);
 
-	bool success = make_concretisation(*input->shape);
-	if (!success) {
-		input.reset(nullptr);
+	bool iterate = true;
+	for (std::size_t iteration = 0; iteration < MAX_PRUNE_ITERATIONS && iterate; iteration++) {
+		iterate = false;
+
+		for (std::size_t row = shape.offset_locals(0); row < shape.offset_locals(1); row++) {
+			for (std::size_t col = shape.offset_locals(1); col < shape.size(); col++) {
+				bool is_row_owned = row == shape.offset_locals(0) && shape.sizeLocals() > 0 && cfg.owned[0];
+				bool is_col_owned = row == shape.offset_locals(1) && shape.sizeLocals() > 0 && cfg.owned[1];
+
+				RelSet prune; // relations to remove
+
+				if (is_row_owned) {
+					prune |= EQ_MT_MF_GT_GF;
+				}
+				if (is_col_owned) {
+					prune |= EQ_MT_MF_GT_GF;
+				}
+
+				RelSet new_cell = shape.at(row, col) & prune.flip();
+				if (new_cell != shape.at(row, col)) iterate = true;
+				shape.set(row, col, new_cell);
+			}
+		}
+
+		bool success = make_concretisation(shape);
+		if (!success) {
+			input.reset(nullptr);
+			break;
+		}
 	}
 
 	return input;
@@ -284,6 +176,7 @@ std::unique_ptr<Cfg> extend_cfg(const Cfg& dst, const Cfg& interferer) {
 	res.dataset1[1] = interferer.dataset1[0];
 	res.dataset2[1] = interferer.dataset2[0];
 	res.threadstate[1] = interferer.threadstate[0];
+	res.owned[1] = interferer.owned[0];
 
 	// prune shape (1.3, 1.4)
 	return prune_local_relations(std::move(result));
@@ -302,6 +195,7 @@ static inline void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
 	cfg.dataset1[extended_thread_tid] = DEFAULT_DATA_SET;
 	cfg.dataset2[extended_thread_tid] = DEFAULT_DATA_SET;
 	// cfg.threadstate[1] = cfg.threadstate[2]; // TODO: ignore?
+	cfg.owned[1] = false;
 }
 
 

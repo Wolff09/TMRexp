@@ -254,7 +254,6 @@ namespace tmr {
 		private:
 			std::unique_ptr<Expr> _lhs;
 			std::unique_ptr<Expr> _rhs;
-			bool _fires_lp;
 
 		public:
 			Statement::Class clazz() const { return Statement::Class::ASSIGN; }
@@ -267,7 +266,6 @@ namespace tmr {
 			Assignment(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs);
 			const Expr& lhs() const { return *_lhs; }
 			const Expr& rhs() const { return *_rhs; }
-			bool fires_lp() const { return _fires_lp; }
 	};
 
 	class NullAssignment : public Statement {

@@ -104,7 +104,7 @@ Function::Function(std::string name, std::unique_ptr<Sequence> stmts, bool has_a
 	_stmts->propagateFun(this);
 }
 
-Assignment::Assignment(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs) : _lhs(std::move(lhs)), _rhs(std::move(rhs)), _fires_lp(false) {
+Assignment::Assignment(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs) : _lhs(std::move(lhs)), _rhs(std::move(rhs)) {
 	assert(_lhs->clazz() != Expr::NIL);
 	assert(_rhs->clazz() != Expr::NIL);
 }

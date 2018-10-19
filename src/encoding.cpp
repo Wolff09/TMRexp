@@ -66,6 +66,14 @@ std::pair<bool, const Cfg&> Encoding::take(Cfg&& new_cfg) {
 				}
 			}
 
+			// merge ownership
+			for (std::size_t i : { 0, 1}) {
+				if (cfg.owned[i] != new_cfg.owned[i]) {
+					cfg.owned[i] = false;
+					updated = true;
+				}
+			}
+
 			return { updated, cfg };
 		}
 	}
