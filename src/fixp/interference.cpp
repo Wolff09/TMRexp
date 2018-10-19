@@ -63,6 +63,14 @@ static inline bool can_interfere(const Cfg& cfg, const Cfg& interferer) {
 		return false;
 	}
 
+	if (cfg.globalepoch != interferer.globalepoch) {
+		return false;
+	}
+
+	if (cfg.epochsel != interferer.epochsel) {
+		return false;
+	}
+
 	// certain state combinations may be excluded
 	if (cfg.threadstate[0].colors_intersect(interferer.threadstate[0])) {
 		return false;
@@ -177,6 +185,7 @@ std::unique_ptr<Cfg> extend_cfg(const Cfg& dst, const Cfg& interferer) {
 	res.dataset2[1] = interferer.dataset2[0];
 	res.threadstate[1] = interferer.threadstate[0];
 	res.owned[1] = interferer.owned[0];
+	res.localepoch[1] = interferer.localepoch[0];
 
 	// prune shape (1.3, 1.4)
 	return prune_local_relations(std::move(result));
@@ -194,6 +203,7 @@ static inline void project_away(Cfg& cfg, unsigned short extended_thread_tid) {
 	cfg.dataset0[extended_thread_tid] = DEFAULT_DATA_SET;
 	cfg.dataset1[extended_thread_tid] = DEFAULT_DATA_SET;
 	cfg.dataset2[extended_thread_tid] = DEFAULT_DATA_SET;
+	cfg.localepoch[extended_thread_tid] = DEFAULT_EPOCH;
 	// cfg.threadstate[1] = cfg.threadstate[2]; // TODO: ignore?
 	cfg.owned[1] = false;
 }
@@ -281,6 +291,11 @@ void mk_regional_interference(RemainingWork& work, Encoding::__sub__store__& reg
 
 		for (auto it2 = it1; it2 != region.end(); it2++) {
 			const Cfg& c2 = *it2;
+
+			// if (!c1.pc[0] && !c2.pc[0] && !c1.offender[0] && c2.offender[0] && !can_interfere(c1, c2) && do_shapes_match(c1, c2)) {
+			// 	std::cout << std::endl << std::endl << "=======================================" << std::endl << c1 << *c1.shape << std::endl << c2 << *c2.shape << std::endl;
+			// }
+
 
 			if (can_interfere(c1, c2)) {
 				work.add(mk_one_interference(c1, c2, prog));

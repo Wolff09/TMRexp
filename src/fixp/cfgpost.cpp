@@ -88,7 +88,7 @@ inline void handle_enter(Cfg& cfg, const Function& callee, DataValue arg, unsign
 	cfg.pc[tid] = &callee.body();
 	cfg.arg[tid] = arg;
 	fire_enter_event(cfg, callee, tid, arg);
-	prune_noops(cfg, tid);
+	// prune_noops(cfg, tid); // this may hide exit events
 }
 
 inline bool drop_enter_cfg(const Cfg& cfg, unsigned short tid) {

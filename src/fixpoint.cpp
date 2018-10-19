@@ -59,6 +59,8 @@ void RemainingWork::add(Cfg&& cfg) {
 		return;
 	}
 
+	// if (cfg.globalepoch == Epoch::TWO && cfg.epochsel == Epoch::ZERO && cfg.offender[0]) throw std::logic_error("epochsel lacking behind");
+
 	// std::cout << "adding: " << cfg << std::endl;
 	auto res = _enc.take(std::move(cfg));
 	if (res.first) _work.insert(&res.second);

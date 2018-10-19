@@ -68,6 +68,12 @@ namespace tmr {
 		return run(program, *smrobs, *threadobs, expect_success);
 	}
 
+	int run_ebr_with_inv(const Program& program, bool expect_success=true) {
+		auto smrobs = ebr_observer(program);
+		auto threadobs = base_observer_with_EBR_assumption(program);
+		return run(program, *smrobs, *threadobs, expect_success);
+	}
+
 	int run_hp(const Program& program, bool expect_success=true) {
 		auto smrobs = hp_observer(program);
 		auto threadobs = base_observer(program);

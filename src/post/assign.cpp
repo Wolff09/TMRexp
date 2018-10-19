@@ -308,7 +308,8 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddSel& stmt, unsigned short
 std::vector<Cfg> tmr::post(const Cfg& cfg, const InitRecPtr& stmt, unsigned short tid) {
 	auto rhs = mk_var_index(*cfg.shape, stmt.rhs(), tid);
 	if (rhs != cfg.shape->offset_locals(tid) || !cfg.owned[tid]) {
-		throw std::logic_error("__rec__ must be initialized from a definitely owned pointer.");
+		// throw std::logic_error("__rec__ must be initialized from a definitely owned pointer.");
+		// TODO: must be first local var; must be non-owned; must stem from allocation
 	}
 	
 	Shape* shape;

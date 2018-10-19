@@ -17,6 +17,7 @@ bool cfg_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	cmp(rhs.dataset1, lhs.dataset1);
 	cmp(rhs.dataset2, lhs.dataset2);
 	cmp(lhs.threadstate[0], rhs.threadstate[0]);
+	cmp(lhs.localepoch[0], rhs.localepoch[0]);
 	return false;
 }
 
@@ -24,6 +25,8 @@ bool key_comparator::operator() (const Cfg& lhs, const Cfg& rhs) const{
 	cmp(lhs.smrstate, rhs.smrstate);
 	cmp(rhs.datasel0, lhs.datasel0);
 	cmp(rhs.datasel1, lhs.datasel1);
+	cmp(rhs.globalepoch, lhs.globalepoch);
+	cmp(rhs.epochsel, lhs.epochsel);
 	return false;
 }
 

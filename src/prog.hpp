@@ -118,7 +118,7 @@ namespace tmr {
 	class Condition {
 		public:
 			virtual ~Condition() = default;
-			enum Type { EQNEQ, CASC, TRUEC, COMPOUND, ORACLEC, NONDET };
+			enum Type { EQNEQ, CASC, TRUEC, COMPOUND, ORACLEC, NONDET, EPOCH_VAR, EPOCH_SEL };
 			virtual Type type() const = 0;
 			virtual void namecheck(const std::map<std::string, Variable*>& name2decl) = 0;
 			virtual void print(std::ostream& os) const = 0;
@@ -188,6 +188,26 @@ namespace tmr {
 			void propagateFun(const Function* fun);
 	};
 
+	class EpochVarCondition : public Condition {
+		public: 
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os) const;
+			Type type() const { return Type::EPOCH_VAR; }
+			void propagateFun(const Function* fun);
+	};
+
+	class EpochSelCondition : public Condition {
+		private:
+			std::unique_ptr<VarExpr> _cmp;
+		public: 
+			EpochSelCondition(std::unique_ptr<VarExpr> cmp) : _cmp(std::move(cmp)) {}
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os) const;
+			Type type() const { return Type::EPOCH_SEL; }
+			void propagateFun(const Function* fun);
+			const VarExpr& var() const { return *_cmp; }
+	};
+
 
 	/*********************** STATEMENT ***********************/
 
@@ -200,7 +220,10 @@ namespace tmr {
 			const Statement* _next = NULL;
 
 		public:
-			enum Class { SQZ, ASSIGN, MALLOC, ITE, WHILE, BREAK, WRITEREC, CAS, SETNULL, ATOMIC, KILL, SETADD_ARG, SETADD_SEL, SETCOMBINE, SETCLEAR, FREEALL, INITREC };
+			enum Class {
+				SQZ, ASSIGN, MALLOC, ITE, WHILE, BREAK, WRITEREC, CAS, SETNULL, ATOMIC, KILL, SETADD_ARG,
+				SETADD_SEL, SETCOMBINE, SETCLEAR, FREEALL, INITREC, SETEPOCH, GETEPOCH, INC
+			};
 			virtual ~Statement() = default;
 			virtual Class clazz() const = 0;
 			unsigned short id() const { assert(_id != 0); return _id; }
@@ -300,6 +323,20 @@ namespace tmr {
 			Type type() const { return _type; }
 	};
 
+	class SetRecEpoch : public Statement {
+		public:
+			Statement::Class clazz() const { return Statement::Class::SETEPOCH; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os, std::size_t indent) const;
+	};
+
+	class GetLocalEpochFromGlobalEpoch : public Statement {
+		public:
+			Statement::Class clazz() const { return Statement::Class::GETEPOCH; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os, std::size_t indent) const;
+	};
+
 	class InitRecPtr : public Statement {
 		private:
 			std::unique_ptr<VarExpr> _rhs;
@@ -310,6 +347,13 @@ namespace tmr {
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
 			const VarExpr& rhs() const { return *_rhs; }
+	};
+
+	class IncrementGlobalEpoch : public Statement {
+		public:
+			Statement::Class clazz() const { return Statement::Class::INC; }
+			void namecheck(const std::map<std::string, Variable*>& name2decl);
+			void print(std::ostream& os, std::size_t indent) const;
 	};
 
 	class Malloc : public Statement {
@@ -556,12 +600,17 @@ namespace tmr {
 	std::unique_ptr<CASCondition> CasCond(std::unique_ptr<CompareAndSwap> cas);
 	std::unique_ptr<CompoundCondition> CompCond(std::unique_ptr<Condition> lhs, std::unique_ptr<Condition> rhs);
 	std::unique_ptr<NonDetCondition> NDCond();
+	std::unique_ptr<EpochVarCondition> EpochCond();
+	std::unique_ptr<EpochSelCondition> EpochCond(std::string name);
 
 	std::unique_ptr<Assignment> Assign (std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs);
 	std::unique_ptr<NullAssignment> SetNull (std::unique_ptr<Expr> lhs);
 	std::unique_ptr<WriteRecData> WriteRecArg(std::size_t index);
 	std::unique_ptr<WriteRecData> WriteRecNull(std::size_t index);
+	std::unique_ptr<SetRecEpoch> SetEpoch();
+	std::unique_ptr<GetLocalEpochFromGlobalEpoch> GetEpoch();
 	std::unique_ptr<InitRecPtr> InitRec(std::string name);
+	std::unique_ptr<IncrementGlobalEpoch> Inc();
 
 	std::unique_ptr<Ite> IfThen(std::unique_ptr<Condition> cond, std::unique_ptr<Sequence> ifs);
 	std::unique_ptr<Ite> IfThenElse(std::unique_ptr<Condition> cond, std::unique_ptr<Sequence> ifs, std::unique_ptr<Sequence> elses);
