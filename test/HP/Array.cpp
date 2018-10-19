@@ -12,6 +12,7 @@ static std::unique_ptr<Program> mk_program() {
 	// init thread
 	auto initthread = Sqz(
 		Mllc("cur"),
+		InitRec("cur"),
 		Loop(Sqz(
 			Assign(Var("tmp"), Var("HPrecs")),
 			Assign(Next("cur"), Var("tmp")),
@@ -21,7 +22,6 @@ static std::unique_ptr<Program> mk_program() {
 			),
 			Kill("tmp")
 		)),
-		InitRec("cur"),
 		WriteRecNull(0),
 		WriteRecNull(1)
 	);
@@ -74,7 +74,7 @@ static std::unique_ptr<Program> mk_program() {
 	);
 
 
-	std::string name = "HazardPointerImpl";
+	std::string name = "HazardPointerImpl_Array";
 
 	auto prog = Prog(
 		name,

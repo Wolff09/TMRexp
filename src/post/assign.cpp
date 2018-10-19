@@ -306,14 +306,20 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const SetAddSel& stmt, unsigned short
 /******************************** REC INIT ********************************/
 
 std::vector<Cfg> tmr::post(const Cfg& cfg, const InitRecPtr& stmt, unsigned short tid) {
+	auto rhs = mk_var_index(*cfg.shape, stmt.rhs(), tid);
+	if (rhs != cfg.shape->offset_locals(tid) || !cfg.owned[tid]) {
+		throw std::logic_error("__rec__ must be initialized from a definitely owned pointer.");
+	}
+	
 	Shape* shape;
 	if (cfg.offender[tid]) {
 		// shape->REC() holds offending threads record
-		auto rhs = mk_var_index(*cfg.shape, stmt.rhs(), tid);
 		shape = post_assignment_pointer_shape_var_var(*cfg.shape, cfg.shape->index_REC(), rhs, &stmt);
+
 	} else {
 		// we ignore non-offending threads records
 		shape = new Shape(*cfg.shape);
 	}
+
 	return mk_next_config_vec(cfg, shape, tid);
 }

@@ -30,3 +30,7 @@ add_test(NAME "HPimpl_IgnoresProtections" COMMAND "${BIN_PATH}/HPimpl_IgnoresPro
 add_executable(HPimpl_BreaksLink BreakingLink.cpp)
 target_link_libraries(HPimpl_BreaksLink TMRexpLib)
 add_test(NAME "HPimpl_BreaksLink" COMMAND "${BIN_PATH}/HPimpl_BreaksLink")
+
+add_executable(HPimpl_Array Array.cpp)
+target_link_libraries(HPimpl_Array TMRexpLib)
+add_test(NAME "HPimpl_Array" COMMAND "${BIN_PATH}/HPimpl_Array")
