@@ -11,26 +11,21 @@ static std::unique_ptr<Program> mk_program() {
 
 	// init thread
 	auto initthread = Sqz(
-		// AtomicSqz(
-			Mllc("cur"),
-			Loop(Sqz(
-				Assign(Var("tmp"), Var("EBRrecs")),
-				Assign(Next("cur"), Var("tmp")),
-				IfThen(
-					CasCond(CAS(Var("EBRrecs"), Var("tmp"), Var("cur"))),
-					Sqz(Brk())
-				),
-				Kill("tmp")
-			)),
-			AtomicSqz(
-			// Sqz(
-				InitRec("cur"),
-				GetEpoch(),
-				SetEpoch()
+		Mllc("cur"),
+		Loop(Sqz(
+			Assign(Var("tmp"), Var("EBRrecs")),
+			Assign(Next("cur"), Var("tmp")),
+			IfThen(
+				CasCond(CAS(Var("EBRrecs"), Var("tmp"), Var("cur"))),
+				Sqz(Brk())
 			),
-			Kill("cur"),
 			Kill("tmp")
-		// )
+		)),
+		InitRec("cur"),
+		GetEpoch(),
+		SetEpoch(),
+		Kill("cur"),
+		Kill("tmp")
 	);
 
 	// enterQ

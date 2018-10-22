@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <set>
 #include <memory>
 #include <string>
 #include <iostream>
@@ -235,6 +236,7 @@ namespace tmr {
 			virtual std::size_t propagateId(std::size_t id) { _id = id; return id+1; }
 			virtual void namecheck(const std::map<std::string, Variable*>& name2decl) = 0;
 			virtual void print(std::ostream& os, std::size_t indent) const = 0;
+			virtual void checkRecInit(std::set<const Variable*>& fromAllocation) const = 0;
 	};
 
 	class Sequence : public Statement {
@@ -249,6 +251,7 @@ namespace tmr {
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
 			void propagateFun(const Function* fun);
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 
 			Sequence(std::vector<std::unique_ptr<Statement>> stmts) : _stmts(std::move(stmts)) {}
 			std::size_t size() const { return _stmts.size(); }
@@ -266,6 +269,7 @@ namespace tmr {
 			void propagateFun(const Function* fun);
 			void propagateNext(const Statement* next, const While* last_while);
 			std::size_t propagateId(std::size_t id);
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 
 			Atomic(std::unique_ptr<Sequence> sqz) : _sqz(std::move(sqz)) {
 				// assert(_sqz->size() > 0);
@@ -285,6 +289,7 @@ namespace tmr {
 			std::size_t propagateId(std::size_t id);
 			void propagateNext(const Statement* next, const While* last_while);
 			void propagateFun(const Function* fun);
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 
 			Assignment(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs);
 			const Expr& lhs() const { return *_lhs; }
@@ -299,6 +304,7 @@ namespace tmr {
 			Statement::Class clazz() const { return Statement::Class::SETNULL; }
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 
 			NullAssignment(std::unique_ptr<Expr> lhs) : _lhs(std::move(lhs)) {
 				assert(_lhs->clazz() == Expr::VAR || _lhs->clazz() == Expr::SEL);
@@ -321,6 +327,7 @@ namespace tmr {
 			void print(std::ostream& os, std::size_t indent) const;
 			std::size_t index() const { return _sel_index; }
 			Type type() const { return _type; }
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 	};
 
 	class SetRecEpoch : public Statement {
@@ -328,6 +335,7 @@ namespace tmr {
 			Statement::Class clazz() const { return Statement::Class::SETEPOCH; }
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 	};
 
 	class GetLocalEpochFromGlobalEpoch : public Statement {
@@ -335,6 +343,7 @@ namespace tmr {
 			Statement::Class clazz() const { return Statement::Class::GETEPOCH; }
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 	};
 
 	class InitRecPtr : public Statement {
@@ -347,6 +356,7 @@ namespace tmr {
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
 			const VarExpr& rhs() const { return *_rhs; }
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 	};
 
 	class IncrementGlobalEpoch : public Statement {
@@ -354,6 +364,7 @@ namespace tmr {
 			Statement::Class clazz() const { return Statement::Class::INC; }
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 	};
 
 	class Malloc : public Statement {
@@ -364,6 +375,7 @@ namespace tmr {
 			Statement::Class clazz() const { return Statement::Class::MALLOC; }
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 
 			Malloc(std::unique_ptr<VarExpr> var) : _var(std::move(var)) {}
 			const VarExpr& var() const { return *_var; }
@@ -376,6 +388,7 @@ namespace tmr {
 			void propagateNext(const Statement* next, const While* last_while);
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 	};
 
 	class Conditional : public Statement {
@@ -388,6 +401,7 @@ namespace tmr {
 			const Condition& cond() const { return *_cond; }
 			virtual const Statement* next_true_branch() const = 0;
 			virtual const Statement* next_false_branch() const = 0;
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 	};
 
 	class Ite : public Conditional {
@@ -403,6 +417,7 @@ namespace tmr {
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
 			void propagateFun(const Function* fun);
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 
 			Ite(std::unique_ptr<Condition> cond, std::unique_ptr<Sequence> ifstmts, std::unique_ptr<Sequence> elsestmts)
 			   : Conditional(std::move(cond)), _if(std::move(ifstmts)), _else(std::move(elsestmts)) {}
@@ -422,6 +437,7 @@ namespace tmr {
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
 			void propagateFun(const Function* fun);
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 
 			While(std::unique_ptr<Condition> cond, std::unique_ptr<Sequence> stmts) : Conditional(std::move(cond)), _stmts(std::move(stmts)) {}
 			const Statement* next_true_branch() const;
@@ -440,6 +456,7 @@ namespace tmr {
 			void print(std::ostream& os, std::size_t indent) const;
 			std::size_t propagateId(std::size_t id);
 			void propagateFun(const Function* fun);
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 
 			CompareAndSwap(std::unique_ptr<Expr> dst, std::unique_ptr<Expr> cmp, std::unique_ptr<Expr> src);
 			const Expr& dst() const { return *_dst; }
@@ -457,6 +474,7 @@ namespace tmr {
 			void print(std::ostream& os, std::size_t indent) const;
 			Killer(std::unique_ptr<VarExpr> to_kill) : _to_kill(std::move(to_kill)) {}
 			const VarExpr& var() const { return *_to_kill; }
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 	};
 
 	class SetOperation : public Statement {
@@ -470,6 +488,7 @@ namespace tmr {
 			virtual void namecheck(const std::map<std::string, Variable*>& name2decl) {}
 			virtual void print(std::ostream& os, std::size_t indent) const = 0;
 			std::size_t setid() const { return _setid; }
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 	};
 
 	class SetAddArg : public SetOperation {
@@ -478,6 +497,7 @@ namespace tmr {
 			Statement::Class clazz() const { return Statement::SETADD_ARG; }
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 	};
 
 	class SetAddSel : public SetOperation {
@@ -490,6 +510,7 @@ namespace tmr {
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			void print(std::ostream& os, std::size_t indent) const;
 			const Selector& selector() const { return *_sel; }
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 	};
 
 	class SetCombine : public SetOperation {
@@ -507,6 +528,7 @@ namespace tmr {
 			std::size_t lhs() const { return setid(); }
 			std::size_t rhs() const { return _rhs; }
 			SetCombine::Type type() const { return _type; }
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 	};
 
 	class SetClear : public SetOperation {
@@ -514,6 +536,7 @@ namespace tmr {
 			SetClear(std::size_t setid) : SetOperation(setid) {}
 			Statement::Class clazz() const { return Statement::SETCLEAR; }
 			void print(std::ostream& os, std::size_t indent) const;
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 	};
 
 	class FreeAll : public Statement {
@@ -526,6 +549,7 @@ namespace tmr {
 			void namecheck(const std::map<std::string, Variable*>& name2decl) {}
 			void print(std::ostream& os, std::size_t indent) const;
 			std::size_t setid() const { return _setid; }
+			void checkRecInit(std::set<const Variable*>& fromAllocation) const;
 	};
 
 	/*********************** PROGRAM ***********************/
@@ -549,6 +573,7 @@ namespace tmr {
 			void namecheck(const std::map<std::string, Variable*>& name2decl);
 			std::string arg_name() const { return "__arg__"; }
 			bool has_arg() const { return _has_arg; }
+			void checkRecInit() const;
 			const Program& prog() const { return *_prog; }
 
 		friend class Program;
@@ -586,6 +611,7 @@ namespace tmr {
 	std::ostream& operator<<(std::ostream& os, const Statement& stmt);
 	std::ostream& operator<<(std::ostream& os, const Function& fun);
 	std::ostream& operator<<(std::ostream& os, const Program& prog);
+	std::ostream& operator<<(std::ostream& os, const std::set<const Variable*>& set);
 
 
 	/*********************** SHORTCUTS ***********************/

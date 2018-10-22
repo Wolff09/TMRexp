@@ -33,7 +33,8 @@ static bool uses_reserved_name(const std::vector<std::unique_ptr<Function>>& fun
 	return false;
 }
 
-Program::Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::unique_ptr<Sequence> init, std::unique_ptr<Sequence> init_thread, std::vector<std::unique_ptr<Function>> funs)
+Program::Program(std::string name, std::vector<std::string> globals, std::vector<std::string> locals, std::unique_ptr<Sequence> init,
+	   std::unique_ptr<Sequence> init_thread, std::vector<std::unique_ptr<Function>> funs)
 	: _name(name),
 	  _globals(mk_vars(true, globals)),
 	  _locals(mk_vars(false, locals)),
@@ -97,6 +98,11 @@ Program::Program(std::string name, std::vector<std::string> globals, std::vector
 		}
 		fi = fi->next();
 	}
+
+	_init_fun->checkRecInit();
+	_init_thread_fun->checkRecInit();
+	for (const auto& f : _funs)
+		f->checkRecInit();
 }
 
 
@@ -479,6 +485,134 @@ void SetAddSel::namecheck(const std::map<std::string, Variable*>& name2decl) {
 
 void Function::namecheck(const std::map<std::string, Variable*>& name2decl) {
 	_stmts->namecheck(name2decl);
+}
+
+
+/******************************** CHECK INIT REC ********************************/
+
+std::ostream& tmr::operator<<(std::ostream& os, const std::set<const Variable*>& set) {
+	os << "{ ";
+	for (const Variable* v : set) {
+		if (v) os << *v << ", ";
+		else os << "NULL, ";
+	}
+	os << " }";
+	return os;
+}
+
+void Sequence::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+	for (const auto& stmt : _stmts) {
+		stmt->checkRecInit(fromAllocation);
+	}
+}
+
+void Atomic::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+	_sqz->checkRecInit(fromAllocation);
+}
+
+void Assignment::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+	const Expr& expr = *_lhs;
+	if (expr.clazz() == Expr::VAR) {
+		const VarExpr& lhs = static_cast<const VarExpr&>(expr);
+		fromAllocation.erase(&lhs.decl());
+	}
+}
+
+void NullAssignment::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+}
+
+void WriteRecData::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+}
+
+void SetRecEpoch::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+}
+
+void GetLocalEpochFromGlobalEpoch::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+}
+
+void InitRecPtr::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+	if (fromAllocation.count(&_rhs->decl()) == 0) {
+		throw std::logic_error("__rec__ must be initialized from the last allocation.");
+	}
+}
+
+void IncrementGlobalEpoch::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+}
+
+void Malloc::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+	fromAllocation.insert(&_var->decl());
+}
+
+void Break::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+}
+
+void Conditional::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+	// TODO: check for cas cond
+	const Condition& cond = *_cond;
+	if (cond.type() == Condition::CASC) {
+		const CASCondition& cascond = static_cast<const CASCondition&>(cond);
+		cascond.cas().checkRecInit(fromAllocation);
+	}
+}
+
+void Ite::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+	Conditional::checkRecInit(fromAllocation);
+	
+	std::set<const Variable*> sIf(fromAllocation);
+	std::set<const Variable*> sElse(fromAllocation);
+
+	_if->checkRecInit(sIf);
+	_if->checkRecInit(sElse);
+
+	fromAllocation.clear();
+	std::set_intersection(sIf.begin(),sIf.end(),sElse.begin(),sElse.end(), std::inserter(fromAllocation,fromAllocation.begin()));
+}
+
+void While::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+	Conditional::checkRecInit(fromAllocation);
+
+	std::set<const Variable*> sWhile(fromAllocation);
+	std::set<const Variable*> sCopy(fromAllocation);
+
+	_stmts->checkRecInit(sWhile);
+
+	fromAllocation.clear();
+	std::set_intersection(sWhile.begin(),sWhile.end(),sCopy.begin(),sCopy.end(), std::inserter(fromAllocation,fromAllocation.begin()));
+}
+
+void CompareAndSwap::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+	const Expr& expr = *_dst;
+	if (expr.clazz() == Expr::VAR) {
+		const VarExpr& dst = static_cast<const VarExpr&>(expr);
+		fromAllocation.erase(&dst.decl());
+	}
+}
+
+void Killer::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+	fromAllocation.erase(&_to_kill->decl());
+}
+
+void SetOperation::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+}
+
+void SetAddArg::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+}
+
+void SetAddSel::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+}
+
+void SetCombine::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+}
+
+void SetClear::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+}
+
+void FreeAll::checkRecInit(std::set<const Variable*>& fromAllocation) const {
+}
+
+void Function::checkRecInit() const {
+	std::set<const Variable*> fromAllocation;
+	_stmts->checkRecInit(fromAllocation);
 }
 
 
