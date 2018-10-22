@@ -312,10 +312,8 @@ std::vector<Cfg> tmr::post(const Cfg& cfg, const InitRecPtr& stmt, unsigned shor
 		// ensure that we are tracking ownership
 		throw std::logic_error("__rec__ must be initialized from the first thread-local varialbe.");
 	}
-	// TODO: ensure that value stems from own allocation
 	// if (cfg.owned[tid]) {
-	// 	// throw std::logic_error("__rec__ must be initialized from a definitely owned pointer.");
-	// 	// TODO: must be first local var; must be non-owned; must stem from allocation
+	// 	throw std::logic_error("__rec__ must be initialized from a definitely owned pointer.");
 	// }
 	
 	Shape* shape;

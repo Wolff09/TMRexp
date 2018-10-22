@@ -14,7 +14,6 @@ static std::unique_ptr<Program> mk_program() {
 	// init thread
 	auto initthread = Sqz(
 		Mllc("cur"),
-		InitRec("cur"),
 		SetNull(Next("cur")),
 		Loop(Sqz(
 			Assign(Var("tmp"), Var("Tail")),
@@ -37,6 +36,7 @@ static std::unique_ptr<Program> mk_program() {
 			Kill("tmp"),
 			Kill("next")
 		)),
+		InitRec("cur"),
 		WriteRecNull(0),
 		WriteRecNull(1),
 		Kill("cur"),

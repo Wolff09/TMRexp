@@ -12,9 +12,9 @@ static std::unique_ptr<Program> mk_program() {
 	// init thread
 	auto initthread = Sqz(AtomicSqz(
 		Mllc("cur"),
-		InitRec("cur"),
 		Assign(Next("cur"), Var("HPrecs")),
 		Assign(Var("HPrecs"), Var("cur")),
+		InitRec("cur"),
 		WriteRecNull(0),
 		WriteRecNull(1),
 		Kill("cur")

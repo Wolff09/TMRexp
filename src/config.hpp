@@ -10,4 +10,4 @@
 #define REPEAT_PRUNING true
 
 // AST configuration
-#define PRINT_ID true // prints statement ids (obfuscates code)
+#define PRINT_ID false // prints statement ids (obfuscates code)

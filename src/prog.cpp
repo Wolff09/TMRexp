@@ -983,6 +983,21 @@ std::ostream& tmr::operator<<(std::ostream& os, const Program& prog) {
 	return os;
 }
 
+inline void printNodeStruct(std::ostream& os) {
+	INDENT(1);
+	os << "struct Node {" << std::endl;
+	INDENT(2);
+	os << "ptr_t next;" << std::endl;
+	INDENT(2);
+	os << "data_t data0;" << std::endl;
+	INDENT(2);
+	os << "data_t data1;" << std::endl;
+	INDENT(2);
+	os << "time_t epoch;" << std::endl;
+	INDENT(1);
+	os << "}" << std::endl << std::endl;
+}
+
 inline void printFreeAllMacro(std::ostream& os) {
 	INDENT(1);
 	os << "macro free_all(Set<data_t> set) {" << std::endl;
@@ -1010,10 +1025,14 @@ void Program::print(std::ostream& os) const {
 	if (_globals.size() > 0) os << _globals.front()->name();
 	for (std::size_t i = 1; i < _globals.size(); i++) os << ", " << _globals.at(i)->name();
 	os << ";" << std::endl;
+	INDENT(2);
+	os << "time_t Epoch;" << std::endl;
 	// local ptr variables
 	std::cout << std::endl;
 	INDENT(1);
 	os << "LOCALS: " << std::endl;
+	INDENT(2);
+	os << "ptr_t __rec__;" << std::endl;
 	INDENT(2);
 	os << "ptr_t ";
 	if (_locals.size() > 0) os << _locals.front()->name();
@@ -1021,11 +1040,12 @@ void Program::print(std::ostream& os) const {
 	os << ";" << std::endl;
 	// local predefined variables
 	INDENT(2);
-	os << "ptr_t __rec__;" << std::endl;
+	os << "time_t epoch;" << std::endl;
 	INDENT(2);
 	os << "Set<data_t> set0, set1, set2;" << std::endl;
 	// free_all macro
 	os << std::endl;
+	printNodeStruct(os);
 	printFreeAllMacro(os);
 	// functions
 	os << std::endl << std::endl;

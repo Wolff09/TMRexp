@@ -2,6 +2,10 @@
 
 using namespace tmr;
 
+/* Note;
+ * This Implementation is not verified by our tool.
+ * The reason for this is imprecision in during interference.
+ */
 
 static std::unique_ptr<Program> mk_program() {
 	// init prog
@@ -12,7 +16,6 @@ static std::unique_ptr<Program> mk_program() {
 	// init thread
 	auto initthread = Sqz(
 		Mllc("cur"),
-		InitRec("cur"),
 		Loop(Sqz(
 			Assign(Var("tmp"), Var("HPrecs")),
 			Assign(Next("cur"), Var("tmp")),
@@ -22,6 +25,7 @@ static std::unique_ptr<Program> mk_program() {
 			),
 			Kill("tmp")
 		)),
+		InitRec("cur"),
 		WriteRecNull(0),
 		WriteRecNull(1),
 		Kill("cur"),
