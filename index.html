@@ -1,0 +1,815 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<!-- Required meta tags -->
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+	<!-- Bootstrap CSS -->
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+	
+	<!-- Font Awesome CSS -->
+	<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
+	
+	<!-- highlight.js -->
+	<link rel="stylesheet" href="highlight.default.css">
+	<script src="highlight.pack.js"></script>
+	<script>hljs.initHighlightingOnLoad();</script>
+	
+	<title>POPL'19 Artifact</title>
+</head>
+<body>
+	<div class="container">
+		<h1 class="display-4 text-muted text-center">
+			<a href="https://www.tcs.cs.tu-bs.de/index.html">
+				<img src="https://www.tcs.cs.tu-bs.de/images/logo_tcs.png" alt="Institute of Theoretical Computer Science" style="height: 1.0em; margin-top: -.15em;">
+			</a>
+			POPL'19 Artifact Page
+		</h1>
+		<br>
+
+            <!-- <img src="$PREFIX$images/logo_tcs.png" alt="Institute of Theoretical Computer Science"> -->
+		
+		<!-- ********************************************************************************** -->
+		<!-- ************************************** META ************************************** -->
+		<!-- ********************************************************************************** -->
+		<div class="alert alert-info text-center">
+			<strong>Artifact:
+			Tool (model checker for verifying linearizability of lock-free data structures)</strong>
+		</div>
+		<div class="jumbotron">
+			<h1 class="display-4">
+				Decoupling Lock-Free Data Structures from Memory Reclamation for Static Analysis
+			</h1>
+			<h2>
+				<small class="text-muted">
+					Roland Meyer and Sebastian Wolff, TU Braunschweig, Germany
+				</small>
+			</h2>
+			<p class="lead text-justify mb-2">
+				<strong>Abstract.</strong>
+				Verification of concurrent data structures is one of the most challenging tasks in software verification.
+				The topic has received considerable attention over the course of the last decade.
+				Nevertheless, human-driven techniques remain cumbersome and notoriously difficult while automated approaches suffer from limited applicability.
+				The main obstacle for automation is the complexity of concurrent data structures.
+				This is particularly true in the absence of garbage collection.
+				The intricacy of lock-free memory management paired with the complexity of concurrent data structures makes automated verification prohibitive.
+				<br>
+				In this work we present a method for verifying concurrent data structures and their memory management separately.
+				We suggest two simpler verification tasks that
+				imply the correctness of the data structure.
+				The first task establishes an over-approximation of the reclamation behavior of the memory management.
+				The second task exploits this over-approximation to verify the data structure without the need to consider the implementation of the memory management itself.
+				To make the resulting verification tasks tractable for automated techniques, we establish a second result.
+				We show that a verification tool needs to consider only executions where a single memory location is reused.
+				We implemented our approach and were able to verify linearizability of Michael&amp;Scott's queue and the DGLM queue for both hazard pointers and epoch-based reclamation.
+				To the best of our knowledge, we are the first to verify such implementations fully automatically.
+			</p>
+			<div class="text-right">
+				<a href="https://www.tcs.cs.tu-bs.de/group/wolff/popl19/popl19-paper263.pdf" class="btn btn-primary text-right">
+					<i class="far fa-file-pdf"></i> 
+					Get Submitted Paper
+				</a>
+				<a href="https://www.tcs.cs.tu-bs.de/group/wolff/popl19/popl19-MeyerWolff.pdf" class="btn btn-primary text-right">
+					<i class="far fa-file-pdf"></i> 
+					Get Final Paper
+				</a>
+			</div>
+			<hr class="my-4">
+			<p>
+				CCS Concepts:
+				<strong>• Theory of computation → Data structures design and analysis; Program verification;</strong> Shared memory algorithms; Program specifications; Program analysis;
+			</p>
+			<p class="mb-0">
+				Additional Key Words and Phrases:
+				static analysis, lock-free data structures, verification, linearizability, safe memory reclamation, memory management
+			</p>
+		</div>
+		<br>
+		
+
+		<!-- ********************************************************************************** -->
+		<!-- ************************************* INSTALL ************************************ -->
+		<!-- ********************************************************************************** -->
+		<div class="mt-4">
+			<h1>Installation and Compilation</h1>
+			<p>This section describes how to setup your system to repeat the benchmarks from the paper.</p>
+
+			<!-- Quick Start -->
+			<div class="alert alert-info container">
+				<div class="row justify-content-md-center">
+					<div class="col">
+						<strong>Quick Start.</strong>
+						Download the Virtual Machine Snapshot (created with <a href="https://www.virtualbox.org">Virtual Box</a>).
+						The artifact is located at <code>~/popl19artifact/</code>.
+						The folder <code>~/popl19artifact/Binaries</code> contains executables corresponding to the benchmarks from the paper.
+						If you choose this option you can skip the remainder of this section.
+						<br>
+						(To install new software on the VM you need the password stored in <code>~/Desktop/pw.txt</code>.)
+					</div>
+					<div class="col-md-auto align-self-center">
+						<a href="https://www.tcs.cs.tu-bs.de/documents/POPL19Artifact.ova" class="btn btn-primary">
+							<i class="fas fa-download"></i>
+							Download VM Image
+						</a>
+					</div>
+				</div>
+			</div>
+
+			<!-- Slow Start -->
+			<h4>Download</h4>
+			<p>
+				The source code can be downloaded from GitHub here:
+				<a href="https://github.com/Wolff09/TMRexp/releases/tag/POPL19" class="btn btn-light btn-sm">
+					<i class="fas fa-code"></i>
+					Source Code (release with tag <code>POPL19</code>)
+				</a>.
+			</p>
+			<p>
+				Unzipping the downloaded release should yield a folder named <code>TMRexp-POPL19</code>.
+			</p>
+
+			<h4>System Requirements</h4>
+			<p>
+				To compile this project you need <strong>CMake</strong>, a <strong>C++17</strong> compatible compiler, and <strong>Boost multi_array</strong>.
+				Compilation was tested with Apple LLVM v.9.1.0 and Clang v.5.0.
+			</p>
+
+			<h4>Compilation</h4>
+			<p>
+				To build the project, simply type make in the root directory of the downloaded sources.
+			</p>
+			<pre class="bg-light"><code>
+					cd path/to/TMRexp-POPL19
+					make
+			</code></pre>
+			<p>This creates a folder <code>build/bin</code> containing all executables.</p>
+
+			<p>Alternatively, you can do the following (for example, to specify the compiler to be used):</p>
+			<pre class="bg-light"><code>
+					mkdir build
+					cd build
+					cmake .. -DCMAKE_CXX_COMPILER=/path/to/CXX-compiler
+					make
+			</code></pre>
+			<p>
+				Again, folder <code>build/bin</code> contains all executables.
+			</p>
+		</div>
+		<br>
+		
+
+		<!-- ********************************************************************************** -->
+		<!-- ********************************** BENCHMARKING ********************************** -->
+		<!-- ********************************************************************************** -->
+		<div class="mt-4">
+			<h1>Benchmarking</h1>
+			<p>
+				We describe how to repeat the benchmarks from the paper.
+			</p>
+
+			<!-- Quick Start -->
+			<div class="alert alert-info container">
+				<strong>Quick Start.</strong>
+				Using the VM from above, execute <code>~/popl19artifact/Binaries/&lt;Program&gt;_&lt;SMR&gt;</code> to run the benchmark for <code>Program</code> using <code>SMR</code>.
+				When compiling on your own, execute <code>TMRexp-POPL19/build/bin/&lt;Program&gt;_&lt;SMR&gt;</code> (for the DGLM Queue see the discussion below).
+			</div>
+
+			<!-- Slow Start -->
+
+			<h4>Benchmark Programs</h4>
+			<p>
+				We evaluated our tool on a <i>Coarse Stack</i>, a <i>Coarse Queue</i>, <i>Treiber's Stack</i>, <i>Michael&amp;Scott's Queue</i>, and the <i>DGLM queue</i> using <i>no SMR (<code>N</code>)</i>, <i>No Reclamation/Garbage Collection (<code>G</code>)</i>, <i>Hazard Pointers (<code>H</code>)</i>, and <i>Epoch-Based Reclamation (<code>E</code>)</i>.
+				C-style pseudo code is given in the following.
+				We mark lines that are required only for a specific SMR by the aforementioned letters <code>N</code>, <code>G</code>, <code>H</code>, and <code>E</code>.
+			</p>
+			<nav>
+				<div class="nav nav-tabs" id="nav-tab" role="tablist">
+					<a class="nav-item nav-link active" id="nav-CS-tab" data-toggle="tab" href="#nav-CS" role="tab" aria-controls="nav-CS" aria-selected="true">Coarse Stack</a>
+					<a class="nav-item nav-link" id="nav-CQ-tab" data-toggle="tab" href="#nav-CQ" role="tab" aria-controls="nav-CQ" aria-selected="false">Coarse Queue</a>
+					<a class="nav-item nav-link" id="nav-TS-tab" data-toggle="tab" href="#nav-TS" role="tab" aria-controls="nav-TS" aria-selected="false">Treiber's Stack</a>
+					<a class="nav-item nav-link" id="nav-OTS-tab" data-toggle="tab" href="#nav-OTS" role="tab" aria-controls="nav-OTS" aria-selected="false">Opt. Treiber's Stack</a>
+					<a class="nav-item nav-link" id="nav-MS-tab" data-toggle="tab" href="#nav-MS" role="tab" aria-controls="nav-MS" aria-selected="false">Michael&amp;Scott's Queue</a>
+					<a class="nav-item nav-link" id="nav-DGLM-tab" data-toggle="tab" href="#nav-DGLM" role="tab" aria-controls="nav-DGLM" aria-selected="false">DGLM Queue</a>
+				</div>
+			</nav>
+			<div class="tab-content bg-light" id="nav-tabContent">
+				<div class="tab-pane show active" id="nav-CS" role="tabpanel" aria-labelledby="nav-CS-tab">
+					<pre><code>
+      struct Node {
+          data_t data;
+          Node* next;
+      };
+      
+      shared Node* ToS;
+      
+      atomic init() {
+          ToS = NULL;
+      }
+      
+      void push(data_t input) {
+          Node* node = new Node();
+          node->data = input;
+          atomic {
+              node->next = ToS;
+              ToS = node;
+          }
+      }
+      
+      data_t pop() {
+          atomic {
+              Node* top = ToS;
+              if (top == NULL) return EMPTY;
+              data_t output = top->data;
+              ToS = Tos->next;
+<i>  <span class="text-danger">GN</span>          retire(top);</i>
+              return output;
+          }
+      }
+					</code></pre>
+				</div>
+				<div class="tab-pane" id="nav-CQ" role="tabpanel" aria-labelledby="nav-CQ-tab">
+					<pre><code>
+      struct Node {
+          data_t data;
+          Node* next;
+      };
+      
+      shared Node* Head, Tail;
+      
+      atomic init() {
+          Head = new Node();
+          Head->next = NULL;
+          Tail = Head;
+      }
+      
+      void enqueue(data_t input) {
+          Node* node = new Node();
+          node->data = input;
+          node->next = NULL;
+          atomic {
+              Tail->next = node;
+              Tail = node;
+          }
+      }
+      
+      data_t dequeue() {
+          atomic {
+              Node* head = Head;
+              Node* next = head->next;
+              if (next == NULL) return EMPTY;
+              data_t output = next->data;
+              Head = next;
+<i>  <span class="text-danger">GN</span>          retire(head);</i>
+              return output;
+          }
+      }
+					</code></pre>
+				</div>
+				<div class="tab-pane" id="nav-TS" role="tabpanel" aria-labelledby="nav-TS-tab">
+					<pre><code>
+      struct Node {
+          data_t data;
+          Node* next;
+      };
+      
+      shared Node* ToS;
+      
+      atomic init() {
+          ToS = NULL;
+      }
+      
+      void push(data_t input) {
+<i>  <span class="text-danger">E</span>       leaveQ();</i>
+          Node* node = new Node();
+          node->data = input;
+          while (true) {
+              Node* top = ToS;
+<i>  <span class="text-danger">H</span>           protect(top, 0);</i>
+<i>  <span class="text-danger">H</span>           if (top != ToS) continue;</i>
+              node->next = top;
+              if (CAS(&ToS, top, node))
+                  break
+          }
+<i>  <span class="text-danger">H</span>       unprotect(0);</i>
+<i>  <span class="text-danger">E</span>       enterQ();</i>
+      }
+      
+      data_t pop() {
+<i>  <span class="text-danger">E</span>       leaveQ();</i>
+          while (true) {
+              Node* top = ToS;
+              if (top == NULL) return EMPTY;
+<i>  <span class="text-danger">H</span>           protect(top, 0);</i>
+<i>  <span class="text-danger">H</span>           if (top != ToS) continue;</i>
+              Node* next = top->next;
+              if (CAS(&ToS, top, next)) {
+                  data_t output = top->data;
+<i>  <span class="text-danger">HEG</span>             retire(top);</i>
+<i>  <span class="text-danger">H</span>               unprotect(0);</i>
+<i>  <span class="text-danger">E</span>               enterQ();</i>
+                  return output;
+              }
+          }
+      }
+					</code></pre>
+				</div>
+				<div class="tab-pane" id="nav-OTS" role="tabpanel" aria-labelledby="nav-OTS-tab">
+					<pre><code>
+      struct Node {
+          data_t data;
+          Node* next;
+      };
+      
+      shared Node* ToS;
+      
+      atomic init() {
+          ToS = NULL;
+      }
+      
+      void push(data_t input) {
+          Node* node = new Node();
+          node->data = input;
+          while (true) {
+              Node* top = ToS;
+              node->next = top;
+              if (CAS(&ToS, top, node))
+                  break
+          }
+      }
+      
+      data_t pop() {
+          while (true) {
+              Node* top = ToS;
+              if (top == NULL) return EMPTY;
+<i>  <span class="text-danger">H</span>           protect(top, 0);</i>
+<i>  <span class="text-danger">H</span>           if (top != ToS) continue;</i>
+              Node* next = top->next;
+              if (CAS(&ToS, top, next)) {
+                  data_t output = top->data;
+<i>  <span class="text-danger">H</span>               retire(top);</i>
+<i>  <span class="text-danger">H</span>               unprotect(0);</i>
+                  return output;
+              }
+          }
+      }
+					</code></pre>
+				</div>
+				<div class="tab-pane" id="nav-MS" role="tabpanel" aria-labelledby="nav-MS-tab">
+					<pre><code>
+      struct Node {
+          data_t data;
+          Node* next;
+      };
+      
+      shared Node* Head, Tail;
+      
+      atomic init() {
+          Head = new Node();
+          Head->next = NULL;
+          Tail = Head;
+      }
+      
+      void enqueue(data_t input) {
+<i>  <span class="text-danger">E</span>       leaveQ;</i>
+          Node* node = new Node();
+          node->data = input;
+          node->next = NULL;
+          while (true) {
+              Node* tail = Tail;
+<i>  <span class="text-danger">H</span>           protect(tail, 0);</i>
+<i>  <span class="text-danger">H</span>           if (tail != Tail) continue;</i>
+              Node* next = tail->next;
+              if (tail != Tail) continue;
+              if (next != NULL) {
+                  CAS(&Tail, tail, next);
+                  continue;
+              }
+              if (CAS(&tail->next, next, node))
+                  break
+          }
+          CAS(&Tail, tail, node);
+<i>  <span class="text-danger">E</span>       enterQ;</i>
+<i>  <span class="text-danger">H</span>       unprotect(0);</i>
+      }
+      
+      data_t dequeue() {
+<i>  <span class="text-danger">E</span>       leaveQ;</i>
+          while (true) {
+              Node* head = Head;
+<i>  <span class="text-danger">H</span>           protect(head, 0);</i>
+<i>  <span class="text-danger">H</span>           if (head != Head) continue;</i>
+              Node* tail = Tail;
+              Node* next = head->next;
+<i>  <span class="text-danger">H</span>           protect(next, 1);</i>
+              if (head != Head) continue;
+              if (next == NULL) return EMPTY;
+              if (head == tail) {
+                  CAS(&Tail, tail, next);
+                  continue;
+              } else {
+                  data_t output = next->data;
+                  if (CAS(&Head, head, next)) {
+<i>  <span class="text-danger">HEG</span>             retire(head);</i>
+<i>  <span class="text-danger">E</span>                   enterQ;</i>
+<i>  <span class="text-danger">H</span>                   unprotect(0);</i>
+<i>  <span class="text-danger">H</span>                   unprotect(1);</i>
+                      return output;
+                  }
+              }
+          }
+      }
+					</code></pre>
+				</div>
+				<div class="tab-pane" id="nav-DGLM" role="tabpanel" aria-labelledby="nav-DGLM-tab">
+					<pre><code>
+      struct Node {
+          data_t data;
+          Node* next;
+      };
+      
+      shared Node* Head, Tail;
+      
+      atomic init() {
+          Head = new Node();
+          Head->next = NULL;
+          Tail = Head;
+      }
+      
+      void enqueue(data_t input) {
+<i>  <span class="text-danger">E</span>       leaveQ;</i>
+          Node* node = new Node();
+          node->data = input;
+          node->next = NULL;
+          while (true) {
+              Node* tail = Tail;
+<i>  <span class="text-danger">H</span>           protect(tail, 0);</i>
+<i>  <span class="text-danger">H</span>           if (tail != Tail) continue;</i>
+              Node* next = tail->next;
+              if (tail != Tail) continue;
+              if (next != NULL) {
+                  CAS(&Tail, tail, next);
+                  continue;
+              }
+              if (CAS(&tail->next, next, node))
+                  break
+          }
+          CAS(&Tail, tail,node);
+<i>  <span class="text-danger">H</span>       unprotect(0);</i>
+<i>  <span class="text-danger">E</span>       enterQ;</i>
+      }
+      
+      data_t dequeue() {
+<i>  <span class="text-danger">E</span>       leaveQ;</i>
+          while (true) {
+              Node* head = Head;
+<i>  <span class="text-danger">H</span>           protect(head, 0);</i>
+<i>  <span class="text-danger">H</span>           if (head != Head) continue;</i>
+              Node* next = head->next;
+<i>  <span class="text-danger">H</span>           protect(next, 1);</i>
+              if (head != Head) continue;
+              if (next == NULL) return EMPTY;
+              data_t output = next->data;
+              if (CAS(&Head, head, next)) {
+                  Node* tail = Tail;
+                  if (head == tail) {
+                      CAS(Tail, tail, next);
+                  }
+<i>  <span class="text-danger">HEG</span>             retire(head);</i>
+<i>  <span class="text-danger">H</span>               unprotect(0);</i>
+<i>  <span class="text-danger">H</span>               unprotect(1);</i>
+<i>  <span class="text-danger">E</span>               enterQ;</i>
+                  return output;
+              }
+          }	
+      }
+					</code></pre>
+				</div>
+			</div>
+			
+			<h4>Running Benchmarks</h4>
+			<p>
+				To run the benchmarks got to the <code>build/bin/</code> folder and execute the corresponding binary.
+				The naming scheme is <code>&lt;DS&gt;_&lt;SMR&gt;</code> where <code>&lt;DS&gt;</code> is the name of the benchmark program and <code>&lt;SMR&gt;</code> is the reclamation scheme.
+			</p>
+			<p>
+				For example, to benchmark the running example from the paper, Michael&amp;Scott's Queue using Hazard Pointers (HP), you have to do the following:
+			</p>
+			<pre class="bg-light"><code>
+				cd path/to/TMRexp-POPL19/build/bin
+				./MichaelScottQueue_HP
+			</code></pre>
+
+			<h4>The DGLM Queue</h4>
+			<p>
+				As stated in the paper, the implemented shape abstraction requires hints to verify the DGLM Queue.
+				To enable/disable hinting you have to set the corresponding flag in <code>src/config.hpp</code> and recompile the tool.
+				More precisely, you have to change line 22 from
+			</p>
+			<pre><code>
+				#define DGLM_HINT false
+			</code></pre>
+			<p>
+				to
+			</p>
+			<pre><code>
+				#define DGLM_HINT true
+			</code></pre>
+			<p>
+				Beware: using <code>DGLM_HINT=true</code> with any benchmark other than the DGLM Queue exhibits undefined behavior!
+			</p>
+			<p>
+				For users of the VM image: the folder <code>~/popl19artifact/Binaries/</code> already contains the properly compiled binaries.
+				The binaries where compiled from <code>~/popl19artifact/TMRexp-POPL19/</code> and <code>~/popl19artifact/TMRexp-POPL19-DGLM/</code> for all benchmarks except the DGLM Queue and the DGLM Queue, respectively.
+			</p>
+
+			<h4>Tool Limitation</h4>
+			<p>
+				Our tool does not come with a front end (aka parser).
+				To analyse a data structure not included in our benchmarks, one needs to compile an appropriate binary first.
+				If desired, consider <code>TMRexp-POPL19/test/HP/MichaelScottQueue.cpp</code> for an example.
+				The data structure code is constructed in this file using intuitive shortcuts (a complete list can be found in <code>TMRexp-POPL19/src/prog.hpp</code>, lines 655f).
+			</p>
+			
+			<h4>Expected Benchmarks Results</h4>
+			<p>
+				As reported in the paper, running the benchmarks on an Intel Xeon X5650@2.67GHz with Ubuntu 16.04 and using Clang version 5.0 we expect the following running times and verification results.
+			</p>
+			<table class="table">
+				<thead>
+					<tr>
+						<th scope="col">Program</th>
+						<th scope="col">SMR</th>
+						<th class="text-right" scope="col">Time Verif.</th>
+						<th class="text-right" scope="col">States</th>
+						<th class="text-right" scope="col">ABAs</th>
+						<th class="text-right" scope="col">Time ABA</th>
+						<th class="text-center" scope="col">Linearizable</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<th scope="row" rowspan="2">Coarse Stack</th>
+						<td>GC</td>
+						<td class="text-right">0.44s</td>
+						<td class="text-right">300</td>
+						<td class="text-right">0</td>
+						<td class="text-right">0s</td>
+						<td class="text-center">yes</td>
+					</tr>
+					<tr>
+						<td>None</td>
+						<td class="text-right">0.5s</td>
+						<td class="text-right">300</td>
+						<td class="text-right">0</td>
+						<td class="text-right">0s</td>
+						<td class="text-center">yes</td>
+					</tr>
+					<tr>
+						<th scope="row" rowspan="2">Coarse Queue</th>
+						<td>GC</td>
+						<td class="text-right">1.7s</td>
+						<td class="text-right">300</td>
+						<td class="text-right">0</td>
+						<td class="text-right">0s</td>
+						<td class="text-center">yes</td>
+					</tr>
+					<tr>
+						<td>None</td>
+						<td class="text-right">1.7s</td>
+						<td class="text-right">300</td>
+						<td class="text-right">0</td>
+						<td class="text-right">0s</td>
+						<td class="text-center">yes</td>
+					</tr>
+					<tr>
+						<th scope="row" rowspan="3">Treiber's Stack</th>
+						<td>GC</td>
+						<td class="text-right">3.2s</td>
+						<td class="text-right">806</td>
+						<td class="text-right">0</td>
+						<td class="text-right">0s</td>
+						<td class="text-center">yes</td>
+					</tr>
+					<tr>
+						<td>EBR</td>
+						<td class="text-right">16s</td>
+						<td class="text-right">1822</td>
+						<td class="text-right">0</td>
+						<td class="text-right">0s</td>
+						<td class="text-center">yes</td>
+					</tr>
+					<tr>
+						<td>HP</td>
+						<td class="text-right">19s</td>
+						<td class="text-right">2606</td>
+						<td class="text-right">186</td>
+						<td class="text-right">0.06s</td>
+						<td class="text-center">yes</td>
+					</tr>
+					<tr>
+						<th scope="row">Opt. Treiber's Stack</th>
+						<td>HP</td>
+						<td class="text-right">0.8s</td>
+						<td class="text-right">-</td>
+						<td class="text-right">-</td>
+						<td class="text-right">-</td>
+						<td class="text-center">no<sup>*</sup></td>
+					</tr>
+					<tr>
+						<th scope="row" rowspan="3">Michael&amp;Scott's Queue</th>
+						<td>GC</td>
+						<td class="text-right">414s</td>
+						<td class="text-right">2202</td>
+						<td class="text-right">0</td>
+						<td class="text-right">0s</td>
+						<td class="text-center">yes</td>
+					</tr>
+					<tr>
+						<td>EBR</td>
+						<td class="text-right">2630s</td>
+						<td class="text-right">7613</td>
+						<td class="text-right">0</td>
+						<td class="text-right">0s</td>
+						<td class="text-center">yes</td>
+					</tr>
+					<tr>
+						<td>HP</td>
+						<td class="text-right">7075s</td>
+						<td class="text-right">19028</td>
+						<td class="text-right">536</td>
+						<td class="text-right">0.9s</td>
+						<td class="text-center">yes</td>
+					</tr>
+					<tr>
+						<th scope="row" rowspan="3">DGLM Queue</th>
+						<td>GC</td>
+						<td class="text-right">714s</td>
+						<td class="text-right">9934</td>
+						<td class="text-right">0</td>
+						<td class="text-right">0s</td>
+						<td class="text-center">yes<sup>**</sup></td>
+					</tr>
+					<tr>
+						<td>EBR</td>
+						<td class="text-right">3754s</td>
+						<td class="text-right">27132</td>
+						<td class="text-right">0</td>
+						<td class="text-right">0s</td>
+						<td class="text-center">yes<sup>**</sup></td>
+					</tr>
+					<tr>
+						<td>HP</td>
+						<td class="text-right">7010s</td>
+						<td class="text-right">41753</td>
+						<td class="text-right">2824</td>
+						<td class="text-right">26s</td>
+						<td class="text-center">yes<sup>**</sup></td>
+					</tr>
+				</tbody>
+			</table>
+			<p>
+				<sup>*</sup> Pointer Race due to an ABA in <code>push</code> makes the verification fail.
+				<br>
+				<sup>**</sup> Imprecision in the heap abstraction required hinting that <code>Head</code> cannot overtake <code>Tail</code> by more than one node.
+			</p>
+		</div>
+		<br>
+		
+
+		<!-- ********************************************************************************** -->
+		<!-- ********************************** BENCHMARKING ********************************** -->
+		<!-- ********************************************************************************** -->
+		<div class="mt-4">
+			<h1>Notes on the Implementation</h1>
+			<p>
+				The following table relates (informal) descriptions of the implemented analysis from the paper to the implementation.
+			</p>
+			<table class="table">
+				<thead>
+					<tr>
+						<th scope="col">Paper</th>
+						<th scope="col">Implementation</th>
+						<th scope="col">Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td scope="row">Views</td>
+						<td><code class="text-nowrap">src/cfg.hpp</code></td>
+						<td class="text-justify">
+							Views are implemented by the class <code>Cfg</code>.
+							They carry, among other things, a <i>shape abstraction</i> of the memory, <i>validity information</i>, <i>observer states</i>, and <i>freedness information</i> of the single reusable cell.
+						</td>
+					</tr>
+					<tr>
+						<td scope="row"><span class="text-nowrap">Thread-modular</span> fixed point</td>
+						<td><code class="text-nowrap">src/fixpoint.cpp</code></td>
+						<td class="text-justify">
+							The fixed point computation maintains a collection of views the post image of which may not have been explored.
+							The post image of these views is computed and added to the fixed point.
+							The implementation proceeds in rounds.
+							In each round <i>sequential steps</i> are performed exhaustively first and then <i>interference steps</i> are applied.
+							<br>
+							(There is an alternative fixed point computation using a work list approach.
+							It can be activated by setting the <code>WORKLIST_INTERFERENCE</code> to <code>true</code> in the configuration file.)
+						</td>
+					</tr>
+					<tr>
+						<td scope="row" rowspan="2">Shape abstraction</td>
+						<td><code class="text-nowrap">src/shape.hpp</code></td>
+						<td class="text-justify">
+							Class <code>Shape</code> implements a container for a shape abstraction of a specific memory layout.
+							More details on the shape abstraction can be found in Abdulla et al. [<a href="https://link.springer.com/chapter/10.1007/978-3-642-36742-7_23">2013</a>,<a href="https://link.springer.com/article/10.1007/s10009-016-0415-4">2017</a>].
+						</td>
+					</tr>
+					<tr>
+						<td><code class="text-nowrap">src/post/*.cpp</code></td>
+						<td class="text-justify">
+							Contains post-image computation for the shape abstraction for every supported statement type.
+						</td>
+					</tr>
+					<tr>
+						<td scope="row">Interference</td>
+						<td><code class="text-nowrap">src/fixp/interference.cpp</code></td>
+						<td class="text-justify">
+							Implements <i>interference steps</i>.
+							Such a step considers all pairs of previously explored views, combines them into a two-thread view, computes a post image for one of the threads, and projects the result to the other thread.
+							The resulting views are added to the fixed point.
+						</td>
+					</tr>
+					<tr>
+						<td scope="row" rowspan="2">Observers</td>
+						<td><code class="text-nowrap">src/observer.hpp</code></td>
+						<td class="text-justify">
+							Class <code>Observer</code> implements observer automata as presented in the paper.
+						</td>
+					</tr>
+					<tr>
+						<td><code class="text-nowrap">test/ObserverFactory.hpp</code></td>
+						<td class="text-justify">
+							Creates observer instances along the lines of the paper.
+							The implementation relies on <i>Lemma 6.1</i>, thus does not check if the observer <i>supports elision (Definition 5.14)</i>.
+						</td>
+					</tr>
+					<tr>
+						<td scope="row">Environment <code>free</code></td>
+						<td><code class="text-nowrap">src/post/mem.cpp</code></td>
+						<td class="text-justify">
+							Following the semantics for <i>environment frees</i>, <i>rule (Free)</i>, the implementation checks which frees can be executed by checking whether the observer reaches a final state upon consuming a free event.
+						</td>
+					</tr>
+					<tr>
+						<td scope="row">Reallocation of a single address</td>
+						<td><code class="text-nowrap">src/post/mem.cpp</code></td>
+						<td class="text-justify">
+							To identify the single address available for reuse, shapes carry a special <i>ghost pointer</i> to the reusable cell.
+							Moreover, views carry a flag stating whether or not the cell is freed.
+							If so, an allocation can yield a pointer to that cell.
+							Otherwise, the allocation can only yield fresh cells.
+						</td>
+					</tr>
+					<tr>
+						<td scope="row" rowspan="2">Validity</td>
+						<td><code class="text-nowrap">src/cfg.hpp</code></td>
+						<td class="text-justify">
+							Views (class <code>Cfg</code>) carry validity information about pointers.
+						</td>
+					</tr>
+					<tr>
+						<td><code class="text-nowrap">src/post/*.cpp</code></td>
+						<td class="text-justify">
+							The post image operator updates the validity according to the definition in the paper.
+						</td>
+					</tr>
+					<tr>
+						<td scope="row">Pointer race check</td>
+						<td><code class="text-nowrap">src/post.cpp</code></td>
+						<td class="text-justify">
+							The post image operators check whether an unsafe access or a racy SMR call is performed.
+							The latter relies on <i>Lemma 6.2</i> and deems racy calls to <code>retire</code> that use an invalid pointer.
+						</td>
+					</tr>
+					<tr>
+						<td scope="row">Harmful ABA check</td>
+						<td><code class="text-nowrap">src/chkaware.cpp</code></td>
+						<td class="text-justify">
+							Checks for every view where an invalid pointer can be compared in an <code>assert</code> for harmful ABAs.
+							The implementation follows the description in the paper.
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<br><br><br>
+	</div>
+
+
+
+	<!-- Optional JavaScript -->
+	<!-- jQuery first, then Popper.js, then Bootstrap JS -->
+	<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+	<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script> -->
+	<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+</body>
+</html>
