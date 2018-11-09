@@ -72,3 +72,4 @@ make
 ```
 
 The binaries for benchmarking can be found in `build/bin/`.
+
