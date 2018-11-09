@@ -16,36 +16,42 @@
 	<script src="highlight.pack.js"></script>
 	<script>hljs.initHighlightingOnLoad();</script>
 	
-	<title>POPL'19 Artifact</title>
+	<title>POPL'19 Project Page</title>
 </head>
 <body>
 	<div class="container">
-		<h1 class="display-4 text-muted text-center">
+		<h1 class="display-4 text-muted text-center mt-3">
 			<a href="https://www.tcs.cs.tu-bs.de/index.html">
 				<img src="https://www.tcs.cs.tu-bs.de/images/logo_tcs.png" alt="Institute of Theoretical Computer Science" style="height: 1.0em; margin-top: -.15em;">
 			</a>
-			POPL'19 Artifact Page
+			POPL'19 Project Page
 		</h1>
 		<br>
 
             <!-- <img src="$PREFIX$images/logo_tcs.png" alt="Institute of Theoretical Computer Science"> -->
 		
 		<!-- ********************************************************************************** -->
-		<!-- ************************************** META ************************************** -->
+		<!-- ************************************** PAPER ************************************* -->
 		<!-- ********************************************************************************** -->
-		<div class="alert alert-info text-center">
-			<strong>Artifact:
-			Tool (model checker for verifying linearizability of lock-free data structures)</strong>
-		</div>
 		<div class="jumbotron">
-			<h1 class="display-4">
+			<img src="artifacts_evaluated_reusable.png" class="ml-4 mr-3" style="max-height: 9rem; float: right;">
+			<h1 style="font-size: 2.75rem;">
 				Decoupling Lock-Free Data Structures from Memory Reclamation for Static Analysis
 			</h1>
 			<h2>
-				<small class="text-muted">
-					Roland Meyer and Sebastian Wolff, TU Braunschweig, Germany
+				<small>
+					<a href="https://www.tcs.cs.tu-bs.de/group/meyer/home.html">Roland Meyer</a>
+					and
+					<a href="https://www.tcs.cs.tu-bs.de/group/wolff/home.html">Sebastian Wolff</a>,
+					TU Braunschweig, Germany
 				</small>
 			</h2>
+			<h3>
+				<small>
+					Accepted for <a href="https://popl19.sigplan.org/home">POPL'19</a>.
+				</small>
+			</h3>
+			<!-- <p class="lead">Accepted for <a href="https://popl19.sigplan.org/home">POPL'19</a>.</p> -->
 			<p class="lead text-justify mb-2">
 				<strong>Abstract.</strong>
 				Verification of concurrent data structures is one of the most challenging tasks in software verification.
@@ -65,74 +71,146 @@
 				We implemented our approach and were able to verify linearizability of Michael&amp;Scott's queue and the DGLM queue for both hazard pointers and epoch-based reclamation.
 				To the best of our knowledge, we are the first to verify such implementations fully automatically.
 			</p>
-			<div class="text-right">
-				<a href="https://www.tcs.cs.tu-bs.de/group/wolff/popl19/popl19-paper263.pdf" class="btn btn-primary text-right">
-					<i class="far fa-file-pdf"></i> 
-					Get Submitted Paper
-				</a>
+			<div class="text-right mt-3">
 				<a href="https://www.tcs.cs.tu-bs.de/group/wolff/popl19/popl19-MeyerWolff.pdf" class="btn btn-primary text-right">
 					<i class="far fa-file-pdf"></i> 
-					Get Final Paper
+					Paper
+				</a>
+				<a href="https://arxiv.org/abs/1810.10807" class="btn btn-primary text-right">
+					<i class="far fa-file-pdf"></i> 
+					Technical Report
+				</a>
+				<div class="dropdown" style="display: inline-block;">
+					<a class="btn btn-primary dropdown-toggle" href="#" role="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+						<i class="fas fa-code"></i>
+						Source Code
+					</a>
+					<div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuButton">
+						<a class="dropdown-item" href="https://github.com/Wolff09/TMRexp/releases/tag/POPL19-chkds">Verifying lock-free data structures</a>
+						<a class="dropdown-item" href="https://github.com/Wolff09/TMRexp/releases/tag/POPL19-chksmr">Verifying memory reclamation</a>
+					</div>
+				</div>
+				<a href="https://www.tcs.cs.tu-bs.de/documents/POPL19Artifact.ova" class="btn btn-primary text-right">
+					<i class="fas fa-hdd"></i>
+					Virtual Machine
 				</a>
 			</div>
+
 			<hr class="my-4">
 			<p>
 				CCS Concepts:
 				<strong>• Theory of computation → Data structures design and analysis; Program verification;</strong> Shared memory algorithms; Program specifications; Program analysis;
 			</p>
-			<p class="mb-0">
+			<p class="mb-4">
 				Additional Key Words and Phrases:
 				static analysis, lock-free data structures, verification, linearizability, safe memory reclamation, memory management
 			</p>
+			<p class="mb-0">
+				<b>ACM Reference Format:</b><br>
+				Roland Meyer and Sebastian Wolff. 2019. Decoupling Lock-Free Data Structures from Memory Reclamation for Static Analysis. <i>Proc. ACM Program. Lang.</i> 3, POPL, Article 58 (January 2019), 31 pages. <a href="https://doi.org/10. 1145/3290371">https://doi.org/10.1145/3290371</a>
+			</p>
 		</div>
 		<br>
-		
+
+
+
+		<!-- ********************************************************************************** -->
+		<!-- ************************************* TOOLS ************************************** -->
+		<!-- ********************************************************************************** -->
+
+		<div class="mt-4">
+			<h1>Tool Overview</h1>
+			<p>
+				Our paper presents an analysis for verifying lock-free data structures that use safe memory reclamation (SMR) techniques.
+				We follow a compositional approach which factors out the verification of the SMR implementation.
+				Consequently, we have two distinct tools for:
+			</p>
+			<ul>
+				<li><kbd>chkds</kbd> verifying lock-free data structures relative to an SMR specification, and</li>
+				<li><kbd>chksmr</kbd> verifying an SMR implementation against an SMR specification.</li>
+			</ul>
+			<p>
+				The SMR specification is given in form of an observer automata (hard coded into our tools).
+				For data structures, we verify liniearizability (we assume that programs are annotated with linearization points).
+			</p>
+			<p>
+				We submitted our tool to the <a href="https://popl19.sigplan.org/track/POPL-2019-Artifact-Evaluation">POPL'19 artifact evaluation</a> where it received the <i>Artifact Evaluated -- Reusable</i> badge.
+			</p>
+			<p>
+				In the this page we discuss how to reproduce our experiments.
+				Therefore, we walk through the installation, compilation, and benchmarking.
+				In the end, we briefly link the concepts and techniques from the paper to our implementation.
+			</p>
+
+			<h4>Tool Limitation</h4>
+			<p>
+				Our tools do not come with a front end (aka parser).
+				To analyse programs not included in our benchmarks, one has to compile an appropriate binary first.
+				If desired, consider the provided benchmark implementations.
+				For example, consider:
+				<ul>
+					<li><kbd>chkds</kbd> <code>TMRexp-POPL19/test/HP/MichaelScottQueue.cpp</code>, or</li>
+					<li><kbd>chksmr</kbd> <code>TMRexp-POPL19/test/HP/Stack.cpp</code>.</li>
+				</ul>
+				Benchmark program code is constructed in those files using intuitive shortcuts (a complete list can be found in <code>TMRexp-POPL19/src/prog.hpp</code>, lines 655f).
+			</p>
+		</div>
+		<br>
+
 
 		<!-- ********************************************************************************** -->
 		<!-- ************************************* INSTALL ************************************ -->
 		<!-- ********************************************************************************** -->
+
 		<div class="mt-4">
 			<h1>Installation and Compilation</h1>
 			<p>This section describes how to setup your system to repeat the benchmarks from the paper.</p>
 
 			<!-- Quick Start -->
 			<div class="alert alert-info container">
-				<div class="row justify-content-md-center">
-					<div class="col">
-						<strong>Quick Start.</strong>
-						Download the Virtual Machine Snapshot (created with <a href="https://www.virtualbox.org">Virtual Box</a>).
-						The artifact is located at <code>~/popl19artifact/</code>.
-						The folder <code>~/popl19artifact/Binaries</code> contains executables corresponding to the benchmarks from the paper.
-						If you choose this option you can skip the remainder of this section.
-						<br>
-						(To install new software on the VM you need the password stored in <code>~/Desktop/pw.txt</code>.)
-					</div>
-					<div class="col-md-auto align-self-center">
-						<a href="https://www.tcs.cs.tu-bs.de/documents/POPL19Artifact.ova" class="btn btn-primary">
-							<i class="fas fa-download"></i>
-							Download VM Image
-						</a>
-					</div>
-				</div>
+					<strong>Quick Start.</strong>
+					Download the Virtual Machine Snapshot (created with <a href="https://www.virtualbox.org">Virtual Box</a>, credentials in <code>~/Desktop/pw.txt</code>).
+					The artifact is located at <code>~/popl19artifact/</code>.
+					The folder <code>~/popl19artifact/Binaries</code> contains executables corresponding to the benchmarks from the paper.
+					If you choose this option you can skip the remainder of this section.
 			</div>
 
 			<!-- Slow Start -->
 			<h4>Download</h4>
 			<p>
 				The source code can be downloaded from GitHub here:
-				<a href="https://github.com/Wolff09/TMRexp/releases/tag/POPL19" class="btn btn-light btn-sm">
+				<ul>
+					<li>
+						<kbd>chkds</kbd>
+						<a href="https://github.com/Wolff09/TMRexp/releases/tag/POPL19-chkds">
+							GitHub release with tag <code>POPL19-chkds</code>
+						</a>
+					</li>
+					<li>
+						<kbd>chksmr</kbd>
+						<a href="https://github.com/Wolff09/TMRexp/releases/tag/POPL19-chksmr">
+							GitHub release with tag <code>POPL19-chksmr</code>
+						</a>
+					</li>
+				</ul>
+				<!-- <br>
+				<a href="https://github.com/Wolff09/TMRexp/releases/tag/POPL19-chkds" class="btn btn-light btn-sm">
 					<i class="fas fa-code"></i>
-					Source Code (release with tag <code>POPL19</code>)
-				</a>.
+					Data Structure Verification (release with tag <code>POPL19-chkds</code>)
+				</a>
+				<a href="https://github.com/Wolff09/TMRexp/releases/tag/POPL19-chksmr" class="btn btn-light btn-sm">
+					<i class="fas fa-code"></i>
+					SMR Verification (release with tag <code>POPL19-chksmr</code>)
+				</a> -->
 			</p>
 			<p>
-				Unzipping the downloaded release should yield a folder named <code>TMRexp-POPL19</code>.
+				For a unified description of the installation/compilation for both tools, we assume that unzipping yields a folder named <code>TMRexp-POPL19</code>.
 			</p>
 
 			<h4>System Requirements</h4>
 			<p>
 				To compile this project you need <strong>CMake</strong>, a <strong>C++17</strong> compatible compiler, and <strong>Boost multi_array</strong>.
-				Compilation was tested with Apple LLVM v.9.1.0 and Clang v.5.0.
+				Compilation was tested with Apple LLVM v.9.1.0, Apple LLVM v.10.0.0, Clang v.5.0, and Clang v.6.0.
 			</p>
 
 			<h4>Compilation</h4>
@@ -163,9 +241,9 @@
 		<!-- ********************************** BENCHMARKING ********************************** -->
 		<!-- ********************************************************************************** -->
 		<div class="mt-4">
-			<h1>Benchmarking</h1>
+			<h1>Benchmarking <kbd>chkds</kbd></h1>
 			<p>
-				We describe how to repeat the benchmarks from the paper.
+				We describe how to repeat the benchmarks for verifying lock-free data structures relative to an SMR implementation from the paper.
 			</p>
 
 			<!-- Quick Start -->
@@ -196,6 +274,8 @@
 			<div class="tab-content bg-light" id="nav-tabContent">
 				<div class="tab-pane show active" id="nav-CS" role="tabpanel" aria-labelledby="nav-CS-tab">
 					<pre><code>
+      // binary name: CoarseStack_GC, CoarseStack_NoSMR
+
       struct Node {
           data_t data;
           Node* next;
@@ -230,6 +310,8 @@
 				</div>
 				<div class="tab-pane" id="nav-CQ" role="tabpanel" aria-labelledby="nav-CQ-tab">
 					<pre><code>
+      // binary name: CoarseQueue_GC, CoarseQueue_NoSMR
+
       struct Node {
           data_t data;
           Node* next;
@@ -268,6 +350,8 @@
 				</div>
 				<div class="tab-pane" id="nav-TS" role="tabpanel" aria-labelledby="nav-TS-tab">
 					<pre><code>
+      // binary name: TreibersStack_GC, TreibersStack_EBR, TreibersStack_HP
+
       struct Node {
           data_t data;
           Node* next;
@@ -316,6 +400,8 @@
 				</div>
 				<div class="tab-pane" id="nav-OTS" role="tabpanel" aria-labelledby="nav-OTS-tab">
 					<pre><code>
+      // binary name: OptTreibersStack_HP
+
       struct Node {
           data_t data;
           Node* next;
@@ -357,6 +443,8 @@
 				</div>
 				<div class="tab-pane" id="nav-MS" role="tabpanel" aria-labelledby="nav-MS-tab">
 					<pre><code>
+      // binary name: MichaelScottQueue_GC, MichaelScottQueue_EBR, MichaelScottQueue_HP
+
       struct Node {
           data_t data;
           Node* next;
@@ -423,6 +511,8 @@
 				</div>
 				<div class="tab-pane" id="nav-DGLM" role="tabpanel" aria-labelledby="nav-DGLM-tab">
 					<pre><code>
+      // binary name: DGLMQueue_GC, DGLMQueue_EBR, DGLMQueue_HP
+
       struct Node {
           data_t data;
           Node* next;
@@ -520,15 +610,7 @@
 			</p>
 			<p>
 				For users of the VM image: the folder <code>~/popl19artifact/Binaries/</code> already contains the properly compiled binaries.
-				The binaries where compiled from <code>~/popl19artifact/TMRexp-POPL19/</code> and <code>~/popl19artifact/TMRexp-POPL19-DGLM/</code> for all benchmarks except the DGLM Queue and the DGLM Queue, respectively.
-			</p>
-
-			<h4>Tool Limitation</h4>
-			<p>
-				Our tool does not come with a front end (aka parser).
-				To analyse a data structure not included in our benchmarks, one needs to compile an appropriate binary first.
-				If desired, consider <code>TMRexp-POPL19/test/HP/MichaelScottQueue.cpp</code> for an example.
-				The data structure code is constructed in this file using intuitive shortcuts (a complete list can be found in <code>TMRexp-POPL19/src/prog.hpp</code>, lines 655f).
+				The binaries where compiled from <code>~/popl19artifact/chkds/</code> and <code>~/popl19artifact/chkds-DGLM/</code> for all benchmarks except the DGLM Queue and the DGLM Queue, respectively.
 			</p>
 			
 			<h4>Expected Benchmarks Results</h4>
@@ -681,10 +763,298 @@
 		<!-- ********************************** BENCHMARKING ********************************** -->
 		<!-- ********************************************************************************** -->
 		<div class="mt-4">
+			<h1>Benchmarking <kbd>chksmr</kbd></h1>
+			<p>
+				We describe how to repeat the benchmarks for verifying SMR implementations from the paper.
+			</p>
+
+			<!-- Quick Start -->
+			<div class="alert alert-info container">
+				<strong>Quick Start.</strong>
+				Using the VM from above, execute <code>~/popl19artifact/Binaries/&lt;SMR&gt;</code> to run the benchmark for the SMR implementation <code>SMR</code>.
+				When compiling on your own, execute <code>TMRexp-POPL19/build/bin/&lt;SMR&gt;</code>.
+			</div>
+
+			<!-- Slow Start -->
+
+			<h4>Benchmark Programs</h4>
+			<p>
+				We evaluated our tool on an <i>Hazard Pointer (HP)</i> and an <i>Epoch-based Reclamation (EBR)</i> implementation both of which support dynamic joining/parting of threads.
+				C-style pseudo code is given in the following.
+			</p>
+			<nav>
+				<div class="nav nav-tabs" id="nav-tab" role="tablist">
+					<a class="nav-item nav-link active" id="nav-HP-tab" data-toggle="tab" href="#nav-HP" role="tab" aria-controls="nav-HP" aria-selected="true">Hazard Pointers</a>
+					<a class="nav-item nav-link" id="nav-EBR-tab" data-toggle="tab" href="#nav-EBR" role="tab" aria-controls="nav-EBR" aria-selected="false">Epoch-based Reclamation</a>
+				</div>
+			</nav>
+			<div class="tab-content bg-light" id="nav-tabContent">
+				<div class="tab-pane show active" id="nav-HP" role="tabpanel" aria-labelledby="nav-HP-tab">
+					<pre><code>
+      // binary name: HPimpl
+
+      struct HPRec {
+          HPRec* next;
+          void* hp0;
+          void* hp1;
+      };
+      
+      shared HPRec* Records;
+      threadlocal HPRec* myRec;
+      threadlocal List&lt;void*&gt; retiredList;
+      
+      atomic init() {
+          Records = NULL;
+      }
+
+      void join() {
+          myRec = new HPRec();
+          while (true) {
+              HPRec* rec = Records;
+              myRec->next = rec;
+              if (CAS(Records, rec, myRec)) {
+                  break;
+              }
+          }
+          myRec->hp0 = NULL;
+          myRec->hp1 = NULL;
+      }
+
+      void part() {
+          unprotect(0);
+          unprotect(1);
+      }
+
+      void protect0(void* ptr) {
+          myRec->hp0 = ptr;
+      }
+      
+      void protect1(void* ptr) {
+          myRec->hp1 = ptr;
+      }
+      
+      void unprotect0() {
+          myRec->hp0 = NULL;
+      }
+      
+      void unprotect1() {
+          myRec->hp1 = NULL;
+      }
+      
+      void retire(void* ptr) {
+          if (ptr != NULL) {
+              retiredList.add(ptr);
+          }
+          if (*) {
+              reclaim();
+          }
+      }
+      
+      void reclaim() {
+          List&lt;void*&gt; protectedList;
+          HPRec* cur = Records;
+          while (cur != NULL) {
+              void* hp0 = cur->hp0;
+              void* hp1 = cur->hp1;
+              protectedList.add(hp0);
+              protectedList.add(hp1);
+              cur = cur->next();
+          }
+          List&lt;void*&gt; freeList = retiredList.copy();
+          freeList = freeList.remove_all(protectedList);
+          retiredList = retiredList.remove_all(freeList);
+          free_all(freeList);
+      }
+
+      void free_all(List&lt;void*&gt; list) {
+          for (void* ptr : list) {
+              free(ptr);
+          }
+      }
+					</code></pre>
+				</div>
+				<div class="tab-pane" id="nav-EBR" role="tabpanel" aria-labelledby="nav-EBR-tab">
+					<pre><code>
+      // binary name: EBRimpl
+
+      enum epoch_t { 0, 1, 2 };
+
+      struct EBRRec {
+          EBRRec* next;
+          epoch_t epoch;
+      };
+      
+      shared EBRRec* Records;
+      shared epoch_t Epoch;
+      threadlocal EBRRec* myRec;
+      threadlocal List&lt;void*&gt; bag0;
+      threadlocal List&lt;void*&gt; bag1;
+      threadlocal List&lt;void*&gt; bag2;
+      
+      atomic init() {
+          Records = NULL;
+          Epoch = 0;
+      }
+
+      void join() {
+          myRec = new EBRRec();
+          while (true) {
+              EBRRec* rec = Records;
+              myRec->next = rec;
+              if (CAS(Records, rec, myRec)) {
+                  break;
+              }
+          }
+          myEpoch = Epoch;
+          myRec->epoch = myEpoch;
+      }
+
+      void part() {
+      }
+
+      void enterQ() {
+      }
+      
+      void leaveQ() {
+          if (*) { 
+              if (myEpoch != Epoch) { 
+                  free_all(bag2);
+                  bag2 = bag1;
+                  bag1 = bag0;
+                  bag0 = List&lt;void*&gt;::empty();
+                  myEpoch = Epoch;
+                  myRec->epoch = myEpoch;
+              }
+
+              EBRrec* cur = Records;
+              while (cur != NULL) {
+                  if (epoch != cur->epoch) {
+                      break;
+                  }
+                  cur = cur->next;
+              }
+              CAS(Epoch, epoch, (epoch + 1) % 3);
+          }
+
+      }
+      
+      void retire(void* ptr) {
+          bag0.add(ptr);
+      }
+
+      void free_all(List&lt;void*&gt; list) {
+          for (void* ptr : list) {
+              free(ptr);
+          }
+      }
+					</code></pre>
+				</div>
+			</div>
+			
+			<h4>Running Benchmarks</h4>
+			<p>
+				To run the benchmarks got to the <code>build/bin/</code> folder and execute the corresponding binary.
+				The naming scheme is <code>&lt;SMR&gt;_&lt;Info&gt;</code> where <code>&lt;SMR&gt;</code> is the (abbreviated) name of the benchmark program and <code>&lt;Info&gt;</code> is a description of the implementation (we have various implementations for each class).
+			</p>
+			<p>
+				For example, to benchmark the running example from the paper, the Hazard Pointer implementation, you have to do the following:
+			</p>
+			<pre class="bg-light"><code>
+				cd path/to/TMRexp-POPL19/build/bin
+				./HPimpl
+			</code></pre>
+			
+			<h4>Expected Benchmarks Results</h4>
+			<p>
+				As reported in the paper, running the benchmarks on an Intel Xeon X5650@2.67GHz with Ubuntu 16.04 and using Clang version 5.0 we expect the following running times and verification results.
+			</p>
+			<table class="table">
+				<thead>
+					<tr>
+						<th scope="col">Program</th>
+						<th scope="col">Observer</th>
+						<th class="text-right" scope="col">Time</th>
+						<th class="text-right" scope="col">States</th>
+						<th class="text-center" scope="col">Correct</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<th scope="row" >Hazard Pointers</th>
+						<td><i>O<sub>Base</sub> x O<sub>HP</sub></i></td>
+						<td class="text-right">1.5s</td>
+						<td class="text-right">5437</td>
+						<td class="text-center">yes</td>
+					</tr>
+					<tr>
+						<th scope="row">Epoch-based Reclamation</th>
+						<td><i>O<sub>Base</sub> x O<sub>EBR</sub></i></td>
+						<td class="text-right">11.2s</td>
+						<td class="text-right">11528</td>
+						<td class="text-center">yes</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<br>
+
+
+
+		<!-- ********************************************************************************** -->
+		<!-- ************************************* OUTPUT ************************************* -->
+		<!-- ********************************************************************************** -->
+
+		<div class="mt-4">
+			<h1>Tool Output</h1>
+			<p>
+				When executing a binary from above, our tool prints the following:
+			</p>
+			<ol>
+				<li>The input program</li>
+				<li>Progress of the fixed point computation</li>
+				<li>Verification verdict</li>
+				<li>Summary (gist)</li>
+			</ol>
+			<p>
+				For an example, the output of <kbd>chsmr</kbd> <code>HPimpl</code> has the following form:
+			</p>
+			<pre><code>
+      post image...     [#enc] done! [#enc=0.9k, #step=0k, #steptotal=0k]
+      interference...   [32 buckets][#bucketsize][198][129][130][129][4][59][59][59][105][105][70][70][4][59][59][59][59][59][17][17][105][105][59][59][101][37][70][70][17][17][37][67] done! [#enc=2.2k, #step=85k, #steptotal=40k]
+      post image...     [#enc][2k][3k][4k][4k] done! [#enc=5.0k, #step=4k, #steptotal=5k]
+      interference...   [32 buckets][#bucketsize][274][253][255][253][79][156][156][156][223][223][157][159][79][156][156][156][154][154][93][95][223][223][154][154][217][107][157][157][93][93][105][153] done! [#enc=5.2k, #step=172k, #steptotal=96k]
+      post image...     [#enc] done! [#enc=5.4k, #step=0k, #steptotal=5k]
+      interference...   [32 buckets][#bucketsize][274][253][255][253][156][156][156][156][223][223][159][159][156][156][156][156][154][154][95][95][223][223][154][154][217][135][157][157][93][93][133][153] done! [#enc=5.4k, #step=173k, #steptotal=151k]
+      post image...     [#enc] done! [#enc=5.4k, #step=0k, #steptotal=5k]
+      interference...   [32 buckets][#bucketsize][274][253][255][253][156][156][156][156][223][223][159][159][156][156][156][156][154][154][95][95][223][223][154][154][217][135][157][157][93][93][133][153] done! [#enc=5.4k, #step=173k, #steptotal=207k]
+			</code></pre>
+			<p>
+				The output tells you that sequential steps (<code>post image...</code>) and interference steps (<code>interference...</code>) are executed in rounds.
+				Sequential steps print the current size of the fixed point in regular intervals.
+				For example, in the third line we have <code>[#enc][2k]</code> meaning that there are 2000 views at the time of the output.
+				Interference steps print the number of <i>buckets</i>.
+				The explored views are stored in buckets to reduce the search space of interference steps.
+				Views from different buckets are guaranteed to not match, i.e., are guaranteed to not require interference.
+				In the second line, for example, we have <code>[32 buckets][#bucketsize][274]</code>.
+				This states that there are 32 different buckets and that the first bucket contains 274 views.
+			</p>
+			<p>
+				The remaining output is straight forward.
+			</p>
+		</div>
+		<br>
+		
+
+		<!-- ********************************************************************************** -->
+		<!-- ********************************* IMPLEMENTATION ********************************* -->
+		<!-- ********************************************************************************** -->
+		<div class="mt-4">
 			<h1>Notes on the Implementation</h1>
 			<p>
-				The following table relates (informal) descriptions of the implemented analysis from the paper to the implementation.
+				The following tables relate (informal) descriptions of the implemented analysis from the paper to the implementation.
 			</p>
+
+			<h4 class="mb-3">General <kbd>chkds</kbd> <kbd>chksmr</kbd></h4>
 			<table class="table">
 				<thead>
 					<tr>
@@ -699,7 +1069,7 @@
 						<td><code class="text-nowrap">src/cfg.hpp</code></td>
 						<td class="text-justify">
 							Views are implemented by the class <code>Cfg</code>.
-							They carry, among other things, a <i>shape abstraction</i> of the memory, <i>validity information</i>, <i>observer states</i>, and <i>freedness information</i> of the single reusable cell.
+							They carry, among other things, a <i>shape abstraction</i> of the memory, <i>validity information</i>, and <i>observer states</i>.
 						</td>
 					</tr>
 					<tr>
@@ -749,6 +1119,33 @@
 						<td><code class="text-nowrap">test/ObserverFactory.hpp</code></td>
 						<td class="text-justify">
 							Creates observer instances along the lines of the paper.
+							<!-- The implementation relies on <i>Lemma 6.1</i>, thus does not check if the observer <i>supports elision (Definition 5.14)</i>. -->
+						</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h4 class="mb-3">Data Structure Verification <kbd>chkds</kbd></h4>
+			<table class="table">
+				<thead>
+					<tr>
+						<th scope="col">Paper</th>
+						<th scope="col">Implementation</th>
+						<th scope="col">Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td scope="row">Views</td>
+						<td><code class="text-nowrap">src/cfg.hpp</code></td>
+						<td class="text-justify">
+							Besides the above, also stores <i>freedness information</i> of the single reusable cell.
+						</td>
+					</tr>
+					<tr>
+						<td scope="row">Elision support</td>
+						<td><code class="text-nowrap">test/ObserverFactory.hpp</code></td>
+						<td class="text-justify">
 							The implementation relies on <i>Lemma 6.1</i>, thus does not check if the observer <i>supports elision (Definition 5.14)</i>.
 						</td>
 					</tr>
@@ -800,7 +1197,55 @@
 					</tr>
 				</tbody>
 			</table>
+
+			<h4 class="mb-3">SMR Verification <kbd>chksmr</kbd></h4>
+			<table class="table">
+				<thead>
+					<tr>
+						<th scope="col">Paper</th>
+						<th scope="col">Implementation</th>
+						<th scope="col">Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td scope="row">Views</td>
+						<td><code class="text-nowrap">src/cfg.hpp</code></td>
+						<td class="text-justify">
+							Besides the above, also stores data (set) abstractions.
+						</td>
+					</tr>
+					<tr>
+						<td scope="row">Retain records</code></td>
+						<td><code class="text-nowrap">src/shape.hpp</code></td>
+						<td class="text-justify">
+							Stores the <code>myRecord</code> pointer of a non-view thread.
+						</td>
+					</tr>
+					<tr>
+						<td scope="row" rowspan="2">Last <code>retire</code></td>
+						<td><code class="text-nowrap">test/ObserverFactory.hpp</code></td>
+						<td class="text-justify">
+							Introduces redundant observer locations to judge whether or not the observed thread performed the last <code>retire</code> call.
+						</td>
+					</tr>
+					<tr>
+						<td><code class="text-nowrap">src/fixp/interference.cpp</code></td>
+						<td class="text-justify">
+							Prunes interference among views for identical threads.
+						</td>
+					</tr>
+					<tr>
+						<td scope="row">Data (set) abstraction</td>
+						<td><code class="text-nowrap">src/post/*.cpp</code></td>
+						<td class="text-justify">
+							Contains post-image computation for the data abstraction for every supported statement type.
+						</td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
+
 		<br><br><br>
 	</div>
 
@@ -809,7 +1254,7 @@
 	<!-- Optional JavaScript -->
 	<!-- jQuery first, then Popper.js, then Bootstrap JS -->
 	<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-	<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script> -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
 	<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
 </body>
 </html>
