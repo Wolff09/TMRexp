@@ -17,19 +17,35 @@
 	<script>hljs.initHighlightingOnLoad();</script>
 	
 	<title>POPL'19 Project Page</title>
+	
+	<style type="text/css">
+		header {
+			padding: .75rem;
+		}
+		header .logos a {
+			display: inline-block;
+		}
+		header .logos a:hover {
+			opacity: .7;
+			transform: scale(1.05, 1.05);
+		}
+	</style>
 </head>
 <body>
-	<div class="container">
-		<h1 class="display-4 text-muted text-center mt-3">
-			<a href="https://www.tcs.cs.tu-bs.de/index.html">
-				<img src="https://www.tcs.cs.tu-bs.de/images/logo_tcs.png" alt="Institute of Theoretical Computer Science" style="height: 1.0em; margin-top: -.15em;">
-			</a>
-			POPL'19 Project Page
-		</h1>
-		<br>
-
-            <!-- <img src="$PREFIX$images/logo_tcs.png" alt="Institute of Theoretical Computer Science"> -->
-		
+	<header>
+		<div class="container clearfix">
+			<h1 class="display-4 text-muted text-left mt-3 float-left">
+				POPL'19 Project Page
+			</h1>
+			<h1 class="display-4 text-muted text-right mt-3 float-right logos">
+				<a target="new" href="https://www.tcs.cs.tu-bs.de/index.html">
+					<img src="https://www.tcs.cs.tu-bs.de/images/logo_tcs.png" alt="Institute of Theoretical Computer Science" style="height: .85em; margin-top: -.15em;">
+				</a>
+			</h1>
+		</div>
+	</header>
+	
+	<div class="container clearfix">
 		<!-- ********************************************************************************** -->
 		<!-- ************************************** PAPER ************************************* -->
 		<!-- ********************************************************************************** -->
@@ -48,7 +64,7 @@
 			</h2>
 			<h3>
 				<small>
-					Accepted for <a href="https://popl19.sigplan.org/home">POPL'19</a>.
+					Presented at <a href="https://popl19.sigplan.org/home">POPL'19</a>.
 				</small>
 			</h3>
 			<!-- <p class="lead">Accepted for <a href="https://popl19.sigplan.org/home">POPL'19</a>.</p> -->
