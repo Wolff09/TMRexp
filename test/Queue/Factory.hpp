@@ -167,4 +167,104 @@ namespace tmr {
 		return micheal_scott_queue(false, false, true);
 	}
 
+
+	// ######################################################################################################################## //
+	// ######################################################################################################################## //
+	// ######################################################################################################################## //
+
+
+	static std::unique_ptr<Program> dglm_queue(bool mega_malloc, bool age_compare, bool use_age_fields) {
+		// init
+		std::unique_ptr<Sequence> init = Sqz(
+			Mllc("Head"),
+			SetNull(Next("Head")),
+			Assign(Var("Tail"), Var("Head"))
+		);
+
+		std::unique_ptr<Sequence> alloc = mega_malloc ? Sqz(mk_mega_malloc("h")) : Sqz(Mllc("h"),SetNull(Next("h")));
+
+		// enq
+		auto enqbody = Sqz(
+			// Mllc("h"),
+			// SetNull(Next("h")),
+			std::move(alloc),
+			Read("h"),
+			Loop(Sqz(
+				Assign(Var("t"), Var("Tail")),
+				Assign(Var("n"), Next("t")),
+				IfThen(
+					EqCond(Var("t"), Var("Tail"), age_compare),
+					Sqz(IfThenElse(
+						EqCond(Var("n"), Null()),
+						Sqz(
+							IfThen(
+								// CasCond(CAS(Next("t"), Null(), Var("h"), LinP(), use_age_fields)),
+								CasCond(CAS(Next("t"), Var("n"), Var("h"), LinP(), use_age_fields)),
+								Sqz(Brk())
+						)),
+						Sqz(CAS(Var("Tail"), Var("t"), Var("n"), use_age_fields))
+					))
+				),
+				Kill("t"),
+				Kill("n"),
+				SetNull(Next("h"))
+			)),
+			CAS(Var("Tail"), Var("t"), Var("h"), use_age_fields)
+		);
+
+		// deq
+		auto linpc = CompCond(OCond(), CompCond(EqCond(Var("h"), Var("Head"), age_compare), EqCond(Var("n"), Null())));
+		auto deqbody = Sqz(Loop(Sqz(
+			Assign(Var("h"), Var("Head")),
+			Orcl(),
+			Assign(Var("n"), Next("h"), LinP(std::move(linpc))),
+			IfThenElse(
+				EqCond(Var("h"), Var("Head"), age_compare),
+				Sqz(
+					ChkP(true),
+					IfThenElse(
+						EqCond(Var("n"), Null()),
+						Sqz(Brk()),
+						Sqz(
+							Write("n"),
+							IfThen(
+								CasCond(CAS(Var("Head"), Var("h"), Var("n"), LinP("n"), use_age_fields)),
+								Sqz(
+									Assign(Var("t"), Var("Tail")),
+									IfThen(
+										EqCond(Var("h"), Var("t")),
+										Sqz(
+											CAS(Var("Tail"), Var("t"), Var("n"), use_age_fields)
+										)
+									),
+									Fr("h"),
+									Brk()
+								)
+							)
+						)
+					)
+				),
+				Sqz(ChkP(false))
+			),
+			Kill("h"),
+			Kill("t"),
+			Kill("n"),
+			Kill()
+		)));
+
+		auto prog = Prog(
+			"DGLMqueue",
+			{"Head", "Tail"},
+			{"h", "t", "n"},
+			std::move(init),
+			Fun("enq", true, std::move(enqbody)),
+			Fun("deq", false, std::move(deqbody))
+		);
+
+		// prog->set_chk_mimic_precision(true);
+		// prog->set_hint(&DGLMhint);
+
+		return prog;
+	}
+
 }
