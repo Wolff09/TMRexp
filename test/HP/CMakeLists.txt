@@ -3,6 +3,10 @@ add_executable(HPimpl Stack.cpp)
 target_link_libraries(HPimpl TMRexpLib)
 add_test(NAME "HPimpl" COMMAND "${BIN_PATH}/HPimpl")
 
+add_executable(HPimpl_ext Stack_ext.cpp)
+target_link_libraries(HPimpl_ext TMRexpLib)
+add_test(NAME "HPimpl_ext" COMMAND "${BIN_PATH}/HPimpl_ext")
+
 add_executable(HPimpl_Queue Queue.cpp)
 target_link_libraries(HPimpl_Queue TMRexpLib)
 add_test(NAME "HPimpl_Queue" COMMAND "${BIN_PATH}/HPimpl_Queue")

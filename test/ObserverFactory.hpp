@@ -256,6 +256,170 @@ namespace tmr {
 	}
 
 
+	static std::unique_ptr<Observer> hp_observer_extended(const Program& prog) {
+		// get functions to react on
+		const auto& f_protect0 = find(prog, "protect0");
+		const auto& f_protect1 = find(prog, "protect1");
+		const auto& f_unprotect0 = find(prog, "unprotect0");
+		const auto& f_unprotect1 = find(prog, "unprotect1");
+		const auto& f_retire = find(prog, "retire");
+		
+		// state vector
+		std::vector<std::unique_ptr<State>> states;
+
+		// hp0 observer states
+		states.push_back(mk_state_init("s0"));
+		states.push_back(mk_state("s1"));
+		states.push_back(mk_state("s2"));
+		states.push_back(mk_state("s3"));
+		states.push_back(mk_state("s4"));
+		states.push_back(mk_state("s5"));
+		states.push_back(mk_state("s6"));
+		states.push_back(mk_state("s7"));
+		states.push_back(mk_state("s8"));
+		states.push_back(mk_state("s9"));
+		states.push_back(mk_state("s10"));
+		states.push_back(mk_state("s11"));
+		states.push_back(mk_state("s13"));
+		states.push_back(mk_state("s14"));
+		states.push_back(mk_state("s15"));
+		states.push_back(mk_state_final("s16"));
+
+		// shortcuts
+		auto ADR = DataValue::DATA;
+		auto OTHER = DataValue::OTHER;
+
+		State& s0   = *states[0];
+		State& s1   = *states[1];
+		State& s2   = *states[2];
+		State& s3   = *states[3];
+		State& s4   = *states[4];
+		State& s5   = *states[5];
+		State& s6   = *states[6];
+		State& s7   = *states[7];
+		State& s8   = *states[8];
+		State& s9   = *states[9];
+		State& s10  = *states[10];
+		State& s11  = *states[11];
+		State& s13  = *states[12];
+		State& s14  = *states[13];
+		State& s15  = *states[14];
+		State& s16  = *states[15];
+
+		mk_transition(s0, s1, Event::mk_enter(f_protect0, true, ADR));
+		mk_transition(s1, s2, Event::mk_exit(true));
+		mk_transition(s1, s4, Event::mk_enter(f_protect1, true, ADR));
+		mk_transition(s2, s5, Event::mk_enter(f_protect1, true, ADR));
+		mk_transition(s3, s6, Event::mk_enter(f_protect1, true, ADR));
+		mk_transition(s4, s5, Event::mk_exit(true));
+		// mk_transition(s4, s13, Event::mk_exit(true)); // makes automaton non-deterministic, can be ignored because it does not occur when calls are non-nested
+		mk_transition(s5, s7, Event::mk_exit(true));
+		mk_transition(s6, s8, Event::mk_exit(true));
+		mk_transition(s0, s9, Event::mk_enter(f_protect1, true, ADR));
+		mk_transition(s9, s10, Event::mk_exit(true));
+		mk_transition(s9, s4, Event::mk_enter(f_protect0, true, ADR));
+		mk_transition(s10, s13, Event::mk_enter(f_protect0, true, ADR));
+		mk_transition(s11, s14, Event::mk_enter(f_protect0, true, ADR));
+		mk_transition(s13, s7, Event::mk_exit(true));
+		mk_transition(s14, s15, Event::mk_exit(true));
+
+		mk_transition(s2, s0, Event::mk_enter(f_protect0, true, OTHER));
+		mk_transition(s2, s0, Event::mk_enter(f_unprotect0, true, ADR));
+		mk_transition(s2, s0, Event::mk_enter(f_unprotect0, true, OTHER));
+		mk_transition(s3, s0, Event::mk_enter(f_protect0, true, OTHER));
+		mk_transition(s3, s0, Event::mk_enter(f_unprotect0, true, ADR));
+		mk_transition(s3, s0, Event::mk_enter(f_unprotect0, true, OTHER));
+		mk_transition(s7, s10, Event::mk_enter(f_protect0, true, OTHER));
+		mk_transition(s7, s10, Event::mk_enter(f_unprotect0, true, ADR));
+		mk_transition(s7, s10, Event::mk_enter(f_unprotect0, true, OTHER));
+		mk_transition(s8, s11, Event::mk_enter(f_protect0, true, OTHER));
+		mk_transition(s8, s11, Event::mk_enter(f_unprotect0, true, ADR));
+		mk_transition(s8, s11, Event::mk_enter(f_unprotect0, true, OTHER));
+		mk_transition(s7, s2, Event::mk_enter(f_protect1, true, OTHER));
+		mk_transition(s7, s2, Event::mk_enter(f_unprotect1, true, ADR));
+		mk_transition(s7, s2, Event::mk_enter(f_unprotect1, true, OTHER));
+		mk_transition(s8, s3, Event::mk_enter(f_protect1, true, OTHER));
+		mk_transition(s8, s3, Event::mk_enter(f_unprotect1, true, ADR));
+		mk_transition(s8, s3, Event::mk_enter(f_unprotect1, true, OTHER));
+		mk_transition(s10, s0, Event::mk_enter(f_protect1, true, OTHER));
+		mk_transition(s10, s0, Event::mk_enter(f_unprotect1, true, ADR));
+		mk_transition(s10, s0, Event::mk_enter(f_unprotect1, true, OTHER));
+		mk_transition(s11, s0, Event::mk_enter(f_protect1, true, OTHER));
+		mk_transition(s11, s0, Event::mk_enter(f_unprotect1, true, ADR));
+		mk_transition(s11, s0, Event::mk_enter(f_unprotect1, true, OTHER));
+		mk_transition(s15, s2, Event::mk_enter(f_protect1, true, OTHER));
+		mk_transition(s15, s2, Event::mk_enter(f_unprotect1, true, ADR));
+		mk_transition(s15, s2, Event::mk_enter(f_unprotect1, true, OTHER));
+		mk_transition(s15, s11, Event::mk_enter(f_protect0, true, OTHER));
+		mk_transition(s15, s11, Event::mk_enter(f_unprotect0, true, ADR));
+		mk_transition(s15, s11, Event::mk_enter(f_unprotect0, true, OTHER));
+		mk_transition(s1, s0, Event::mk_enter(f_protect0, true, OTHER));
+		mk_transition(s1, s0, Event::mk_enter(f_unprotect0, true, ADR));
+		mk_transition(s1, s0, Event::mk_enter(f_unprotect0, true, OTHER));
+		mk_transition(s4, s9, Event::mk_enter(f_protect0, true, OTHER));
+		mk_transition(s4, s9, Event::mk_enter(f_unprotect0, true, ADR));
+		mk_transition(s4, s9, Event::mk_enter(f_unprotect0, true, OTHER));
+		mk_transition(s4, s1, Event::mk_enter(f_protect1, true, OTHER));
+		mk_transition(s4, s1, Event::mk_enter(f_unprotect1, true, ADR));
+		mk_transition(s4, s1, Event::mk_enter(f_unprotect1, true, OTHER));
+		mk_transition(s5, s9, Event::mk_enter(f_protect0, true, OTHER));
+		mk_transition(s5, s9, Event::mk_enter(f_unprotect0, true, ADR));
+		mk_transition(s5, s9, Event::mk_enter(f_unprotect0, true, OTHER));
+		mk_transition(s6, s9, Event::mk_enter(f_protect0, true, OTHER));
+		mk_transition(s6, s9, Event::mk_enter(f_unprotect0, true, ADR));
+		mk_transition(s6, s9, Event::mk_enter(f_unprotect0, true, OTHER));
+		mk_transition(s5, s2, Event::mk_enter(f_protect1, true, OTHER));
+		mk_transition(s5, s2, Event::mk_enter(f_unprotect1, true, ADR));
+		mk_transition(s5, s2, Event::mk_enter(f_unprotect1, true, OTHER));
+		mk_transition(s6, s3, Event::mk_enter(f_protect1, true, OTHER));
+		mk_transition(s6, s3, Event::mk_enter(f_unprotect1, true, ADR));
+		mk_transition(s6, s3, Event::mk_enter(f_unprotect1, true, OTHER));
+		mk_transition(s9, s0, Event::mk_enter(f_protect1, true, OTHER));
+		mk_transition(s9, s0, Event::mk_enter(f_unprotect1, true, ADR));
+		mk_transition(s9, s0, Event::mk_enter(f_unprotect1, true, OTHER));
+		mk_transition(s13, s1, Event::mk_enter(f_protect1, true, OTHER));
+		mk_transition(s13, s1, Event::mk_enter(f_unprotect1, true, ADR));
+		mk_transition(s13, s1, Event::mk_enter(f_unprotect1, true, OTHER));
+		mk_transition(s14, s1, Event::mk_enter(f_protect1, true, OTHER));
+		mk_transition(s14, s1, Event::mk_enter(f_unprotect1, true, ADR));
+		mk_transition(s14, s1, Event::mk_enter(f_unprotect1, true, OTHER));
+		mk_transition(s13, s10, Event::mk_enter(f_protect0, true, OTHER));
+		mk_transition(s13, s10, Event::mk_enter(f_unprotect0, true, ADR));
+		mk_transition(s13, s10, Event::mk_enter(f_unprotect0, true, OTHER));
+		mk_transition(s14, s11, Event::mk_enter(f_protect0, true, OTHER));
+		mk_transition(s14, s11, Event::mk_enter(f_unprotect0, true, ADR));
+		mk_transition(s14, s11, Event::mk_enter(f_unprotect0, true, OTHER));
+
+		mk_transition(s10, s11, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(s10, s11, Event::mk_enter(f_retire, false, ADR));
+		mk_transition(s13, s14, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(s13, s14, Event::mk_enter(f_retire, false, ADR));
+		mk_transition(s2, s3, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(s2, s3, Event::mk_enter(f_retire, false, ADR));
+		mk_transition(s5, s6, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(s5, s6, Event::mk_enter(f_retire, false, ADR));
+		mk_transition(s7, s8, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(s7, s8, Event::mk_enter(f_retire, false, ADR));
+		mk_transition(s3, s16, Event::mk_free(true, ADR));
+		mk_transition(s3, s16, Event::mk_free(false, ADR));
+		mk_transition(s6, s16, Event::mk_free(true, ADR));
+		mk_transition(s6, s16, Event::mk_free(false, ADR));
+		mk_transition(s8, s16, Event::mk_free(true, ADR));
+		mk_transition(s8, s16, Event::mk_free(false, ADR));
+		mk_transition(s11, s16, Event::mk_free(true, ADR));
+		mk_transition(s11, s16, Event::mk_free(false, ADR));
+		mk_transition(s14, s16, Event::mk_free(true, ADR));
+		mk_transition(s14, s16, Event::mk_free(false, ADR));
+		mk_transition(s15, s16, Event::mk_free(true, ADR));
+		mk_transition(s15, s16, Event::mk_free(false, ADR));
+		mk_transition(s15, s8, Event::mk_enter(f_retire, true, ADR));
+		mk_transition(s15, s8, Event::mk_enter(f_retire, false, ADR));
+
+		// done
+		return std::make_unique<Observer>(std::move(states));
+	}
+
+
 	static std::unique_ptr<Observer> ebr_observer(const Program& prog) {
 		// get functions to react on
 		const auto& f_enterQ = find(prog, "enterQ");

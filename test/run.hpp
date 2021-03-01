@@ -80,4 +80,10 @@ namespace tmr {
 		return run(program, *smrobs, *threadobs, expect_success);
 	}
 
+	int run_hp_ext(const Program& program, bool expect_success=true) {
+		auto smrobs = hp_observer_extended(program);
+		auto threadobs = base_observer(program);
+		return run(program, *smrobs, *threadobs, expect_success);
+	}
+
 }
