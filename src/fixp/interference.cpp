@@ -106,10 +106,10 @@ static inline std::unique_ptr<Cfg> prune_local_relations(std::unique_ptr<Cfg> in
 				RelSet prune; // relations to remove
 
 				if (is_row_owned) {
-					prune |= EQ_MT_MF_GT_GF;
+					prune |= EQ_MF_GF;
 				}
 				if (is_col_owned) {
-					prune |= EQ_MT_MF_GT_GF;
+					prune |= EQ_MT_GT;
 				}
 
 				RelSet new_cell = shape.at(row, col) & prune.flip();
